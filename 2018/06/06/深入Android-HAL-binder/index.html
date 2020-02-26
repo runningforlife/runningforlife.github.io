@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Binder,HAL,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="HAL binder是Android O(8.0)专门用于HAL（Hardware Abstract Layer)层（native）进程与其clients之间的通信机制（clients可以是native进程，也可以是Java Framework进程)。 HAL binder替代了早先使用的socket通信，其kernel层实际是基于原有的binder驱动，但为了配合Client与Server之间的">
+<meta name="keywords" content="Binder,HAL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入Android HAL binder">
+<meta property="og:url" content="http://sniffer.site/2018/06/06/深入Android-HAL-binder/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="HAL binder是Android O(8.0)专门用于HAL（Hardware Abstract Layer)层（native）进程与其clients之间的通信机制（clients可以是native进程，也可以是Java Framework进程)。 HAL binder替代了早先使用的socket通信，其kernel层实际是基于原有的binder驱动，但为了配合Client与Server之间的">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/HwBinder_architecture.png">
+<meta property="og:updated_time" content="2018-11-26T15:27:24.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="深入Android HAL binder">
+<meta name="twitter:description" content="HAL binder是Android O(8.0)专门用于HAL（Hardware Abstract Layer)层（native）进程与其clients之间的通信机制（clients可以是native进程，也可以是Java Framework进程)。 HAL binder替代了早先使用的socket通信，其kernel层实际是基于原有的binder驱动，但为了配合Client与Server之间的">
+<meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/HwBinder_architecture.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2018/06/06/深入Android-HAL-binder/">
+
+
+
+
+
+  <title>深入Android HAL binder | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2018/06/06/深入Android-HAL-binder/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">深入Android HAL binder</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-06-06T22:09:47+08:00">
+                2018-06-06
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android/" itemprop="url" rel="index">
+                    <span itemprop="name">Android</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2018/06/06/深入Android-HAL-binder/" class="leancloud_visitors" data-flag-title="深入Android HAL binder">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>HAL binder是Android O(8.0)专门用于HAL（Hardware Abstract Layer)层（native）进程与其clients之间的通信机制（clients可以是native进程，也可以是Java Framework进程)。 HAL binder替代了早先使用的socket通信，其kernel层实际是基于原有的binder驱动，但为了配合Client与Server之间的数据传输，需要使用特定的中间层HIDL来进行接口与数据的转换。那么，相对之前的HAL通信方式（socket），基于HIDL的HAL通信有什么优势了？从系统架构的角度，HIDL为客户端与服务端提供了清晰的接口；从效率的角度，binder IPC实际在传输数据上只有一次拷贝，而socket实际传输需要两次数据拷贝<a id="more"></a>。</p>
+<p>目前Android有两种类型的HAL：</p>
+<ul>
+<li><p><strong>binder化的HAL</strong>： 利用HIDL(HAL interface Definition Language)来描述HAL接口，Framework层与HAL层通过binder IPC的方式进行通信；如下的HAL模块都是利用binder IPC来进行通信的:</p>
+<ul>
+<li><a href="mailto:`android.hardware.biometrics.fingerprint@2.1" target="_blank" rel="noopener">`android.hardware.biometrics.fingerprint@2.1</a>`</li>
+<li><a href="mailto:`android.hardware.configstore@1.0" target="_blank" rel="noopener">`android.hardware.configstore@1.0</a>`</li>
+<li><a href="mailto:`android.hardware.dumpstate@1.0" target="_blank" rel="noopener">`android.hardware.dumpstate@1.0</a>`</li>
+<li><a href="mailto:`android.hardware.graphics.allocator@2.0" target="_blank" rel="noopener">`android.hardware.graphics.allocator@2.0</a>`</li>
+<li><a href="mailto:`android.hardware.radio@1.0" target="_blank" rel="noopener">`android.hardware.radio@1.0</a>`</li>
+<li><a href="mailto:`android.hardware.usb@1.0" target="_blank" rel="noopener">`android.hardware.usb@1.0</a>`</li>
+<li><a href="mailto:`android.hardware.wifi@1.0" target="_blank" rel="noopener">`android.hardware.wifi@1.0</a>`</li>
+<li><a href="mailto:`android.hardware.wifi.supplicant@1.0" target="_blank" rel="noopener">`android.hardware.wifi.supplicant@1.0</a>`</li>
+</ul>
+</li>
+<li><p><strong>直通式HAL</strong>： 基于HIDL或者传统HAL方式来实现，在这种模式下，Framework层与HAL层的通信可以通过IPC的方式进行，也可以使用共享内存的方式在同一个进程内进行（passthrough,直通）。目前有如下两个HAL模块使用直通式方式进行通信：</p>
+<ul>
+<li><a href="mailto:`android.hardware.graphics.mapper@1.0" target="_blank" rel="noopener">`android.hardware.graphics.mapper@1.0</a>`</li>
+<li><a href="mailto:`android.hardware.renderscript@1.0" target="_blank" rel="noopener">`android.hardware.renderscript@1.0</a>`</li>
+</ul>
+</li>
+</ul>
+<h2 id="相关代码"><a href="#相关代码" class="headerlink" title="相关代码"></a><strong>相关代码</strong></h2><ul>
+<li><code>/android/system/tools/hidl/</code>： 根据HAL接口 <code>.hal</code>来产生相应的Proxy(client端接口）以及stub(server端接口）。</li>
+<li><code>/android/system/libhwbinder/</code>： 初始化binder线程，负责与binder驱动交互，读写数据；</li>
+<li><code>/android/system/libhidl</code>： HIDL状态与HAL服务管理接口；</li>
+<li><code>/android/os/HwBinder</code>： Java层Hardware binder代码，获取server端接口以及向server发起IPC调用；</li>
+<li><code>android_os_HwBinder.cpp (JNI)</code>：Java层HAL binder的JNI代码，负责将Java层的请求传递给相应的server进程；</li>
+<li><code>/android/hardware/interfaces/</code>： 各个模块HAL层接口，每个模块都包含了一个<code>Android.bp</code>的脚步来生成对应的代理(Proxy)与存根对象(stub)，如radio接口<code>IRadio.hal</code>,sensors接口<code>ISensors.hal</code>；</li>
+<li><code>/android/kernel/drivers/staging/android/</code>： binder驱动；</li>
+</ul>
+<p>下图是HAL binder的结构简图, 了解Binder的同学应该很快能看出，这个结构跟binder的C/S IPC架构很相似，区别的地方在对于HAL binder来说，server进程是Android的native进程而已。在接下来的两篇文章里，我将以Telephony Framwork(RILJ)与native进程RILD是如何通过hardware binder来进行通信为例，从以下两个方面来说明HAL Binder的实现机制与工作原理：</p>
+<ul>
+<li>HAL服务管家<code>HwServiceMananger</code>是如何启动以及如何注册、获取系统服务；</li>
+<li>RILJ如何通过HAL binder与RILD进行通信？</li>
+</ul>
+<p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/HwBinder_architecture.png" alt="HwBinder Architecture"> </p>
+<blockquote>
+<p>关于Android.bp脚本可以参考<a href="https://android.googlesource.com/platform/build/soong/" target="_blank" rel="noopener">https://android.googlesource.com/platform/build/soong/</a></p>
+</blockquote>
+<p>这篇文章，主要来看下第一个问题，HAL binder是如何启动以及管理所有HAL服务的。跟常规的binder通信（AMS，PMS等使用的binder）一样，HAL binder也需要有一个专门的服务管家，来统一管理系统的服务，同时为客户端提供诸如注册、获取服务等API。</p>
+<h2 id="HwServiceMananger的启动"><a href="#HwServiceMananger的启动" class="headerlink" title="HwServiceMananger的启动"></a><strong>HwServiceMananger的启动</strong></h2><p>在<code>/android/system/hwservicemanager/hwservicemanager.rc</code>目录下，有个启动脚本<code>hwservicemanager.rc</code>，init进程在启动之后会对该脚本进行解析：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">service hwservicemanager /system/bin/hwservicemanager</span><br><span class="line">    user system</span><br><span class="line">    disabled</span><br><span class="line">    group system readproc</span><br><span class="line">    critical</span><br><span class="line">    onrestart setprop hwservicemanager.ready <span class="literal">false</span></span><br><span class="line">    onrestart class_restart hal</span><br><span class="line">    onrestart class_restart early_hal</span><br><span class="line">    writepid /dev/cpuset/system-background/tasks</span><br><span class="line">    <span class="class"><span class="keyword">class</span> <span class="title">animation</span></span></span><br></pre></td></tr></table></figure>
+<p>在<code>/android/system/core/rootdir/init.rc</code>文件中，有个控制指令，专门来启动<code>hwservicemananger</code>这个系统服务：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">on post-fs</span><br><span class="line">    # Load properties from</span><br><span class="line">    #     /system/build.prop,</span><br><span class="line">    #     /odm/build.prop,</span><br><span class="line">    #     /vendor/build.prop <span class="keyword">and</span></span><br><span class="line">    #     /factory/factory.prop</span><br><span class="line">    load_system_props</span><br><span class="line">    <span class="meta"># start essential services</span></span><br><span class="line">    start logd</span><br><span class="line">    start servicemanager</span><br><span class="line">    start hwservicemanager</span><br><span class="line">    start vndservicemanager</span><br></pre></td></tr></table></figure>
+<p>这样，系统加载<code>hwservicemanager</code>，进入main函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BinderCallback</span> :</span> <span class="keyword">public</span> LooperCallback &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    BinderCallback() &#123;&#125;</span><br><span class="line">    ~BinderCallback() override &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">handleEvent</span><span class="params">(<span class="keyword">int</span> <span class="comment">/* fd */</span>, <span class="keyword">int</span> <span class="comment">/* events */</span>, <span class="keyword">void</span>* <span class="comment">/* data */</span>)</span> override </span>&#123;</span><br><span class="line">        IPCThreadState::self()-&gt;handlePolledCommands();</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;  <span class="comment">// Continue receiving callbacks.</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 初始化hwbinder驱动，设置线程池</span></span><br><span class="line">    configureRpcThreadpool(<span class="number">1</span>, <span class="literal">true</span> <span class="comment">/* callerWillJoin */</span>);</span><br><span class="line"></span><br><span class="line">    ServiceManager *manager = <span class="keyword">new</span> ServiceManager();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!manager-&gt;add(serviceName, manager)) &#123;</span><br><span class="line">        ALOGE(<span class="string">"Failed to register hwservicemanager with itself."</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// TokenManager有何作用？</span></span><br><span class="line">    TokenManager *tokenManager = <span class="keyword">new</span> TokenManager();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!manager-&gt;add(serviceName, tokenManager)) &#123;</span><br><span class="line">        ALOGE(<span class="string">"Failed to register ITokenManager with hwservicemanager."</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    sp&lt;Looper&gt; looper(Looper::prepare(<span class="number">0</span> <span class="comment">/* opts */</span>));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> binder_fd = <span class="number">-1</span>;</span><br><span class="line">    <span class="comment">// 设置线程进入等待状态，准备处理IPC请求</span></span><br><span class="line">    IPCThreadState::self()-&gt;setupPolling(&amp;binder_fd);</span><br><span class="line">    <span class="keyword">if</span> (binder_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        ALOGE(<span class="string">"Failed to aquire binder FD. Aborting..."</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// Flush after setupPolling(), to make sure the binder driver</span></span><br><span class="line">    <span class="comment">// knows about this thread handling commands.</span></span><br><span class="line">    IPCThreadState::self()-&gt;flushCommands();</span><br><span class="line">    <span class="comment">// IPC请求回调，有数据时会调用该回调进行处理</span></span><br><span class="line">    sp&lt;BinderCallback&gt; cb(<span class="keyword">new</span> BinderCallback);</span><br><span class="line">    <span class="keyword">if</span> (looper-&gt;addFd(binder_fd, Looper::POLL_CALLBACK, Looper::EVENT_INPUT, cb,</span><br><span class="line">            <span class="literal">nullptr</span>) != <span class="number">1</span>) &#123;</span><br><span class="line">        ALOGE(<span class="string">"Failed to add hwbinder FD to Looper. Aborting..."</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Tell IPCThreadState we're the service manager</span></span><br><span class="line">    sp&lt;BnHwServiceManager&gt; service = <span class="keyword">new</span> BnHwServiceManager(manager);</span><br><span class="line">    IPCThreadState::self()-&gt;setTheContextObject(service);</span><br><span class="line">    </span><br><span class="line">    ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, <span class="number">0</span>);</span><br><span class="line">    ...    </span><br><span class="line">    rc = property_set(<span class="string">"hwservicemanager.ready"</span>, <span class="string">"true"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        looper-&gt;pollAll(<span class="number">-1</span> <span class="comment">/* timeoutMillis */</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ServiceManager</code>启动主要需要做以下几件事情：</p>
+<ul>
+<li>初始化<code>/dev/hwbinder</code>驱动，为其分配一块虚拟内存用于IPC数据交换；</li>
+<li>向<code>hwbinder</code>注册HAL服务管家(IPC上下文管理者）；</li>
+<li>监听<code>/dev/hwbinder</code>是否有数据可读，如有则调用回调执行指令；</li>
+</ul>
+<h2 id="hwbinder驱动初始化"><a href="#hwbinder驱动初始化" class="headerlink" title="hwbinder驱动初始化"></a><strong>hwbinder驱动初始化</strong></h2><p><code>HwServiceManager</code>启动的第一件事情，就是配置binder线程池，告知驱动当前需要启动多少个线程处理IPC指令：对于<code>HwServiceManager</code>而言，只需要一个binder线程，即调用者线程即可（调用者线程何时加入binder线程池下面会讲到），而无需启动新的线程。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// HidlBinderSupport.cpp</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">configureBinderRpcThreadpool</span><span class="params">(<span class="keyword">size_t</span> maxThreads, <span class="keyword">bool</span> callerWillJoin)</span> </span>&#123;</span><br><span class="line">    ProcessState::self()-&gt;setThreadPoolConfiguration(maxThreads, callerWillJoin <span class="comment">/*callerJoinsPool*/</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ProcessState</code>只有一个实例（<code>ProcessState</code>可以看成是<code>hwbinder</code>用户空间进程状态管理者），因此在调用<code>ProcessState():self</code>的时候，如果当前<code>ProcessState</code>没有创建全局实例，则会创建一个实例：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sp&lt;ProcessState&gt; ProcessState::self()</span><br><span class="line">&#123;</span><br><span class="line">    Mutex::Autolock _l(gProcessMutex);</span><br><span class="line">    <span class="keyword">if</span> (gProcess != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> gProcess;</span><br><span class="line">    &#125;</span><br><span class="line">    gProcess = <span class="keyword">new</span> ProcessState;</span><br><span class="line">    <span class="keyword">return</span> gProcess;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>创建<code>ProcessState</code>的时候，主要做两件事：</p>
+<ul>
+<li>打开<code>/dev/hwbinder</code>驱动，验证binder版本以及协议版本，并配置最大的binder线程数量（对于hwbinder，默认的最大线程数量为0）；</li>
+<li>将<code>/dev/hwbinder</code>映射到一块大小约为1M的虚拟内存上用于交换IPC数据；</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">ProcessState::ProcessState()</span><br><span class="line">    : mDriverFD(open_driver()) <span class="comment">// 配置最大线程数</span></span><br><span class="line">    , mVMStart(MAP_FAILED)</span><br><span class="line">    , mThreadCountLock(PTHREAD_MUTEX_INITIALIZER)</span><br><span class="line">    , mThreadCountDecrement(PTHREAD_COND_INITIALIZER)</span><br><span class="line">    , mExecutingThreadsCount(<span class="number">0</span>)</span><br><span class="line">    , mMaxThreads(DEFAULT_MAX_BINDER_THREADS)</span><br><span class="line">    , mStarvationStartTimeMs(<span class="number">0</span>)</span><br><span class="line">    , mManagesContexts(<span class="literal">false</span>)</span><br><span class="line">    , mBinderContextCheckFunc(<span class="literal">NULL</span>)</span><br><span class="line">    , mBinderContextUserData(<span class="literal">NULL</span>)</span><br><span class="line">    , mThreadPoolStarted(<span class="literal">false</span>)</span><br><span class="line">    , mSpawnThreadOnStart(<span class="literal">true</span>)</span><br><span class="line">    , mThreadPoolSeq(<span class="number">1</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (mDriverFD &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="comment">// mmap the binder, providing a chunk of virtual address space to receive transactions.</span></span><br><span class="line">        mVMStart = mmap(<span class="number">0</span>, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (mVMStart == MAP_FAILED) &#123;</span><br><span class="line">            <span class="comment">// *sigh*</span></span><br><span class="line">            ALOGE(<span class="string">"Using /dev/hwbinder failed: unable to mmap transaction memory.\n"</span>);</span><br><span class="line">            close(mDriverFD);</span><br><span class="line">            mDriverFD = <span class="number">-1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        ALOGE(<span class="string">"Binder driver could not be opened.  Terminating."</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>ProcessState</code>初始化完成后，获取到相应实例，配置线程池(对于每个HAL服务来是，一般线程池只有一个线程，就是服务进行注册时所在的<br>主线程），告知线程当前所需的最大线程数目：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">status_t</span> ProcessState::setThreadPoolMaxThreadCount(<span class="keyword">size_t</span> maxThreads) &#123;</span><br><span class="line">    <span class="keyword">status_t</span> result = NO_ERROR;</span><br><span class="line">    <span class="keyword">if</span> (ioctl(mDriverFD, BINDER_SET_MAX_THREADS, &amp;maxThreads) != <span class="number">-1</span>) &#123;</span><br><span class="line">        mMaxThreads = maxThreads;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        result = -errno;</span><br><span class="line">        ALOGE(<span class="string">"Binder ioctl to set max threads failed: %s"</span>, strerror(-result));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="注册HAL服务管家"><a href="#注册HAL服务管家" class="headerlink" title="注册HAL服务管家"></a><strong>注册HAL服务管家</strong></h2><p>线程池配置完成后，获取当前线程的Looper（对的，就是Framework层常用的Handler消息循环在native的对应），并告知HwBinder驱动由当前线程来处理HAL服务上下文相关的指令， 设置Looper消息回调。接着，就是注册HAL服务的管家<code>ServiceManager</code>了。</p>
+<p><code>ServiceManager</code>继承了<code>IServiceManager</code>接口，负责管理系统中所有的HAL服务，为其他进程提供服务注册、查找等功能：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Manages all the hidl hals on a device.</span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * Terminology:</span></span><br><span class="line"><span class="comment"> *   Package: "android.hidl.manager"</span></span><br><span class="line"><span class="comment"> *   Major version: "1"</span></span><br><span class="line"><span class="comment"> *   Minor version: "0"</span></span><br><span class="line"><span class="comment"> *   Version: "1.0"</span></span><br><span class="line"><span class="comment"> *   Interface name: "IServiceManager"</span></span><br><span class="line"><span class="comment"> *   Fully-qualified interface name: "android.hidl.manager@1.0::IServiceManager"</span></span><br><span class="line"><span class="comment"> *   Instance name: "manager"</span></span><br><span class="line"><span class="comment"> *   Fully-qualified instance name: "android.hidl.manager@1.0::IServiceManager/manager"</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">interface IServiceManager &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Retrieve an existing service that supports the requested version.</span></span><br><span class="line">    get(<span class="built_in">string</span> fqName, <span class="built_in">string</span> name) generates (interface service);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Register a service. The service manager must retrieve the (inherited)</span></span><br><span class="line"><span class="comment">     * interfaces that this service implements, and register them along with</span></span><br><span class="line"><span class="comment">     * the service.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    add(<span class="built_in">string</span> name, interface service) generates (<span class="keyword">bool</span> success);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">enum</span> Transport : <span class="keyword">uint8_t</span> &#123;</span><br><span class="line">        EMPTY,</span><br><span class="line">        HWBINDER,</span><br><span class="line">        PASSTHROUGH,</span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Get the transport of a service.</span></span><br><span class="line">    getTransport(<span class="built_in">string</span> fqName, <span class="built_in">string</span> name) generates (Transport transport);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// List all registered services. Must be sorted.</span></span><br><span class="line">    <span class="built_in">list</span>() generates (vec&lt;<span class="built_in">string</span>&gt; fqInstanceNames);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// List all instances of a particular service. Must be sorted.</span></span><br><span class="line">    listByInterface(<span class="built_in">string</span> fqName) generates (vec&lt;<span class="built_in">string</span>&gt; instanceNames);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Register for service notifications for a particular service. Must support</span></span><br><span class="line"><span class="comment">     * multiple registrations.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    registerForNotifications(<span class="built_in">string</span> fqName,</span><br><span class="line">                             <span class="built_in">string</span> name,</span><br><span class="line">                             IServiceNotification callback)</span><br><span class="line">        generates (<span class="keyword">bool</span> success);</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * When the passthrough service manager returns a service via</span></span><br><span class="line"><span class="comment">     * get(string, string), it must dispatch a registerPassthroughClient call</span></span><br><span class="line"><span class="comment">     * to the binderized service manager to indicate the current process has</span></span><br><span class="line"><span class="comment">     * called get(). Binderized service manager must record this PID, which can</span></span><br><span class="line"><span class="comment">     * be retrieved via debugDump.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="comment">// 注册直通式客户端</span></span><br><span class="line">    registerPassthroughClient(<span class="built_in">string</span> fqName, <span class="built_in">string</span> name);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>接着， 让<code>BnHwServiceManager</code>成为HAL服务的上下文管家，需要做两件事：一是告知<code>IPCThreadState</code>负责上下文管理的对象，用于接收来自其他进程的IPC请求；一是告知kernel上下文管理者的是一个handle为0的<code>IBinder</code>对象，kernel会为其保存一个节点，以便IPC时使用。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// Tell IPCThreadState we're the service manager</span></span><br><span class="line">sp&lt;BnHwServiceManager&gt; service = <span class="keyword">new</span> BnHwServiceManager(manager);</span><br><span class="line">IPCThreadState::self()-&gt;setTheContextObject(service);</span><br><span class="line"><span class="comment">// Then tell binder kernel</span></span><br><span class="line">ioctl(binder_fd, BINDER_SET_CONTEXT_MGR, <span class="number">0</span>);</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p> <code>BnHwServiceManager</code>是<code>ServiceManager</code>服务端的stub对象，与客户端代理Proxy<code>BpHwServiceManager</code>相对应，具体怎么来的，在下一篇文章中再详细讲述</p>
+</blockquote>
+<p>最后，设置<code>hwservicemanager.ready</code>，表面当前<code>hwservicemanager</code>已经处于可用状态；<code>pollAll</code>则表示<code>hwservicemanager</code>进入消息循环等待的过程，一旦<code>/dev/hwbinder</code>有数据可读，就会调用之前注册的<code>BinderCallback</code>进行处理。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">rc = property_set(<span class="string">"hwservicemanager.ready"</span>, <span class="string">"true"</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">    looper-&gt;pollAll(<span class="number">-1</span> <span class="comment">/* timeoutMillis */</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在接下来的一篇文章，基于<code>Telephony</code>与<code>RILD</code>的通信来讲述HAL服务的具体工作流程。</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
+<li><a href="https://source.android.com/devices/architecture/hal" target="_blank" rel="noopener">https://source.android.com/devices/architecture/hal</a></li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Binder/" rel="tag"># Binder</a>
+          
+            <a href="/tags/HAL/" rel="tag"># HAL</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/05/05/从HTTP到HTTPS/" rel="next" title="从HTTP到HTTPS">
+                <i class="fa fa-chevron-left"></i> 从HTTP到HTTPS
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/06/17/HAL-binder工作流程-以RILJ-RILD通信为例/" rel="prev" title="HAL binder工作流程-以RILJ/RILD通信为例">
+                HAL binder工作流程-以RILJ/RILD通信为例 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#相关代码"><span class="nav-number">1.</span> <span class="nav-text">相关代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HwServiceMananger的启动"><span class="nav-number">2.</span> <span class="nav-text">HwServiceMananger的启动</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#hwbinder驱动初始化"><span class="nav-number">3.</span> <span class="nav-text">hwbinder驱动初始化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#注册HAL服务管家"><span class="nav-number">4.</span> <span class="nav-text">注册HAL服务管家</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文献"><span class="nav-number">5.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

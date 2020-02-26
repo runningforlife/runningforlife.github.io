@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Android,Crash,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="之前的一篇文章，讲到了应用程序无响应(ANR)时Android的处理逻辑。这篇文章，就来分析下应用进程发生崩溃(Crash)时，Android是如何处理的？总的说来，Android主要有两大类Crash：  Java(JVM)层： 应用程序发生运行时错误（如空指针，浮点运算错误，数据索引超出界限)或者系统进程崩溃(长时间无响应)； Native层： native进程或者kernel发生运行时错误；">
+<meta name="keywords" content="Android,Crash">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android进程Crash处理流程">
+<meta property="og:url" content="http://sniffer.site/2017/07/09/Android进程Crash处理流程/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="之前的一篇文章，讲到了应用程序无响应(ANR)时Android的处理逻辑。这篇文章，就来分析下应用进程发生崩溃(Crash)时，Android是如何处理的？总的说来，Android主要有两大类Crash：  Java(JVM)层： 应用程序发生运行时错误（如空指针，浮点运算错误，数据索引超出界限)或者系统进程崩溃(长时间无响应)； Native层： native进程或者kernel发生运行时错误；">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2017-07-09T06:28:30.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Android进程Crash处理流程">
+<meta name="twitter:description" content="之前的一篇文章，讲到了应用程序无响应(ANR)时Android的处理逻辑。这篇文章，就来分析下应用进程发生崩溃(Crash)时，Android是如何处理的？总的说来，Android主要有两大类Crash：  Java(JVM)层： 应用程序发生运行时错误（如空指针，浮点运算错误，数据索引超出界限)或者系统进程崩溃(长时间无响应)； Native层： native进程或者kernel发生运行时错误；">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2017/07/09/Android进程Crash处理流程/">
+
+
+
+
+
+  <title>Android进程Crash处理流程 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2017/07/09/Android进程Crash处理流程/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">Android进程Crash处理流程</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-07-09T14:22:33+08:00">
+                2017-07-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android/" itemprop="url" rel="index">
+                    <span itemprop="name">Android</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2017/07/09/Android进程Crash处理流程/" class="leancloud_visitors" data-flag-title="Android进程Crash处理流程">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>之前的一篇文章，讲到了<a href="http://sniffer.site/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">应用程序无响应(ANR)</a>时Android的处理逻辑。这篇文章，就来分析下应用进程发生崩溃(Crash)时，Android是如何处理的？总的说来，Android主要有两大类Crash：</p>
+<ul>
+<li>Java(JVM)层： 应用程序发生运行时错误（如空指针，浮点运算错误，数据索引超出界限)或者系统进程崩溃(长时间无响应)；</li>
+<li>Native层： native进程或者kernel发生运行时错误；</li>
+</ul>
+<a id="more"></a>
+<h2 id="APP层Crash处理"><a href="#APP层Crash处理" class="headerlink" title="APP层Crash处理"></a><strong>APP层Crash处理</strong></h2><p>对Java层，Android需要处理两种情况的Crash：</p>
+<ul>
+<li>对于APP中未捕获的异常，捕捉到后，进行处理；</li>
+<li>监控UI线程（主线程）、前台服务线程、IO线程、显示线程（IMS/WMS,DMS中使用）以及Binder进程通信线程是否挂起（10s内无响应则视为挂起);</li>
+</ul>
+<blockquote>
+<p>主线程(main thread）是指应用启动时创建的进程中的第一个线程，而UI线程则是负责输入、绘制等前台交互，大部分情况下主线程就是UI线程，参考：</p>
+<ul>
+<li><a href="https://developer.android.com/guide/components/processes-and-threads.html" target="_blank" rel="noopener">https://developer.android.com/guide/components/processes-and-threads.html</a></li>
+<li><a href="https://developer.android.com/studio/write/annotations.html#thread-annotations" target="_blank" rel="noopener">https://developer.android.com/studio/write/annotations.html#thread-annotations</a></li>
+</ul>
+</blockquote>
+<p>下面就从这两种情况来分析APP出现的Crash。</p>
+<h3 id="未捕获异常Crash"><a href="#未捕获异常Crash" class="headerlink" title="未捕获异常Crash"></a><strong>未捕获异常Crash</strong></h3><p>对于每个进程，在启动过程初始化运行时执行环境时，都会设置一个未捕获异常处理函数，用于捕获APP中未捕获到的异常情况：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title">commonInit</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (DEBUG) Slog.d(TAG, <span class="string">"Entered RuntimeInit!"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* set default handler; this applies to all threads in the VM */</span></span><br><span class="line">    Thread.setDefaultUncaughtExceptionHandler(<span class="keyword">new</span> UncaughtHandler());</span><br><span class="line"></span><br><span class="line">    TimezoneGetter.setInstance(<span class="keyword">new</span> TimezoneGetter() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> String <span class="title">getId</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> SystemProperties.get(<span class="string">"persist.sys.timezone"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    TimeZone.setDefault(<span class="keyword">null</span>);</span><br><span class="line">    ....</span><br><span class="line">    initialized = <span class="keyword">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>捕获到应用Crash后，向AMS发送Crash信息，最后将进程杀死：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">UncaughtHandler</span> <span class="keyword">implements</span> <span class="title">Thread</span>.<span class="title">UncaughtExceptionHandler</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">uncaughtException</span><span class="params">(Thread t, Throwable e)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// Don't re-enter -- avoid infinite loops if crash-reporting crashes.</span></span><br><span class="line">            <span class="keyword">if</span> (mCrashing) <span class="keyword">return</span>;</span><br><span class="line">            mCrashing = <span class="keyword">true</span>;</span><br><span class="line">            </span><br><span class="line">            <span class="keyword">if</span> (mApplicationObject == <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="comment">// 进程启动时设置了mApplicationObject = ApplicationThread</span></span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                StringBuilder message = <span class="keyword">new</span> StringBuilder();</span><br><span class="line">                message.append(<span class="string">"FATAL EXCEPTION: "</span>).append(t.getName()).append(<span class="string">"\n"</span>);</span><br><span class="line">                <span class="keyword">final</span> String processName = ActivityThread.currentProcessName();</span><br><span class="line">                <span class="keyword">if</span> (processName != <span class="keyword">null</span>) &#123;</span><br><span class="line">                    message.append(<span class="string">"Process: "</span>).append(processName).append(<span class="string">", "</span>);</span><br><span class="line">                &#125;</span><br><span class="line">                message.append(<span class="string">"PID: "</span>).append(Process.myPid());</span><br><span class="line">                Clog_e(TAG, message.toString(), e);</span><br><span class="line">            &#125;</span><br><span class="line">            ....</span><br><span class="line">            <span class="comment">// Bring up crash dialog, wait for it to be dismissed</span></span><br><span class="line">            ActivityManagerNative.getDefault().handleApplicationCrash(</span><br><span class="line">                    mApplicationObject, <span class="keyword">new</span> ApplicationErrorReport.CrashInfo(e));</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable t2) &#123;</span><br><span class="line">            ....</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="comment">// Try everything to make sure this process goes away.</span></span><br><span class="line">            Process.killProcess(Process.myPid());</span><br><span class="line">            System.exit(<span class="number">10</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><strong>参考源码</strong>：/android/frameworks/base/core/java/com/android/internal/os/RuntimeInit.java</p>
+</blockquote>
+<p>AMS接收到Crash后，找到应用的进程记录，做下一步处理：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleApplicationCrash</span><span class="params">(IBinder app, ApplicationErrorReport.CrashInfo crashInfo)</span> </span>&#123;</span><br><span class="line">       ProcessRecord r = findAppProcess(app, <span class="string">"Crash"</span>);</span><br><span class="line">       <span class="keyword">final</span> String processName = app == <span class="keyword">null</span> ? <span class="string">"system_server"</span></span><br><span class="line">               : (r == <span class="keyword">null</span> ? <span class="string">"unknown"</span> : r.processName);</span><br><span class="line">       <span class="keyword">final</span> <span class="keyword">int</span> userId = r == <span class="keyword">null</span> ? UserHandle.USER_OWNER : r.userId;</span><br><span class="line">       ....</span><br><span class="line">       <span class="comment">// 处理应用Crash</span></span><br><span class="line">       handleApplicationCrashInner(<span class="string">"crash"</span>, r, processName, crashInfo);</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+<p>AMS处理APP的Crash主要做了两件事情：</p>
+<ul>
+<li>保存Crash的当时的现场到Dropbox;</li>
+<li>如果发现该APP频繁Crash，记录信息，强制其停止，不提示用户；否则需要弹出APP出错的对话框告知用户，由用户自己选择处理的方式（重启或者强制停止）；</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">handleApplicationCrashInner</span><span class="params">(String eventType, ProcessRecord r, String processName,</span></span></span><br><span class="line"><span class="function"><span class="params">        ApplicationErrorReport.CrashInfo crashInfo)</span> </span>&#123;</span><br><span class="line">    EventLog.writeEvent(EventLogTags.AM_CRASH, Binder.getCallingPid(),</span><br><span class="line">            UserHandle.getUserId(Binder.getCallingUid()), processName,</span><br><span class="line">            r == <span class="keyword">null</span> ? -<span class="number">1</span> : r.info.flags,</span><br><span class="line">            crashInfo.exceptionClassName,</span><br><span class="line">            crashInfo.exceptionMessage,</span><br><span class="line">            crashInfo.throwFileName,</span><br><span class="line">            crashInfo.throwLineNumber);</span><br><span class="line"></span><br><span class="line">    addErrorToDropBox(eventType, r, processName, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="keyword">null</span>, crashInfo);</span><br><span class="line"></span><br><span class="line">    mAppErrors.crashApplication(r, crashInfo);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="系统挂起"><a href="#系统挂起" class="headerlink" title="系统挂起"></a><strong>系统挂起</strong></h3><p>在应用层， Android有一个专门的监控者<code>Watchdog</code>线程来负责监控应用层是否出现系统挂起（在给定时间10s无响应则视为挂起），比如系统服务IMS(AMS,WMS)无响应，UI线程、IO线程无响应，Binder IPC线程无响应等各种异常情况：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="title">Watchdog</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">super</span>(<span class="string">"watchdog"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// The shared foreground thread is the main checker.  It is where we</span></span><br><span class="line">    <span class="comment">// will also dispatch monitor checks and do other work.</span></span><br><span class="line">    mMonitorChecker = <span class="keyword">new</span> HandlerChecker(FgThread.getHandler(),</span><br><span class="line">            <span class="string">"foreground thread"</span>, DEFAULT_TIMEOUT);</span><br><span class="line">    mHandlerCheckers.add(mMonitorChecker);</span><br><span class="line">    <span class="comment">// Add checker for main thread.  We only do a quick check since there</span></span><br><span class="line">    <span class="comment">// can be UI running on the thread.</span></span><br><span class="line">    mHandlerCheckers.add(<span class="keyword">new</span> HandlerChecker(<span class="keyword">new</span> Handler(Looper.getMainLooper()),</span><br><span class="line">            <span class="string">"main thread"</span>, DEFAULT_TIMEOUT));</span><br><span class="line">    <span class="comment">// Add checker for shared UI thread.</span></span><br><span class="line">    mHandlerCheckers.add(<span class="keyword">new</span> HandlerChecker(UiThread.getHandler(),</span><br><span class="line">            <span class="string">"ui thread"</span>, DEFAULT_TIMEOUT));</span><br><span class="line">    <span class="comment">// And also check IO thread.</span></span><br><span class="line">    mHandlerCheckers.add(<span class="keyword">new</span> HandlerChecker(IoThread.getHandler(),</span><br><span class="line">            <span class="string">"i/o thread"</span>, DEFAULT_TIMEOUT));</span><br><span class="line">    <span class="comment">// And the display thread.</span></span><br><span class="line">    mHandlerCheckers.add(<span class="keyword">new</span> HandlerChecker(DisplayThread.getHandler(),</span><br><span class="line">            <span class="string">"display thread"</span>, DEFAULT_TIMEOUT));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Initialize monitor for Binder threads.</span></span><br><span class="line">    addMonitor(<span class="keyword">new</span> BinderThreadMonitor());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>Watchdog</code>线程是在<code>system_server</code>进程启动时启动起来的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">startOtherServices</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        ....</span><br><span class="line">        <span class="keyword">final</span> Watchdog watchdog = Watchdog.getInstance();</span><br><span class="line">        watchdog.init(context, mActivityManagerService);</span><br><span class="line">        ....</span><br><span class="line">        Watchdog.getInstance().start();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>Watchdog</code>线程启动后，开始监测各个线程有无响应（通过在线程消息队列的头部添加一个可执行对象，对于Binder线程则通过<code>BlockUtilThreadAvailable</code>来检测是否有Binder线程可用），一旦发现系统某个线程无响应，则抓取相应APP的堆栈LOG，同时保存kernel的堆栈信息：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">boolean</span> waitedHalf = <span class="keyword">false</span>;</span><br><span class="line">    File traceFile = <span class="keyword">new</span> File(<span class="string">"/data/anr/traces.txt"</span>);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (!traceFile.exists()) &#123;</span><br><span class="line">            traceFile.createNewFile();</span><br><span class="line">        &#125;</span><br><span class="line">        traceFile.setReadable(<span class="keyword">true</span>, <span class="keyword">false</span>);</span><br><span class="line">        traceFile.setWritable(<span class="keyword">true</span>, <span class="keyword">false</span>);</span><br><span class="line">    &#125; <span class="keyword">catch</span>(IOException e) &#123;</span><br><span class="line">        Slog.e(TAG, <span class="string">"Failed to create /data/anr/traces.txt"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">        <span class="keyword">final</span> ArrayList&lt;HandlerChecker&gt; blockedCheckers;</span><br><span class="line">        <span class="keyword">final</span> String subject;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">boolean</span> allowRestart;</span><br><span class="line">        <span class="keyword">synchronized</span> (<span class="keyword">this</span>) &#123;</span><br><span class="line">            <span class="keyword">long</span> timeout = CHECK_INTERVAL;</span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">int</span> i=<span class="number">0</span>; i&lt;mHandlerCheckers.size(); i++) &#123;</span><br><span class="line">                HandlerChecker hc = mHandlerCheckers.get(i);</span><br><span class="line">                hc.scheduleCheckLocked();</span><br><span class="line">            &#125;</span><br><span class="line">            ....</span><br><span class="line">            <span class="keyword">final</span> <span class="keyword">int</span> waitState = evaluateCheckerCompletionLocked();</span><br><span class="line">            <span class="keyword">if</span> (waitState == COMPLETED) &#123;</span><br><span class="line">                <span class="comment">// The monitors have returned; reset</span></span><br><span class="line">                waitedHalf = <span class="keyword">false</span>;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (waitState == WAITING) &#123;</span><br><span class="line">                <span class="comment">// still waiting but within their configured intervals; back off and recheck</span></span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (waitState == WAITED_HALF) &#123;</span><br><span class="line">                ....</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// something is overdue!</span></span><br><span class="line">            blockedCheckers = getBlockedCheckersLocked();</span><br><span class="line">            subject = describeCheckersLocked(blockedCheckers);</span><br><span class="line">            allowRestart = mAllowRestart;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 系统处于挂起状态，保存APP堆栈信息</span></span><br><span class="line">   <span class="keyword">final</span> File stack = ActivityManagerService.dumpStackTraces(</span><br><span class="line">                !waitedHalf, pids, <span class="keyword">null</span>, <span class="keyword">null</span>, NATIVE_STACKS_OF_INTEREST);</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">// 保存kernel堆栈信息</span></span><br><span class="line">    <span class="keyword">if</span> (RECORD_KERNEL_THREADS) &#123;</span><br><span class="line">        dumpKernelStackTraces();</span><br><span class="line">    &#125;</span><br><span class="line">    ....</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><strong>参考源码</strong>：/android/frameworks/base/services/core/java/com/android/server/Watchdog.java </p>
+</blockquote>
+<p>接下来，就来看一看Android是如何处理native进程crash的。</p>
+<h2 id="Native层Crash处理"><a href="#Native层Crash处理" class="headerlink" title="Native层Crash处理"></a><strong>Native层Crash处理</strong></h2><p>在native层，Android的Crash处理主要由三个部分组成：</p>
+<ul>
+<li>kernel捕捉到进程的异常信号(SIGABRT,SIGBUS,SIGFPE)时,调用信号处理函数；信号处理函数负责收集Crash进程的错误信息，并将错误信息通过socket发送给debugger守护进程；</li>
+<li>debugger守护进程接收到crash信息后，一方面告知AMS有进程发生Crash，一方面通过tomestone保存完整的现场信息；</li>
+<li>AMS收到Crash信息后，弹出对话框告知用户Crash信息，同时保存该crash进程的相关LOG；</li>
+</ul>
+<p>接下来，我们分步骤来看下native层Crash的处理流程。</p>
+<h3 id="Crash信号处理函数"><a href="#Crash信号处理函数" class="headerlink" title="Crash信号处理函数"></a>Crash信号处理函数</h3><p>Native进程发生崩溃（Crash)时，kernel会向其发送一个信号(<a href="https://en.wikipedia.org/wiki/Unix_signal" target="_blank" rel="noopener">signal</a>),此时当前进程被中断，kernel接着调用事先注册在系统中的信号处理函数(Signal Handler)。Android在启动时专门注册了一个signal handler用于处理Native进程由于运行错误而出现的信号。</p>
+<p>那么，Android的signal handler是在哪里注册到系统中的了？在Android库bionic中有一个动态链接库<code>linker</code>（文件目录<code>/android/bionic/</code>）,<code>linker</code>启动时会初始化通过系统调用<code>signal</code>向系统注册信号处理函数； Android主要处理<code>SIGABRT</code>、<code>SIGBUS</code>等几种Crash信号（<a href="http://www.comptechdoc.org/os/linux/programming/linux_pgsignals.html" target="_blank" rel="noopener">linux signal</a>)：</p>
+<ul>
+<li><code>SIGABRT</code>(6): abort, 异常终止；</li>
+<li><code>SIGBUS</code>(10): bus error, 总线错误；</li>
+<li><code>SIGFPE</code>(8): Floating Point Exception, 浮点运算异常；</li>
+<li><code>SIGILL</code>(4): Illegal Instruction, 非法指令；</li>
+<li><code>SIGSEGV</code>(11): Invalid memory Segmentation Fault, 无效内存访问；</li>
+<li><code>SIGSTKFLT</code>(16): stack fault, 堆栈错误；</li>
+<li><code>SIGTRAP</code>(5): Trace Trap, 跟踪陷阱；</li>
+</ul>
+<h4 id="debugger-cpp"><a href="#debugger-cpp" class="headerlink" title="debugger.cpp"></a><strong>debugger.cpp</strong></h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">__<span class="function">LIBC_HIDDEN__ <span class="keyword">void</span> <span class="title">debuggerd_init</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      <span class="class"><span class="keyword">struct</span> <span class="title">sigaction</span> <span class="title">action</span>;</span></span><br><span class="line">      <span class="built_in">memset</span>(&amp;action, <span class="number">0</span>, <span class="keyword">sizeof</span>(action));</span><br><span class="line">      sigemptyset(&amp;action.sa_mask);</span><br><span class="line">      <span class="comment">// 信号处理函数</span></span><br><span class="line">      action.sa_sigaction = debuggerd_signal_handler;</span><br><span class="line">      action.sa_flags = SA_RESTART | SA_SIGINFO;</span><br><span class="line">    </span><br><span class="line">      <span class="comment">// Use the alternate signal stack if available so we can catch stack overflows.</span></span><br><span class="line">      action.sa_flags |= SA_ONSTACK;</span><br><span class="line">      <span class="comment">// 需要捕捉的信号</span></span><br><span class="line">      sigaction(SIGABRT, &amp;action, <span class="literal">nullptr</span>);</span><br><span class="line">      sigaction(SIGBUS, &amp;action, <span class="literal">nullptr</span>);</span><br><span class="line">      sigaction(SIGFPE, &amp;action, <span class="literal">nullptr</span>);</span><br><span class="line">      sigaction(SIGILL, &amp;action, <span class="literal">nullptr</span>);</span><br><span class="line">      sigaction(SIGSEGV, &amp;action, <span class="literal">nullptr</span>);</span><br><span class="line">    <span class="meta">#<span class="meta-keyword">if</span> defined(SIGSTKFLT)</span></span><br><span class="line">      sigaction(SIGSTKFLT, &amp;action, <span class="literal">nullptr</span>);</span><br><span class="line">    <span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">      sigaction(SIGTRAP, &amp;action, <span class="literal">nullptr</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>注册完信号处理函数后，一旦kernel检测到有进程出现上述信号，则会调用<code>debuggerd_signal_handler</code>函数进行处理：此时会通过socket接口<code>android:debuggerd32</code>（对于64位系统，socket名为<code>android:debuggerd</code>）发送错误信息，</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Catches fatal signals so we can ask debuggerd to ptrace us before</span></span><br><span class="line"><span class="comment"> * we crash.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">debuggerd_signal_handler</span><span class="params">(<span class="keyword">int</span> signal_number, <span class="keyword">siginfo_t</span>* info, <span class="keyword">void</span>*)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// It's possible somebody cleared the SA_SIGINFO flag, which would mean</span></span><br><span class="line">  <span class="comment">// our "info" arg holds an undefined value.</span></span><br><span class="line">  <span class="keyword">if</span> (!have_siginfo(signal_number)) &#123;</span><br><span class="line">    info = <span class="literal">nullptr</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  log_signal_summary(signal_number, info);</span><br><span class="line">  <span class="comment">// 向debuggered发送错误信息</span></span><br><span class="line">  send_debuggerd_packet(info);</span><br><span class="line">  ....</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>调用<code>send_debuggerd_packet</code>，首先连接<code>debuggerd</code>的服务端socket；接着不断尝试向该socket写入数据，直至成功：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">send_debuggerd_packet</span><span class="params">(<span class="keyword">siginfo_t</span>* info)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Mutex to prevent multiple crashing threads from trying to talk</span></span><br><span class="line">  <span class="comment">// to debuggerd at the same time.</span></span><br><span class="line">  <span class="keyword">static</span> <span class="keyword">pthread_mutex_t</span> crash_mutex = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line">  <span class="keyword">int</span> ret = pthread_mutex_trylock(&amp;crash_mutex);</span><br><span class="line">  ...</span><br><span class="line">  <span class="comment">// 连接debuggerd</span></span><br><span class="line">  <span class="keyword">int</span> s = socket_abstract_client(DEBUGGER_SOCKET_NAME, SOCK_STREAM | SOCK_CLOEXEC);</span><br><span class="line">  <span class="keyword">if</span> (s == <span class="number">-1</span>) &#123;</span><br><span class="line">    __libc_format_log(ANDROID_LOG_FATAL, <span class="string">"libc"</span>, <span class="string">"Unable to open connection to debuggerd: %s"</span>, strerror(errno));</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// debuggerd knows our pid from the credentials on the</span></span><br><span class="line">  <span class="comment">// local socket but we need to tell it the tid of the crashing thread.</span></span><br><span class="line">  <span class="comment">// debuggerd will be paranoid and verify that we sent a tid</span></span><br><span class="line">  <span class="comment">// that's actually in our process.</span></span><br><span class="line">  <span class="keyword">debugger_msg_t</span> msg;</span><br><span class="line">  <span class="comment">// crash</span></span><br><span class="line">  msg.action = DEBUGGER_ACTION_CRASH;</span><br><span class="line">  msg.tid = gettid();</span><br><span class="line">  msg.abort_msg_address = <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">uintptr_t</span>&gt;(g_abort_message);</span><br><span class="line">  msg.original_si_code = (info != <span class="literal">nullptr</span>) ? info-&gt;si_code : <span class="number">0</span>;</span><br><span class="line">  <span class="comment">// 向socket写入数据</span></span><br><span class="line">  ret = TEMP_FAILURE_RETRY(write(s, &amp;msg, <span class="keyword">sizeof</span>(msg)));</span><br><span class="line">  <span class="keyword">if</span> (ret == <span class="keyword">sizeof</span>(msg)) &#123;</span><br><span class="line">    <span class="keyword">char</span> debuggerd_ack;</span><br><span class="line">    ret = TEMP_FAILURE_RETRY(read(s, &amp;debuggerd_ack, <span class="number">1</span>));</span><br><span class="line">    <span class="keyword">int</span> saved_errno = errno;</span><br><span class="line">    notify_gdb_of_libraries();</span><br><span class="line">    errno = saved_errno;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// read or write failed -- broken connection?</span></span><br><span class="line">    __libc_format_log(ANDROID_LOG_FATAL, <span class="string">"libc"</span>, <span class="string">"Failed while talking to debuggerd: %s"</span>, strerror(errno));</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 关闭socket</span></span><br><span class="line">  close(s);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p> <strong>参考源码</strong>： /android/bionic/linker/debugger.cpp </p>
+</blockquote>
+<h4 id="debuggerd-cpp"><a href="#debuggerd-cpp" class="headerlink" title="debuggerd.cpp"></a><strong>debuggerd.cpp</strong></h4><p>在服务端进程<code>debuggerd</code>启动时，会不断监听客户端的连接请求，一旦发现有连接，就会读取其中的数据进行处理：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">do_server</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// debuggerd crashes can't be reported to debuggerd.</span></span><br><span class="line">  <span class="comment">// Reset all of the crash handlers.</span></span><br><span class="line">  signal(SIGABRT, SIG_DFL);</span><br><span class="line">  signal(SIGBUS, SIG_DFL);</span><br><span class="line">  signal(SIGFPE, SIG_DFL);</span><br><span class="line">  signal(SIGILL, SIG_DFL);</span><br><span class="line">  signal(SIGSEGV, SIG_DFL);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> SIGSTKFLT</span></span><br><span class="line">  signal(SIGSTKFLT, SIG_DFL);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">  signal(SIGTRAP, SIG_DFL);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Ignore failed writes to closed sockets</span></span><br><span class="line">  signal(SIGPIPE, SIG_IGN);</span><br><span class="line">  ....</span><br><span class="line">  <span class="comment">// 创建服务端socket</span></span><br><span class="line">  <span class="keyword">int</span> s = socket_local_server(SOCKET_NAME, ANDROID_SOCKET_NAMESPACE_ABSTRACT,</span><br><span class="line">                              SOCK_STREAM | SOCK_CLOEXEC);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Fork a process that stays root, and listens on a pipe to pause and resume the target.（具体什么作用，没看明白）</span></span><br><span class="line">  <span class="keyword">if</span> (!start_signal_sender()) &#123;</span><br><span class="line">    ALOGE(<span class="string">"debuggerd: failed to fork signal sender"</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 监听并处理客户端进程请求</span></span><br><span class="line">  <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">    sockaddr_storage ss;</span><br><span class="line">    sockaddr* addrp = <span class="keyword">reinterpret_cast</span>&lt;sockaddr*&gt;(&amp;ss);</span><br><span class="line">    <span class="keyword">socklen_t</span> alen = <span class="keyword">sizeof</span>(ss);</span><br><span class="line"></span><br><span class="line">    ALOGV(<span class="string">"waiting for connection\n"</span>);</span><br><span class="line">    <span class="keyword">int</span> fd = accept4(s, addrp, &amp;alen, SOCK_CLOEXEC);</span><br><span class="line">    <span class="keyword">if</span> (fd == <span class="number">-1</span>) &#123;</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    handle_request(fd);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>现在<code>debuggerd</code>与客户端进程已经建立好连接了，读取其中的数据并<code>fork</code>一个新的进程处理之：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">handle_request</span><span class="params">(<span class="keyword">int</span> fd)</span> </span>&#123;</span><br><span class="line">  <span class="function">ScopedFd <span class="title">closer</span><span class="params">(fd)</span></span>;</span><br><span class="line">  <span class="keyword">debugger_request_t</span> request;</span><br><span class="line">  <span class="built_in">memset</span>(&amp;request, <span class="number">0</span>, <span class="keyword">sizeof</span>(request));</span><br><span class="line">  <span class="comment">// 读取数据</span></span><br><span class="line">  <span class="keyword">int</span> status = read_request(fd, &amp;request);</span><br><span class="line">  <span class="keyword">if</span> (status != <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  ....</span><br><span class="line">  <span class="comment">// Fork a child to handle the rest of the request.</span></span><br><span class="line">  <span class="keyword">pid_t</span> fork_pid = fork();</span><br><span class="line">  <span class="keyword">if</span> (fork_pid == <span class="number">-1</span>) &#123;</span><br><span class="line">    ALOGE(<span class="string">"debuggerd: failed to fork: %s\n"</span>, strerror(errno));</span><br><span class="line">  <span class="comment">// 在子进程中处理请求</span></span><br><span class="line">  &#125; <span class="keyword">else</span> <span class="keyword">if</span> (fork_pid == <span class="number">0</span>) &#123;</span><br><span class="line">    worker_process(fd, request);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    monitor_worker_process(fork_pid, request);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在子进程中处理Crash：首先尝试连接AMS，接着会保存Crash进程的DUMP LOG，最后通过socket发送消息告知AMS有Crash发生，</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">worker_process</span><span class="params">(<span class="keyword">int</span> fd, <span class="keyword">debugger_request_t</span>&amp; request)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Open the tombstone file if we need it.</span></span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">string</span> tombstone_path;</span><br><span class="line">  <span class="keyword">int</span> tombstone_fd = <span class="number">-1</span>;</span><br><span class="line">  <span class="keyword">switch</span> (request.action) &#123;</span><br><span class="line">    <span class="keyword">case</span> DEBUGGER_ACTION_DUMP_TOMBSTONE:</span><br><span class="line">    <span class="keyword">case</span> DEBUGGER_ACTION_CRASH:</span><br><span class="line">      tombstone_fd = open_tombstone(&amp;tombstone_path);</span><br><span class="line">      <span class="keyword">if</span> (tombstone_fd == <span class="number">-1</span>) &#123;</span><br><span class="line">        ALOGE(<span class="string">"debuggerd: failed to open tombstone file: %s\n"</span>, strerror(errno));</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line">      ....</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Don't attach to the sibling threads if we want to attach gdb.</span></span><br><span class="line">  <span class="comment">// Supposedly, it makes the process less reliable.</span></span><br><span class="line">  <span class="keyword">bool</span> attach_gdb = should_attach_gdb(request);</span><br><span class="line">  ....</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">set</span>&lt;<span class="keyword">pid_t</span>&gt; siblings;</span><br><span class="line">  <span class="keyword">if</span> (!attach_gdb) &#123;</span><br><span class="line">    ptrace_siblings(request.pid, request.tid, siblings);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">int</span> amfd = <span class="number">-1</span>;</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">unique_ptr</span>&lt;<span class="built_in">std</span>::<span class="built_in">string</span>&gt; amfd_data;</span><br><span class="line">  <span class="keyword">if</span> (request.action == DEBUGGER_ACTION_CRASH) &#123;</span><br><span class="line">    <span class="comment">// 连接AMS</span></span><br><span class="line">    amfd = activity_manager_connect();</span><br><span class="line">    amfd_data.reset(<span class="keyword">new</span> <span class="built_in">std</span>::<span class="built_in">string</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">bool</span> succeeded = <span class="literal">false</span>;</span><br><span class="line">  ....</span><br><span class="line">  <span class="keyword">int</span> crash_signal = SIGKILL;</span><br><span class="line">  <span class="comment">// 保存DUMP LOG</span></span><br><span class="line">  succeeded = perform_dump(request, fd, tombstone_fd, backtrace_map.get(), siblings,</span><br><span class="line">                           &amp;crash_signal, amfd_data.get());</span><br><span class="line">  <span class="keyword">if</span> (succeeded) &#123;</span><br><span class="line">    <span class="keyword">if</span> (request.action == DEBUGGER_ACTION_DUMP_TOMBSTONE) &#123;</span><br><span class="line">      <span class="keyword">if</span> (!tombstone_path.empty()) &#123;</span><br><span class="line">        android::base::WriteFully(fd, tombstone_path.c_str(), tombstone_path.length());</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  ....</span><br><span class="line">  <span class="keyword">if</span> (!attach_gdb) &#123;</span><br><span class="line">    <span class="comment">// Tell the Activity Manager about the crashing process. If we are</span></span><br><span class="line">    <span class="comment">// waiting for gdb to attach, do not send this or Activity Manager</span></span><br><span class="line">    <span class="comment">// might kill the process before anyone can attach.</span></span><br><span class="line">    activity_manager_write(request.pid, crash_signal, amfd, *amfd_data.get());</span><br><span class="line">  &#125;</span><br><span class="line">  ....</span><br><span class="line"></span><br><span class="line">  close(amfd);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">exit</span>(!succeeded);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>连接AMS用来监听native crash的socket， 从这里我们也可以看到，<code>debuggerd</code>进程实际连接的是在<code>NativeCrashListener.java</code>中创建的socket：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">activity_manager_connect</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  android::base::<span class="function">unique_fd <span class="title">amfd</span><span class="params">(socket(PF_UNIX, SOCK_STREAM, <span class="number">0</span>))</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_un</span> <span class="title">address</span>;</span></span><br><span class="line">  <span class="built_in">memset</span>(&amp;address, <span class="number">0</span>, <span class="keyword">sizeof</span>(address));</span><br><span class="line">  address.sun_family = AF_UNIX;</span><br><span class="line">  <span class="comment">// The path used here must match the value defined in NativeCrashListener.java.</span></span><br><span class="line">  <span class="built_in">strncpy</span>(address.sun_path, <span class="string">"/data/system/ndebugsocket"</span>, <span class="keyword">sizeof</span>(address.sun_path));</span><br><span class="line">  <span class="keyword">if</span> (TEMP_FAILURE_RETRY(connect(amfd.get(), <span class="keyword">reinterpret_cast</span>&lt;struct sockaddr*&gt;(&amp;address), <span class="keyword">sizeof</span>(address))) == <span class="number">-1</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">timeval</span> <span class="title">tv</span>;</span></span><br><span class="line">  <span class="built_in">memset</span>(&amp;tv, <span class="number">0</span>, <span class="keyword">sizeof</span>(tv));</span><br><span class="line">  tv.tv_sec = <span class="number">1</span>;  <span class="comment">// tight leash</span></span><br><span class="line">  <span class="keyword">if</span> (setsockopt(amfd.get(), SOL_SOCKET, SO_SNDTIMEO, &amp;tv, <span class="keyword">sizeof</span>(tv)) == <span class="number">-1</span>) &#123;</span><br><span class="line">    ALOGE(<span class="string">"debuggerd: Unable to connect to activity manager (setsockopt SO_SNDTIMEO failed: %s)"</span>,</span><br><span class="line">          strerror(errno));</span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  tv.tv_sec = <span class="number">3</span>;  <span class="comment">// 3 seconds on handshake read</span></span><br><span class="line">  <span class="keyword">if</span> (setsockopt(amfd.get(), SOL_SOCKET, SO_RCVTIMEO, &amp;tv, <span class="keyword">sizeof</span>(tv)) == <span class="number">-1</span>) &#123;</span><br><span class="line">    ALOGE(<span class="string">"debuggerd: Unable to connect to activity manager (setsockopt SO_RCVTIMEO failed: %s)"</span>,</span><br><span class="line">          strerror(errno));</span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> amfd.release();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><strong>参考源码</strong>： /android/system/core/debuggerd/debuggerd.cpp </p>
+</blockquote>
+<h4 id="ActivityManagerService-java"><a href="#ActivityManagerService-java" class="headerlink" title="ActivityManagerService.java"></a><strong>ActivityManagerService.java</strong></h4><p>进程<code>debuggerd</code>跟AMS是通过一个叫<code>/data/system/ndebugsocket</code>的socket进行通信的，该socket在<code>NativeCrashListener.java</code>中创建的; <code>NativeCrashListener</code>实际是一个线程，它是在AMS初始化时创建的，其作用是一直在监听来自<code>debuggerd</code>进程的请求，如果有则处理：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">NativeCrashListener(ActivityManagerService am) &#123;</span><br><span class="line">       mAm = am;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="meta">@Override</span></span><br><span class="line">   <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">       <span class="keyword">final</span> <span class="keyword">byte</span>[] ackSignal = <span class="keyword">new</span> <span class="keyword">byte</span>[<span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">       <span class="comment">// The file system entity for this socket is created with 0700 perms, owned</span></span><br><span class="line">       <span class="comment">// by system:system.  debuggerd runs as root, so is capable of connecting to</span></span><br><span class="line">       <span class="comment">// it, but 3rd party apps cannot.</span></span><br><span class="line">       ....</span><br><span class="line">       <span class="keyword">try</span> &#123;</span><br><span class="line">           FileDescriptor serverFd = Os.socket(AF_UNIX, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line">           <span class="keyword">final</span> UnixSocketAddress sockAddr = UnixSocketAddress.createFileSystem(</span><br><span class="line">                   DEBUGGERD_SOCKET_PATH);</span><br><span class="line">           Os.bind(serverFd, sockAddr);</span><br><span class="line">           Os.listen(serverFd, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">           <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">               FileDescriptor peerFd = <span class="keyword">null</span>;</span><br><span class="line">               <span class="keyword">try</span> &#123;</span><br><span class="line">                   <span class="comment">// 等待客户端连接</span></span><br><span class="line">                   peerFd = Os.accept(serverFd, <span class="keyword">null</span> <span class="comment">/* peerAddress */</span>);</span><br><span class="line">                   <span class="keyword">if</span> (MORE_DEBUG) Slog.v(TAG, <span class="string">"Got debuggerd socket "</span> + peerFd);</span><br><span class="line">                   <span class="keyword">if</span> (peerFd != <span class="keyword">null</span>) &#123;</span><br><span class="line">                       <span class="comment">// Only the superuser is allowed to talk to us over this socket</span></span><br><span class="line">                       StructUcred credentials =</span><br><span class="line">                               Os.getsockoptUcred(peerFd, SOL_SOCKET, SO_PEERCRED);</span><br><span class="line">                       <span class="keyword">if</span> (credentials.uid == <span class="number">0</span>) &#123;</span><br><span class="line">                           <span class="comment">// 处理Crash数据</span></span><br><span class="line">                           consumeNativeCrashData(peerFd);</span><br><span class="line">                       &#125;</span><br><span class="line">                   &#125;</span><br><span class="line">               &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                   Slog.w(TAG, <span class="string">"Error handling connection"</span>, e);</span><br><span class="line">               &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                   ....</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">       &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">           Slog.e(TAG, <span class="string">"Unable to init native debug socket!"</span>, e);</span><br><span class="line">       &#125;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+<p>读取socket中的Crash数据，并将其报告给AMS：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">consumeNativeCrashData</span><span class="params">(FileDescriptor fd)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">byte</span>[] buf = <span class="keyword">new</span> <span class="keyword">byte</span>[<span class="number">4096</span>];</span><br><span class="line">        <span class="keyword">final</span> ByteArrayOutputStream os = <span class="keyword">new</span> ByteArrayOutputStream(<span class="number">4096</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            StructTimeval timeout = StructTimeval.fromMillis(SOCKET_TIMEOUT_MILLIS);</span><br><span class="line">            Os.setsockoptTimeval(fd, SOL_SOCKET, SO_RCVTIMEO, timeout);</span><br><span class="line">            Os.setsockoptTimeval(fd, SOL_SOCKET, SO_SNDTIMEO, timeout);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// first, the pid and signal number</span></span><br><span class="line">            <span class="keyword">int</span> headerBytes = readExactly(fd, buf, <span class="number">0</span>, <span class="number">8</span>);</span><br><span class="line">            <span class="keyword">if</span> (headerBytes != <span class="number">8</span>) &#123;</span><br><span class="line">                <span class="comment">// protocol failure; give up</span></span><br><span class="line">                Slog.e(TAG, <span class="string">"Unable to read from debuggerd"</span>);</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">int</span> pid = unpackInt(buf, <span class="number">0</span>);</span><br><span class="line">            <span class="keyword">int</span> signal = unpackInt(buf, <span class="number">4</span>);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// now the text of the dump</span></span><br><span class="line">            <span class="keyword">if</span> (pid &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="keyword">final</span> ProcessRecord pr;</span><br><span class="line">                <span class="keyword">synchronized</span> (mAm.mPidsSelfLocked) &#123;</span><br><span class="line">                    pr = mAm.mPidsSelfLocked.get(pid);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (pr != <span class="keyword">null</span>) &#123;</span><br><span class="line">                    <span class="comment">// Don't attempt crash reporting for persistent apps</span></span><br><span class="line">                    <span class="keyword">if</span> (pr.persistent) &#123;</span><br><span class="line">                        <span class="keyword">return</span>;</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">int</span> bytes;</span><br><span class="line">                    <span class="keyword">do</span> &#123;</span><br><span class="line">                        <span class="comment">// get some data</span></span><br><span class="line">                        bytes = Os.read(fd, buf, <span class="number">0</span>, buf.length);</span><br><span class="line">                        <span class="keyword">if</span> (bytes &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                            <span class="comment">// did we just get the EOD null byte?</span></span><br><span class="line">                            <span class="keyword">if</span> (buf[bytes-<span class="number">1</span>] == <span class="number">0</span>) &#123;</span><br><span class="line">                                os.write(buf, <span class="number">0</span>, bytes-<span class="number">1</span>);  <span class="comment">// exclude the EOD token</span></span><br><span class="line">                                <span class="keyword">break</span>;</span><br><span class="line">                            &#125;</span><br><span class="line">                            <span class="comment">// no EOD, so collect it and read more</span></span><br><span class="line">                            os.write(buf, <span class="number">0</span>, bytes);</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125; <span class="keyword">while</span> (bytes &gt; <span class="number">0</span>);</span><br><span class="line">                    ....</span><br><span class="line">                    <span class="comment">// 启动另一个线程NativeCrashReporter通知AMS</span></span><br><span class="line">                    <span class="keyword">final</span> String reportString = <span class="keyword">new</span> String(os.toByteArray(), <span class="string">"UTF-8"</span>);</span><br><span class="line">                    (<span class="keyword">new</span> NativeCrashReporter(pr, signal, reportString)).start();</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    Slog.w(TAG, <span class="string">"Couldn't find ProcessRecord for pid "</span> + pid);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                Slog.e(TAG, <span class="string">"Bogus pid!"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            Slog.e(TAG, <span class="string">"Exception dealing with report"</span>, e);</span><br><span class="line">            <span class="comment">// ugh, fail.</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>通过<code>NativeCrashReporter</code>线程告知AMS有native crash发生：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">NativeCrashReporter</span> <span class="keyword">extends</span> <span class="title">Thread</span> </span>&#123;</span><br><span class="line">    ProcessRecord mApp;</span><br><span class="line">    <span class="keyword">int</span> mSignal;</span><br><span class="line">    String mCrashReport;</span><br><span class="line"></span><br><span class="line">    NativeCrashReporter(ProcessRecord app, <span class="keyword">int</span> signal, String report) &#123;</span><br><span class="line">        <span class="keyword">super</span>(<span class="string">"NativeCrashReport"</span>);</span><br><span class="line">        mApp = app;</span><br><span class="line">        mSignal = signal;</span><br><span class="line">        mCrashReport = report;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            CrashInfo ci = <span class="keyword">new</span> CrashInfo();</span><br><span class="line">            ci.exceptionClassName = <span class="string">"Native crash"</span>;</span><br><span class="line">            ci.exceptionMessage = Os.strsignal(mSignal);</span><br><span class="line">            ci.throwFileName = <span class="string">"unknown"</span>;</span><br><span class="line">            ci.throwClassName = <span class="string">"unknown"</span>;</span><br><span class="line">            ci.throwMethodName = <span class="string">"unknown"</span>;</span><br><span class="line">            ci.stackTrace = mCrashReport;</span><br><span class="line"></span><br><span class="line">            mAm.handleApplicationCrashInner(<span class="string">"native_crash"</span>, mApp, mApp.processName, ci);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            Slog.e(TAG, <span class="string">"Unable to report native crash"</span>, e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>之后的处理流程，跟在第一节关于未捕获异常的时候，就基本一样了。详细可以参考上节内容。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Android/" rel="tag"># Android</a>
+          
+            <a href="/tags/Crash/" rel="tag"># Crash</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/07/01/Android中的任务管理/" rel="next" title="Android中的任务管理">
+                <i class="fa fa-chevron-left"></i> Android中的任务管理
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/07/16/cache揭秘/" rel="prev" title="cache揭秘">
+                cache揭秘 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#APP层Crash处理"><span class="nav-number">1.</span> <span class="nav-text">APP层Crash处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#未捕获异常Crash"><span class="nav-number">1.1.</span> <span class="nav-text">未捕获异常Crash</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#系统挂起"><span class="nav-number">1.2.</span> <span class="nav-text">系统挂起</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Native层Crash处理"><span class="nav-number">2.</span> <span class="nav-text">Native层Crash处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Crash信号处理函数"><span class="nav-number">2.1.</span> <span class="nav-text">Crash信号处理函数</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#debugger-cpp"><span class="nav-number">2.1.1.</span> <span class="nav-text">debugger.cpp</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#debuggerd-cpp"><span class="nav-number">2.1.2.</span> <span class="nav-text">debuggerd.cpp</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ActivityManagerService-java"><span class="nav-number">2.1.3.</span> <span class="nav-text">ActivityManagerService.java</span></a></li></ol></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

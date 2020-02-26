@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Android,RIL,RILD,Telephony,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="前言在上一篇文章里（http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/），简要介绍了Android RIL的架构。这一篇文章，就来看一看RILD（RIL Daemon)相关的内容。Android RIL在HAL(Hardware Abstract Layer)层（C++层）由三个部分组成：  RILD是系统的守护进程，主要用">
+<meta name="keywords" content="Android,RIL,RILD,Telephony">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android RILD详解">
+<meta property="og:url" content="http://sniffer.site/2016/11/29/Android-RILD详解/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="前言在上一篇文章里（http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/），简要介绍了Android RIL的架构。这一篇文章，就来看一看RILD（RIL Daemon)相关的内容。Android RIL在HAL(Hardware Abstract Layer)层（C++层）由三个部分组成：  RILD是系统的守护进程，主要用">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_rild_structure.png">
+<meta property="og:updated_time" content="2019-09-30T08:37:36.624Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Android RILD详解">
+<meta name="twitter:description" content="前言在上一篇文章里（http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/），简要介绍了Android RIL的架构。这一篇文章，就来看一看RILD（RIL Daemon)相关的内容。Android RIL在HAL(Hardware Abstract Layer)层（C++层）由三个部分组成：  RILD是系统的守护进程，主要用">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_rild_structure.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2016/11/29/Android-RILD详解/">
+
+
+
+
+
+  <title>Android RILD详解 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2016/11/29/Android-RILD详解/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">Android RILD详解</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2016-11-29T14:45:00+08:00">
+                2016-11-29
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android/" itemprop="url" rel="index">
+                    <span itemprop="name">Android</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2016/11/29/Android-RILD详解/" class="leancloud_visitors" data-flag-title="Android RILD详解">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a><strong>前言</strong></h2><p>在上一篇文章里（<a href="http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/" title="Android RIL概述">http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/</a>），简要介绍了Android RIL的架构。这一篇文章，就来看一看RILD（RIL Daemon)相关的内容。Android RIL在HAL(Hardware Abstract Layer)层（C++层）由三个部分组成：</p>
+<ul>
+<li>RILD是系统的守护进程，主要用于初始化LIBRIL以及启动厂商自定义的Vendor RIL；</li>
+<li>LIBRIL库被RILD初始化完成后，用于与Vendor RIL之间进行交互，负责接收、发送指令；</li>
+<li>Vendor RIL库是第三方厂商自定义的一个库，用于向Modem发送指令或者接收来自LIBRIL或者Modem的指令, Android有一个基于AT指令的默认参考实现(<code>reference-ril</code>)</li>
+</ul>
+<a id="more"></a>
+<p>三者之间的关系图如下所示：</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_rild_structure.png" alt="RILD and LIBRIL"></p>
+<p>从这里可以看到，RILD在启动时，负责将LibRil以及Vendor RIL进行初始化，将相应的回调函数以及调用接口进行注册，LibRIL向vendor RIL提供了接口<code>RIL_Env</code>，当Vendor有消息时，利用该回调返回；而Vendor RIL 同样提供了接口<code>RIL_RadioFunctions</code>,给LibRIl调用。这里涉及到3个主要问题：</p>
+<ol>
+<li>RILD是如何启动？</li>
+<li>RILD是如何进行初始化操作的？</li>
+<li>初始完成后，LIBRIL是如何进行消息的接收与发送的？</li>
+</ol>
+<h2 id="RILD是如何启动的"><a href="#RILD是如何启动的" class="headerlink" title="RILD是如何启动的"></a><strong>RILD是如何启动的</strong></h2><p>RILD(RIL Daemon)是系统的守护进程，系统已启动，就会一直运行。手机开机时，kernel完成初始化后，Android启动一个初始化进程Init用于加载系统基础服务，如文件系统，zygote进程，服务管家ServiceManager,以及RILD：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">service ril-daemon /system/bin/rild</span><br><span class="line">    class main</span><br><span class="line">    socket rild stream 660 root radio</span><br><span class="line">    socket rild-debug stream 660 radio system</span><br><span class="line">    user root</span><br><span class="line">    group radio cache inet misc audio log</span><br></pre></td></tr></table></figure>
+<p>这里，init进程从手机文件系统目录<code>system/bin/rild</code>中读取RILD的可执行文件，加载到内存运行；同时，创建两个socket端口:rild和rild-debug,其中rild用于RILJ与RILD之间的数据通信，而rild-debug则用于RILJ与RILD的调试。</p>
+<blockquote>
+<ul>
+<li>开机流程可参考：<a href="http://blog.csdn.net/jason_wzn/article/details/52278533" title="Android开机流程" target="_blank" rel="noopener">http://blog.csdn.net/jason_wzn/article/details/52278533</a></li>
+<li>Android初始化语言init可参考：<a href="http://blog.csdn.net/jason_wzn/article/details/50790810" title="init初始化语言" target="_blank" rel="noopener">http://blog.csdn.net/jason_wzn/article/details/50790810</a></li>
+</ul>
+</blockquote>
+<h2 id="RILD是如何进行初始化的"><a href="#RILD是如何进行初始化的" class="headerlink" title="RILD是如何进行初始化的"></a><strong>RILD是如何进行初始化的</strong></h2><p>RILD启动后，一方面会去初始化Vendor RIL，将LIBRIL的回调接口<code>RIL_Env</code>传递给Vendor RIL；同时将Vendor RIL的接口<code>RIL_RadioFunctions</code>注册到LIBRIL中，这样一旦初始化完成，LIBRIL与Vendor RIL就可以进行数据的交换了。</p>
+<p>来看一看RILD的代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">int main(int argc, char **argv)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">   // Vendor RIL接口函数</span><br><span class="line">    const RIL_RadioFunctions *(*rilInit)(const struct RIL_Env *, int, char **);</span><br><span class="line">    const RIL_RadioFunctions *funcs;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">OpenLib:</span><br><span class="line"></span><br><span class="line">	//从指定路径加载RILD可执行文件</span><br><span class="line">    dlHandle = dlopen(rilLibPath, RTLD_NOW);</span><br><span class="line"></span><br><span class="line">    if (dlHandle == NULL) &#123;</span><br><span class="line">        RLOGE(&quot;dlopen failed: %s&quot;, dlerror());</span><br><span class="line">        exit(EXIT_FAILURE);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">	// 启动LIBRIL的事件处理线程</span><br><span class="line">    RIL_startEventLoop();</span><br><span class="line">	// Vendor RIL初始化函数，返回一个RIL_RadioFunctions</span><br><span class="line">    rilInit = (const RIL_RadioFunctions *(*)(const struct RIL_Env *, int, char **))dlsym(dlHandle, &quot;RIL_Init&quot;);</span><br><span class="line">	...</span><br><span class="line">    funcs = rilInit(&amp;s_rilEnv, argc, rilArgv);</span><br><span class="line">    RLOGD(&quot;RIL_Init rilInit completed&quot;);</span><br><span class="line">	// 将 RIL_RadioFunctions注册到LIBRIL中</span><br><span class="line">    RIL_register(funcs);</span><br><span class="line"></span><br><span class="line">    RLOGD(&quot;RIL_Init RIL_register completed&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>RILD初始化主要完成两件事：（1） 加载Vendor RIL的代码，并对其进行初始化操作，将LIBRIL的接口<code>RIL_Env</code>传递给Vendor RIL，用于回调；(2)开始RIL事件处理线程；（3）将Vendor RIL的接口注册到LIBRIL中，这样LIBRIL就可以将消息发送给Vendor RIL了。</p>
+<ul>
+<li><code>RIL_startEventLoop()</code>启动RIL事件处理线程：</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">extern &quot;C&quot; void RIL_startEventLoop(void) &#123;</span><br><span class="line">    /* spin up eventLoop thread and wait for it to get started */</span><br><span class="line">    s_started = 0;</span><br><span class="line">    pthread_mutex_lock(&amp;s_startupMutex);</span><br><span class="line">	...</span><br><span class="line">	// eventLoop函数才是真正开始启动事件处理线程的地方</span><br><span class="line">    int result = pthread_create(&amp;s_tid_dispatch, &amp;attr, eventLoop, NULL);</span><br><span class="line">    if (result != 0) &#123;</span><br><span class="line">        RLOGE(&quot;Failed to create dispatch thread: %s&quot;, strerror(result));</span><br><span class="line">        goto done;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    while (s_started == 0) &#123;</span><br><span class="line">        pthread_cond_wait(&amp;s_startupCond, &amp;s_startupMutex);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">done:</span><br><span class="line">    pthread_mutex_unlock(&amp;s_startupMutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// evetLoop </span><br><span class="line"></span><br><span class="line">static void *eventLoop(void *param) &#123;</span><br><span class="line">    int ret;</span><br><span class="line">    int filedes[2];</span><br><span class="line">	//初始化事件队列</span><br><span class="line">    ril_event_init();</span><br><span class="line"></span><br><span class="line">    pthread_mutex_lock(&amp;s_startupMutex);</span><br><span class="line"></span><br><span class="line">    s_started = 1;</span><br><span class="line">    pthread_cond_broadcast(&amp;s_startupCond);</span><br><span class="line"></span><br><span class="line">    pthread_mutex_unlock(&amp;s_startupMutex);</span><br><span class="line"></span><br><span class="line">    ret = pipe(filedes);</span><br><span class="line">	// 用于监听wakeup事件的pipe端口</span><br><span class="line">    s_fdWakeupRead = filedes[0];</span><br><span class="line">    s_fdWakeupWrite = filedes[1];</span><br><span class="line">	//设置线程唤醒事件，唤醒时，回调processWakeupCallback函数</span><br><span class="line">    ril_event_set (&amp;s_wakeupfd_event, s_fdWakeupRead, true,</span><br><span class="line">                processWakeupCallback, NULL);</span><br><span class="line"></span><br><span class="line">    rilEventAddWakeup (&amp;s_wakeupfd_event);</span><br><span class="line"></span><br><span class="line">    // 真正干活的函数</span><br><span class="line">    ril_event_loop();</span><br><span class="line">    // kill self to restart on error</span><br><span class="line">    kill(0, SIGKILL);</span><br><span class="line"></span><br><span class="line">    return NULL;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>RILD初始化vendor RIL之后，将返回的<code>RIL_RadioFunctions</code>返回给RILD，RILD接着将其注册到LIBRIL中：</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">extern &quot;C&quot; void RIL_register (const RIL_RadioFunctions *callbacks) &#123;</span><br><span class="line">    ...</span><br><span class="line">    /* Initialize socket1 parameters */</span><br><span class="line">    s_ril_param_socket = &#123;</span><br><span class="line">                        RIL_SOCKET_1,             /* socket_id */</span><br><span class="line">                        -1,                       /* fdListen */</span><br><span class="line">                        -1,                       /* fdCommand */</span><br><span class="line">                        PHONE_PROCESS,            /* processName */</span><br><span class="line">                        &amp;s_commands_event,        /* commands_event */</span><br><span class="line">                        &amp;s_listen_event,          /* listen_event */</span><br><span class="line">                        processCommandsCallback,  /* processCommandsCallback */</span><br><span class="line">                        NULL                      /* p_rs */</span><br><span class="line">                        &#125;;</span><br><span class="line">	....</span><br><span class="line">	// back compatibility</span><br><span class="line">    if (s_started == 0) &#123;</span><br><span class="line">        RIL_startEventLoop();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    // start listen socket1</span><br><span class="line">    startListen(RIL_SOCKET_1, &amp;s_ril_param_socket);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// startListen</span><br><span class="line">static void startListen(RIL_SOCKET_ID socket_id, SocketListenParam* socket_listen_p) &#123;</span><br><span class="line">    int fdListen = -1;</span><br><span class="line">    int ret;</span><br><span class="line">    char socket_name[10];</span><br><span class="line"></span><br><span class="line">    memset(socket_name, 0, sizeof(char)*10);</span><br><span class="line"></span><br><span class="line">    switch(socket_id) &#123;</span><br><span class="line">        case RIL_SOCKET_1:</span><br><span class="line">            strncpy(socket_name, RIL_getRilSocketName(), 9);</span><br><span class="line">            break;</span><br><span class="line">	....</span><br><span class="line">	// 获取 Unix domain socket对应的FD</span><br><span class="line">    fdListen = android_get_control_socket(socket_name);</span><br><span class="line">	// 监听端口	</span><br><span class="line">    ret = listen(fdListen, 4);</span><br><span class="line"></span><br><span class="line">    socket_listen_p-&gt;fdListen = fdListen;</span><br><span class="line">	// 设置监听回调事件 listenCallback，RILJ主动连接RILD时，处理该回调</span><br><span class="line">    /* note: non-persistent so we can accept only one connection at a time */</span><br><span class="line">    ril_event_set (socket_listen_p-&gt;listen_event, fdListen, false,</span><br><span class="line">                listenCallback, socket_listen_p);</span><br><span class="line">	//添加到事件队列中，并唤醒事件处理线程</span><br><span class="line">    rilEventAddWakeup (socket_listen_p-&gt;listen_event);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>源代码： <code>/hardware/ril/libril/ril.cpp</code></p>
+</blockquote>
+<p>接下来，我们就来看一看LIBRIL与Vendor RIL各自提供的接口函数。 这两个接口都在<code>/hardware/ril/include/telephony/ril.h</code>中进行了声明。</p>
+<p>Vendor RIL主要提供了5个接口，供LIBRIL调用：</p>
+<ul>
+<li><code>RIL_RequestFunc</code>是最主要的一个，所有从RILJ发送过来的请求均由该接口发送给Vendor RIL；</li>
+<li><code>RIL_RadioStateRequest</code>从LIBRIL获取modem的即时状态；</li>
+<li><code>RIL_Supports</code>判断Vendor RIL是否支持某个请求命令；</li>
+<li><code>RIL_Cancel</code>取消某个请求命令；</li>
+<li><code>RIL_GetVersion</code>获取RIL的版本号；</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">typedef struct &#123;</span><br><span class="line">    int version;        /* set to RIL_VERSION */</span><br><span class="line">    RIL_RequestFunc onRequest;</span><br><span class="line">    RIL_RadioStateRequest onStateRequest;</span><br><span class="line">    RIL_Supports supports;</span><br><span class="line">    RIL_Cancel onCancel;</span><br><span class="line">    RIL_GetVersion getVersion;</span><br><span class="line">&#125; RIL_RadioFunctions;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">// 将从RILJ发送过来的请求发送给Vendor RIL</span><br><span class="line">typedef void (*RIL_RequestFunc) (int request, void *data,</span><br><span class="line">                                    size_t datalen, RIL_Token t, RIL_SOCKET_ID socket_id);</span><br><span class="line">// 获取 modem 状态</span><br><span class="line">typedef RIL_RadioState (*RIL_RadioStateRequest)(RIL_SOCKET_ID socket_id);</span><br></pre></td></tr></table></figure>
+<p>LIBRIL则向Vendor RIL提供了3个接口：</p>
+<ul>
+<li><code>OnRequestComplete</code>:RIL请求完成后，通过该接口将数据返回给LIBRIL，由LIBRIL将数据写入socket <code>RILD</code>;</li>
+<li><code>OnUnsolicitedResponse</code>:CP主动上报消息给Vendor RIL后，通过该接口将消息传给LIBRIL;</li>
+<li><code>RequestTimedCallback</code>:在指定时间内，LIBRIL调用回调函数<code>RequestTimedCallback</code>；</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">struct RIL_Env &#123;</span><br><span class="line">	// 请求完成，返回给LIBRIL</span><br><span class="line">    void (*OnRequestComplete)(RIL_Token t, RIL_Errno e,</span><br><span class="line">                           void *response, size_t responselen);</span><br><span class="line"></span><br><span class="line">// Vendor RIL接收到从CP主动上报的消息后，传给LIBRIL</span><br><span class="line">#if defined(ANDROID_MULTI_SIM)</span><br><span class="line">    void (*OnUnsolicitedResponse)(int unsolResponse, const void *data, size_t datalen, RIL_SOCKET_ID socket_id);</span><br><span class="line">#else</span><br><span class="line">    /**</span><br><span class="line">     * &quot;unsolResponse&quot; is one of RIL_UNSOL_RESPONSE_*</span><br><span class="line">     * &quot;data&quot; is pointer to data defined for that RIL_UNSOL_RESPONSE_*</span><br><span class="line">     */</span><br><span class="line">    void (*OnUnsolicitedResponse)(int unsolResponse, const void *data, size_t datalen);</span><br><span class="line">#endif</span><br><span class="line">    /**</span><br><span class="line">     * Call user-specifed &quot;callback&quot; function on on the same thread that</span><br><span class="line">     * RIL_RequestFunc is called. If &quot;relativeTime&quot; is specified, then it specifies</span><br><span class="line">     * a relative time value at which the callback is invoked. If relativeTime is</span><br><span class="line">     * NULL or points to a 0-filled structure, the callback will be invoked as</span><br><span class="line">     * soon as possible</span><br><span class="line">     */</span><br><span class="line">	// 指定时间内LIBRIL调用回调函数RIL_TimedCallback</span><br><span class="line">    void (*RequestTimedCallback) (RIL_TimedCallback callback,</span><br><span class="line">                                   void *param, const struct timeval *relativeTime);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>代码路径： <code>/hardware/ril/rild/rild.c</code></p>
+</blockquote>
+<p>初始化完成了 ，那么RIL事件处理线程是从何时开始处理事件的了？RIL事件处理线程是怎么又是同时处理来自RILJ以及Vendor RIL的消息的？下面就来看一看LIBRIL如何处理RIL事件的。</p>
+<h2 id="LIBRIL如何处理RIL事件"><a href="#LIBRIL如何处理RIL事件" class="headerlink" title="LIBRIL如何处理RIL事件"></a><strong>LIBRIL如何处理RIL事件</strong></h2><p>为处理RIL事件，LIBRIL提供了3个事件队列（由双向列表组成）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">static struct ril_event * watch_table[MAX_FD_EVENTS];</span><br><span class="line">static struct ril_event timer_list;</span><br><span class="line">static struct ril_event pending_list;</span><br></pre></td></tr></table></figure>
+<p>其中，<code>watch_table</code>用于事件的监测，<code>timer_list</code>保存定时事件，而<code>pending_list</code>用于保存即将被处理的事件列表。对LIBRIL来讲，有3种类型的RIL事件需要处理：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// RILJ请求事件</span><br><span class="line">static struct ril_event s_commands_event;</span><br><span class="line">// 事件处理线程唤醒事件</span><br><span class="line">static struct ril_event s_wakeupfd_event;</span><br><span class="line">// RILD socket端口监听事件</span><br><span class="line">static struct ril_event s_listen_event;</span><br></pre></td></tr></table></figure>
+<p>上一节我们了解到，在RIL事件处理线程开始时，LIBRIL会添加一个<code>s_wakeupfd_event</code>的唤醒事件，必要时对线程进行唤醒操作；在注册Vendor RIL的接口时，注册一个监听事件<code>s_listen_event</code>，当RILJ尝试通过socket连接RILD时，处理该事件；当RILJ与RILD连接成功后，处理回调函数<code>listenCallback</code>时，会添加一个 <code>s_commands_event</code>事件，用于处理RILD socket的数据。</p>
+<p>那么，LIBRIL是从何时开始处理这些事件的？上一节我们了解到，初始化时，LIBRIL启动了一个专门的线程来处理RIL事件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">void ril_event_loop()</span><br><span class="line">&#123;</span><br><span class="line">    int n;</span><br><span class="line">    fd_set rfds;</span><br><span class="line">    struct timeval tv;</span><br><span class="line">    struct timeval * ptv;</span><br><span class="line"></span><br><span class="line">    for (;;) &#123;</span><br><span class="line"></span><br><span class="line">        // make local copy of read fd_set</span><br><span class="line">        memcpy(&amp;rfds, &amp;readFds, sizeof(fd_set));</span><br><span class="line">		....</span><br><span class="line">		// 从FD集合中选择可用的端口</span><br><span class="line">        n = select(nfds, &amp;rfds, NULL, NULL, ptv);</span><br><span class="line">		....</span><br><span class="line">        // 处理timer队列中超时的事件</span><br><span class="line">        processTimeouts();</span><br><span class="line">        // 处理监测队列中的事件: listenCallback,</span><br><span class="line">        processReadReadies(&amp;rfds, n);</span><br><span class="line">        // OK，fire pending list</span><br><span class="line">        firePending();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>该线程，一直监听FD(File Descriptor)集合<code>readFds</code>，如果有数据时，就会立即返回，进而开始执行事件的处理：首先处理定时事件队列中的event,如果发现有超时的事件，就将其加入pending队列中；接着，查看监测表（保存了最多8个事件）中是否有<code>readFds</code>对应的RIL事件，如果存在，则也将其放入到pending队列。最后，就要开始处理pending队列了：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">static void firePending()</span><br><span class="line">&#123;</span><br><span class="line">    dlog(&quot;~~~~ +firePending ~~~~&quot;);</span><br><span class="line">    struct ril_event * ev = pending_list.next;</span><br><span class="line">    while (ev != &amp;pending_list) &#123;</span><br><span class="line">        struct ril_event * next = ev-&gt;next;</span><br><span class="line">        removeFromList(ev);</span><br><span class="line">		// 执行回调函数: processWakeupCallback,listenCallback,processCommandsCallback...</span><br><span class="line">        ev-&gt;func(ev-&gt;fd, 0, ev-&gt;param);</span><br><span class="line">        ev = next;</span><br><span class="line">    &#125;</span><br><span class="line">    dlog(&quot;~~~~ -firePending ~~~~&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>源码：<code>/android/hardware/ril/libril/samsung/ril_event.cpp</code></p>
+</blockquote>
+<p>LIBRIL事件处理线程开始时，只有两个事件：<code>s_wakeupfd_event</code>与<code>s_listen_event</code>，<code>s_wakeupfd_event</code>事件在添加<code>s_listen_event</code>事件，需要唤醒RIL事件处理线程被执行：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">static void triggerEvLoop() &#123;</span><br><span class="line">    int ret;</span><br><span class="line">    if (!pthread_equal(pthread_self(), s_tid_dispatch)) &#123;</span><br><span class="line">        /* trigger event loop to wakeup. No reason to do this,</span><br><span class="line">         * if we&apos;re in the event loop thread */</span><br><span class="line">         do &#123;</span><br><span class="line">            ret = write (s_fdWakeupWrite, &quot; &quot;, 1);</span><br><span class="line">         &#125; while (ret &lt; 0 &amp;&amp; errno == EINTR);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>接着，开始执行<code>s_listen_event</code>事件，调用回调函数<code>listenCallback</code>:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">static void listenCallback (int fd, short flags, void *param) &#123;</span><br><span class="line">	....</span><br><span class="line">	// 接受RILJ的链接请求</span><br><span class="line">    fdCommand = accept(fd, (sockaddr *) &amp;peeraddr, &amp;socklen);</span><br><span class="line"></span><br><span class="line">    /* check the credential of the other side and only accept socket from</span><br><span class="line">     * phone process</span><br><span class="line">     */</span><br><span class="line">    is_phone_socket = 0;</span><br><span class="line"></span><br><span class="line">    err = getsockopt(fdCommand, SOL_SOCKET, SO_PEERCRED, &amp;creds, &amp;szCreds);</span><br><span class="line">	</span><br><span class="line">	....</span><br><span class="line"></span><br><span class="line">    ret = fcntl(fdCommand, F_SETFL, O_NONBLOCK);</span><br><span class="line">	....</span><br><span class="line"></span><br><span class="line">    p_info-&gt;fdCommand = fdCommand;</span><br><span class="line">	</span><br><span class="line">    p_rs = record_stream_new(p_info-&gt;fdCommand, MAX_COMMAND_BYTES);</span><br><span class="line"></span><br><span class="line">    p_info-&gt;p_rs = p_rs;</span><br><span class="line">    ril_event_set (p_info-&gt;commands_event, p_info-&gt;fdCommand, 1,</span><br><span class="line">        p_info-&gt;processCommandsCallback, p_info);</span><br><span class="line">	// 添加指令事件`s_commands_event`</span><br><span class="line">    rilEventAddWakeup (p_info-&gt;commands_event);</span><br><span class="line">	// 建立新的连接，告知RILJ链接成功，并上报radio状态</span><br><span class="line">    onNewCommandConnect(p_info-&gt;socket_id);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>下次处理pending事件队列时，处理<code>s_commands_event</code>,调用回调函数<code>processCommandsCallback</code>：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">	static void processCommandsCallback(int fd, short flags, void *param) &#123;</span><br><span class="line">		// 循环读 RILD socket接口数据流</span><br><span class="line">	    for (;;) &#123;</span><br><span class="line">	        /* loop until EAGAIN/EINTR, end of stream, or other error */</span><br><span class="line">			// 读取 socket数据流</span><br><span class="line">	        ret = record_stream_get_next(p_rs, &amp;p_record, &amp;recordlen);</span><br><span class="line">	</span><br><span class="line">	        if (ret == 0 &amp;&amp; p_record == NULL) &#123;</span><br><span class="line">	            /* end-of-stream */</span><br><span class="line">	            break;</span><br><span class="line">	        &#125; else if (ret &lt; 0) &#123;</span><br><span class="line">	            break;</span><br><span class="line">	        &#125; else if (ret == 0) &#123; /* &amp;&amp; p_record != NULL */</span><br><span class="line">	            processCommandBuffer(p_record, recordlen, p_info-&gt;socket_id);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;</span><br><span class="line">		....</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	// processCommandBuffer</span><br><span class="line">	static int processCommandBuffer(void *buffer, size_t buflen, RIL_SOCKET_ID socket_id) &#123;</span><br><span class="line">	</span><br><span class="line">	    RequestInfo *pRI;</span><br><span class="line">		...</span><br><span class="line">	    pRI = (RequestInfo *)calloc(1, sizeof(RequestInfo));</span><br><span class="line">	</span><br><span class="line">	    pRI-&gt;token = token;</span><br><span class="line">		// 根据 RILJ的REQUEST类型来获取CommandInfo</span><br><span class="line">	    pRI-&gt;pCI = &amp;(s_commands[request]);</span><br><span class="line">	    pRI-&gt;socket_id = socket_id;</span><br><span class="line">		...</span><br><span class="line">		// 将请求分配给对应的函数处理</span><br><span class="line">	    pRI-&gt;pCI-&gt;dispatchFunction(p, pRI);</span><br><span class="line">	</span><br><span class="line">	    return 0;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述代码中，<code>s_commands</code>将所有RILJ的请求命令，对应的请求函数以及响应处理函数组成一个类型为<code>commandInfo</code>的结构体数组，等请求从CP返回时，就可以调用对应的响应函数来处理返回的结果了：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">static CommandInfo s_commands[] = &#123;</span><br><span class="line">	#include &quot;ril_commands.h&quot;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">   &#123;0, NULL, NULL&#125;,                   //none</span><br><span class="line">   &#123;RIL_REQUEST_GET_SIM_STATUS, dispatchVoid, responseSimStatus&#125;,</span><br><span class="line">   &#123;RIL_REQUEST_ENTER_SIM_PIN, dispatchStrings, responseInts&#125;,</span><br><span class="line">   &#123;RIL_REQUEST_ENTER_SIM_PUK, dispatchStrings, responseInts&#125;,</span><br><span class="line">   &#123;RIL_REQUEST_ENTER_SIM_PIN2, dispatchStrings, responseInts&#125;,</span><br><span class="line">   &#123;RIL_REQUEST_ENTER_SIM_PUK2, dispatchStrings, responseInts&#125;,</span><br><span class="line">   &#123;RIL_REQUEST_CHANGE_SIM_PIN, dispatchStrings, responseInts&#125;,</span><br><span class="line">   &#123;RIL_REQUEST_CHANGE_SIM_PIN2, dispatchStrings, responseInts&#125;,</span><br><span class="line">....</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>源码： <code>/android/hardware/ril/libril/samsung/ril_commands.h</code></p>
+</blockquote>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
+<li>源码： <a href="http://androidxref.com/5.1.1_r6/" target="_blank" rel="noopener">androidxref - 5.1</a></li>
+<li><a href="http://blog.csdn.net/maxleng/article/details/5576637" target="_blank" rel="noopener">http://blog.csdn.net/maxleng/article/details/5576637</a></li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Android/" rel="tag"># Android</a>
+          
+            <a href="/tags/RIL/" rel="tag"># RIL</a>
+          
+            <a href="/tags/RILD/" rel="tag"># RILD</a>
+          
+            <a href="/tags/Telephony/" rel="tag"># Telephony</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/11/19/Android-RIL概述/" rel="next" title="Android RIL概述">
+                <i class="fa fa-chevron-left"></i> Android RIL概述
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/12/26/罗素《权威与个人》/" rel="prev" title="罗素《权威与个人》">
+                罗素《权威与个人》 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RILD是如何启动的"><span class="nav-number">2.</span> <span class="nav-text">RILD是如何启动的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RILD是如何进行初始化的"><span class="nav-number">3.</span> <span class="nav-text">RILD是如何进行初始化的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LIBRIL如何处理RIL事件"><span class="nav-number">4.</span> <span class="nav-text">LIBRIL如何处理RIL事件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文献"><span class="nav-number">5.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

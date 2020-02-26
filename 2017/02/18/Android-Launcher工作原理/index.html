@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Android,Launcher,SystemServer,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="Android系统启动完成后，第一个启动的Activity就是主界面应用程序Launcher，相当于电脑的桌面。Launcher界面可以看到系统中安装的所有APP,点击APP即可启动该APP应用了。那么，Launcher到底是如何启动的以及如何自定义自己的Launcher了？这篇文章我们就来讲讲这两个问题。">
+<meta name="keywords" content="Android,Launcher,SystemServer">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android Launcher工作原理">
+<meta property="og:url" content="http://sniffer.site/2017/02/18/Android-Launcher工作原理/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="Android系统启动完成后，第一个启动的Activity就是主界面应用程序Launcher，相当于电脑的桌面。Launcher界面可以看到系统中安装的所有APP,点击APP即可启动该APP应用了。那么，Launcher到底是如何启动的以及如何自定义自己的Launcher了？这篇文章我们就来讲讲这两个问题。">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2017-05-21T08:27:24.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Android Launcher工作原理">
+<meta name="twitter:description" content="Android系统启动完成后，第一个启动的Activity就是主界面应用程序Launcher，相当于电脑的桌面。Launcher界面可以看到系统中安装的所有APP,点击APP即可启动该APP应用了。那么，Launcher到底是如何启动的以及如何自定义自己的Launcher了？这篇文章我们就来讲讲这两个问题。">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2017/02/18/Android-Launcher工作原理/">
+
+
+
+
+
+  <title>Android Launcher工作原理 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2017/02/18/Android-Launcher工作原理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">Android Launcher工作原理</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-02-18T21:26:50+08:00">
+                2017-02-18
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android/" itemprop="url" rel="index">
+                    <span itemprop="name">Android</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2017/02/18/Android-Launcher工作原理/" class="leancloud_visitors" data-flag-title="Android Launcher工作原理">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>Android系统启动完成后，第一个启动的Activity就是主界面应用程序Launcher，相当于电脑的桌面。Launcher界面可以看到系统中安装的所有APP,点击APP即可启动该APP应用了。那么，Launcher到底是如何启动的以及如何自定义自己的Launcher了？这篇文章我们就来讲讲这两个问题。</p>
+<a id="more"></a>
+<h2 id="Launcher的启动"><a href="#Launcher的启动" class="headerlink" title="Launcher的启动"></a><strong>Launcher的启动</strong></h2><p>系统进程<code>SystemServer</code>启动后，开始加载系统核心服务如 <code>ActivityManagerService</code>,<code>WindowManagerService</code>,<code>PowerManagerService</code>，同时加载系统的其他如<code>VibratorService</code>，<code>ConnectivityService</code>以及<code>TelephonyRegistry</code>等系统服务，最后着手启动HOME activity:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">startOtherServices</span><span class="params">()</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 准备启动SystemUI以及HOME界面</span></span><br><span class="line">    mActivityManagerService.systemReady(<span class="keyword">new</span> Runnable() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            mSystemServiceManager.startBootPhase(</span><br><span class="line">                    SystemService.PHASE_ACTIVITY_MANAGER_READY);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                mActivityManagerService.startObservingNativeCrashes();</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                reportWtf(<span class="string">"observing native crashes"</span>, e);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">            Trace.traceBegin(Trace.TRACE_TAG_SYSTEM_SERVER, <span class="string">"StartSystemUI"</span>);</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                startSystemUi(context);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                reportWtf(<span class="string">"starting System UI"</span>, e);</span><br><span class="line">            &#125;</span><br><span class="line">            ....</span><br><span class="line">            <span class="comment">// 第三方应用可以启动了</span></span><br><span class="line">            mSystemServiceManager.startBootPhase(</span><br><span class="line">                    SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);</span><br><span class="line"></span><br><span class="line">            ....</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>AMS准备工作完毕，着手启动HOME：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">systemReady</span><span class="params">(<span class="keyword">final</span> Runnable goingCallback)</span> </span>&#123;</span><br><span class="line">       ....</span><br><span class="line">       <span class="comment">//获取系统配置</span></span><br><span class="line">       retrieveSettings();</span><br><span class="line">       <span class="keyword">final</span> <span class="keyword">int</span> currentUserId;</span><br><span class="line">       <span class="keyword">synchronized</span> (<span class="keyword">this</span>) &#123;</span><br><span class="line">           currentUserId = mUserController.getCurrentUserIdLocked();</span><br><span class="line">           readGrantedUriPermissionsLocked();</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="comment">// 执行回调</span></span><br><span class="line">       <span class="keyword">if</span> (goingCallback != <span class="keyword">null</span>) goingCallback.run();</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">       <span class="keyword">synchronized</span> (<span class="keyword">this</span>) &#123;</span><br><span class="line">    </span><br><span class="line">           <span class="comment">// Start up initial activity.</span></span><br><span class="line">           mBooting = <span class="keyword">true</span>;</span><br><span class="line">           <span class="comment">// Enable home activity for system user, so that the system can always boot</span></span><br><span class="line">           <span class="keyword">if</span> (UserManager.isSplitSystemUser()) &#123;</span><br><span class="line">               ComponentName cName = <span class="keyword">new</span> ComponentName(mContext, SystemUserHomeActivity.class);</span><br><span class="line">               <span class="keyword">try</span> &#123;</span><br><span class="line">                   AppGlobals.getPackageManager().setComponentEnabledSetting(cName,</span><br><span class="line">                           PackageManager.COMPONENT_ENABLED_STATE_ENABLED, <span class="number">0</span>,</span><br><span class="line">                           UserHandle.USER_SYSTEM);</span><br><span class="line">               &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">                   <span class="keyword">throw</span> e.rethrowAsRuntimeException();</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="comment">// 启动HOME应用</span></span><br><span class="line">           startHomeActivityLocked(currentUserId, <span class="string">"systemReady"</span>);</span><br><span class="line">    </span><br><span class="line">   &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>启动HOME界面:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">    </span><br><span class="line">String mTopAction = Intent.ACTION_MAIN;</span><br><span class="line">    </span><br><span class="line"><span class="function">Intent <span class="title">getHomeIntent</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">       Intent intent = <span class="keyword">new</span> Intent(mTopAction, mTopData != <span class="keyword">null</span> ? Uri.parse(mTopData) : <span class="keyword">null</span>);</span><br><span class="line">       intent.setComponent(mTopComponent);</span><br><span class="line">       intent.addFlags(Intent.FLAG_DEBUG_TRIAGED_MISSING);</span><br><span class="line">       <span class="keyword">if</span> (mFactoryTest != FactoryTest.FACTORY_TEST_LOW_LEVEL) &#123;</span><br><span class="line">           <span class="comment">// intent的类别为HOME</span></span><br><span class="line">           intent.addCategory(Intent.CATEGORY_HOME);</span><br><span class="line">          &#125;</span><br><span class="line">       <span class="keyword">return</span> intent;</span><br><span class="line">   &#125;</span><br><span class="line">    </span><br><span class="line">   <span class="function"><span class="keyword">boolean</span> <span class="title">startHomeActivityLocked</span><span class="params">(<span class="keyword">int</span> userId, String reason)</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">       Intent intent = getHomeIntent();</span><br><span class="line">    </span><br><span class="line">       ActivityInfo aInfo =</span><br><span class="line">           resolveActivityInfo(intent, STOCK_PM_FLAGS | (needToCheckBbc ? PackageManager.GET_META_DATA : <span class="number">0</span>), userId);</span><br><span class="line">    </span><br><span class="line">       <span class="keyword">if</span> (aInfo != <span class="keyword">null</span>) &#123;</span><br><span class="line">           intent.setComponent(<span class="keyword">new</span> ComponentName(aInfo.applicationInfo.packageName, aInfo.name));</span><br><span class="line">           <span class="comment">// Don't do this if the home app is currently being</span></span><br><span class="line">           <span class="comment">// instrumented.</span></span><br><span class="line">           aInfo = <span class="keyword">new</span> ActivityInfo(aInfo);</span><br><span class="line">           aInfo.applicationInfo = getAppInfoForUser(aInfo.applicationInfo, userId);</span><br><span class="line">           ProcessRecord app = getProcessRecordLocked(aInfo.processName,</span><br><span class="line">                   aInfo.applicationInfo.uid, <span class="keyword">true</span>);</span><br><span class="line">           <span class="keyword">if</span> (app == <span class="keyword">null</span> || app.instrumentationClass == <span class="keyword">null</span>) &#123;</span><br><span class="line">               intent.setFlags(intent.getFlags() | Intent.FLAG_ACTIVITY_NEW_TASK);</span><br><span class="line">    </span><br><span class="line">               <span class="keyword">if</span> (needToCheckBbc) &#123;</span><br><span class="line">                   aInfo = PersonaManagerService.changeInfoIfBBC(mContext, aInfo, intent);</span><br><span class="line">               &#125;</span><br><span class="line">               mActivityStarter.startHomeActivityLocked(intent, aInfo, reason);</span><br><span class="line">           &#125;</span><br><span class="line">       &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">           Slog.wtf(TAG, <span class="string">"No home screen found for "</span> + intent, <span class="keyword">new</span> Throwable());</span><br><span class="line">       &#125;</span><br><span class="line">    </span><br><span class="line">       <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>向AMS发送启动Activity的Binder请求：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">ActivityStarter</span> </span>&#123;</span><br><span class="line">   ....</span><br><span class="line">   <span class="function"><span class="keyword">void</span> <span class="title">startHomeActivityLocked</span><span class="params">(Intent intent, ActivityInfo aInfo, String reason)</span> </span>&#123;</span><br><span class="line">        <span class="comment">//将HOME activity放在任务栈的顶部</span></span><br><span class="line">        mSupervisor.moveHomeStackTaskToTop(HOME_ACTIVITY_TYPE, reason);</span><br><span class="line">        <span class="comment">//向AMS发送binder请求，启动activity</span></span><br><span class="line">        startActivityLocked(<span class="keyword">null</span> <span class="comment">/*caller*/</span>, intent, <span class="keyword">null</span> <span class="comment">/*ephemeralIntent*/</span>,</span><br><span class="line">                <span class="keyword">null</span> <span class="comment">/*resolvedType*/</span>, aInfo, <span class="keyword">null</span> <span class="comment">/*rInfo*/</span>, <span class="keyword">null</span> <span class="comment">/*voiceSession*/</span>,</span><br><span class="line">                <span class="keyword">null</span> <span class="comment">/*voiceInteractor*/</span>, <span class="keyword">null</span> <span class="comment">/*resultTo*/</span>, <span class="keyword">null</span> <span class="comment">/*resultWho*/</span>,</span><br><span class="line">                <span class="number">0</span> <span class="comment">/*requestCode*/</span>, <span class="number">0</span> <span class="comment">/*callingPid*/</span>, <span class="number">0</span> <span class="comment">/*callingUid*/</span>, <span class="keyword">null</span> <span class="comment">/*callingPackage*/</span>,</span><br><span class="line">                <span class="number">0</span> <span class="comment">/*realCallingPid*/</span>, <span class="number">0</span> <span class="comment">/*realCallingUid*/</span>, <span class="number">0</span> <span class="comment">/*startFlags*/</span>, <span class="keyword">null</span> <span class="comment">/*options*/</span>,</span><br><span class="line">                <span class="keyword">false</span> <span class="comment">/*ignoreTargetSecurity*/</span>, <span class="keyword">false</span> <span class="comment">/*componentSpecified*/</span>, <span class="keyword">null</span> <span class="comment">/*outActivity*/</span>,</span><br><span class="line">                <span class="keyword">null</span> <span class="comment">/*container*/</span>, <span class="keyword">null</span> <span class="comment">/*inTask*/</span>);</span><br><span class="line">        <span class="keyword">if</span> (mSupervisor.inResumeTopActivity) &#123;</span><br><span class="line">            <span class="comment">// If we are in resume section already, home activity will be initialized, but not</span></span><br><span class="line">            <span class="comment">// resumed (to avoid recursive resume) and will stay that way until something pokes it</span></span><br><span class="line">            <span class="comment">// again. We need to schedule another resume.</span></span><br><span class="line">            mSupervisor.scheduleResumeTopActivities();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>至此HOME启动完成了。</p>
+<h2 id="自定义Launcher"><a href="#自定义Launcher" class="headerlink" title="自定义Launcher"></a><strong>自定义Launcher</strong></h2><p>那么，如何来定义自己的Launcher了？这里，我们写一个简单的Launcher界面，上面列出了系统的应用程序，点击上面的图标即可启动应用。</p>
+<p>首先，新建一个Activity: CustomHomeActivity：其中主要包含了一个GridView用于显示APP的图标跟名字，APP数据采用Loader进行异步加载，加载完后，数据跟GridView进行绑定。注意，在<code>AndroidManifest.xml</code>中声明activity，必须加上如下<code>intent-filter</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">&lt;intent-filter&gt;</span><br><span class="line">    &lt;action android:name=<span class="string">"android.intent.action.MAIN"</span>/&gt;</span><br><span class="line">    &lt;category android:name=<span class="string">"android.intent.category.LAUNCHER"</span>/&gt;</span><br><span class="line">    &lt;category android:name=<span class="string">"android.intent.category.HOME"</span>/&gt;</span><br><span class="line">    &lt;category android:name=<span class="string">"android.intent.category.DEFAULT"</span>/&gt;</span><br><span class="line">&lt;/intent-filter&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这样，每次用户点击Home按键时，系统就会弹出对话框让你选择启动哪一个Launcher。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">CustomHomeActivity</span> <span class="keyword">extends</span> <span class="title">AppCompatActivity</span> <span class="keyword">implements</span> <span class="title">LoaderManager</span>.<span class="title">LoaderCallbacks</span>&lt;<span class="title">List</span>&lt;<span class="title">AppItem</span>&gt;&gt;,</span></span><br><span class="line"><span class="class">	    <span class="title">AppItemAdapter</span>.<span class="title">ItemClickListener</span></span>&#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TAG = <span class="string">"CustomHomeActivity"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> APP_LOADER = <span class="number">0x01</span>;</span><br><span class="line">	<span class="comment">//<span class="doctag">FIXME:</span> sometimes the gridview is empty; it seems tha data is lost</span></span><br><span class="line">	<span class="keyword">private</span> GridView mGvAppsList;</span><br><span class="line">	<span class="keyword">private</span> AppItemAdapter mAdapter;</span><br><span class="line">	<span class="keyword">private</span> List&lt;AppItem&gt; mAppList;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">onCreate</span><span class="params">(Bundle savedInstanceState)</span> </span>&#123;</span><br><span class="line">	    <span class="keyword">super</span>.onCreate(savedInstanceState);</span><br><span class="line">	    Log.v(TAG, <span class="string">"onCreate()"</span>);</span><br><span class="line"></span><br><span class="line">	    setContentView(R.layout.activity_custom_home);</span><br><span class="line"></span><br><span class="line">	    mGvAppsList = (GridView)findViewById(R.id.gv_app_list);</span><br><span class="line"></span><br><span class="line">	    mAdapter = <span class="keyword">new</span> AppItemAdapter(<span class="keyword">this</span>);</span><br><span class="line">	    mGvAppsList.setAdapter(mAdapter);</span><br><span class="line">	    mAdapter.setListener(<span class="keyword">this</span>);</span><br><span class="line"></span><br><span class="line">	    getSupportLoaderManager().initLoader(APP_LOADER,<span class="keyword">null</span>,CustomHomeActivity.<span class="keyword">this</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">onResume</span><span class="params">()</span></span>&#123;</span><br><span class="line">	    <span class="keyword">super</span>.onResume();</span><br><span class="line"></span><br><span class="line">	    Log.v(TAG,<span class="string">"onResume()"</span>);</span><br><span class="line"></span><br><span class="line">	    Loader loader = getSupportLoaderManager().getLoader(APP_LOADER);</span><br><span class="line">	    <span class="keyword">if</span>(mAppList == <span class="keyword">null</span> || !loader.isStarted())&#123;</span><br><span class="line">	        loader.startLoading();</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> Loader&lt;List&lt;AppItem&gt;&gt; onCreateLoader(<span class="keyword">int</span> id, Bundle args) &#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">"onCreateLoader()"</span>);</span><br><span class="line">	    <span class="keyword">return</span> <span class="keyword">new</span> AppLoader(getApplicationContext());</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onLoadFinished</span><span class="params">(Loader&lt;List&lt;AppItem&gt;&gt; loader, List&lt;AppItem&gt; data)</span> </span>&#123;</span><br><span class="line">	    Log.v(TAG, <span class="string">"onLoadFinished"</span>);</span><br><span class="line"></span><br><span class="line">	    mAdapter.setData(data);</span><br><span class="line">	    mAdapter.notifyDataSetChanged();</span><br><span class="line">	    <span class="comment">//mGvAppsList.requestLayout();</span></span><br><span class="line">	    mAppList = data;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onLoaderReset</span><span class="params">(Loader&lt;List&lt;AppItem&gt;&gt; loader)</span> </span>&#123;</span><br><span class="line">	    loader.forceLoad();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onItemClick</span><span class="params">(<span class="keyword">int</span> position)</span> </span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">"onItemClick(): pos = "</span> + position);</span><br><span class="line"></span><br><span class="line">	    PackageManager pm = getPackageManager();</span><br><span class="line">	    String pkgName = mAppList.get(position).getAppInfo().packageName;</span><br><span class="line">	    Intent intent = pm.getLaunchIntentForPackage(pkgName);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(intent != <span class="keyword">null</span>)&#123;</span><br><span class="line">	        startActivity(intent);</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>现在，就要定义一个Loader用于APP数据的读取与加载，加载完后，把数据传给主线程;这里为了，提高加载的速度，利用DiskLruCache来做数据缓存(只是个示例,具体性能估计提高不大)：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">AppLoader</span> <span class="keyword">extends</span> <span class="title">AsyncTaskLoader</span>&lt;<span class="title">List</span>&lt;<span class="title">AppItem</span>&gt;&gt; </span>&#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TAG = <span class="string">"AppLoader"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> DISK_CACHE_SIZE = <span class="number">1024</span>*<span class="number">1024</span>*<span class="number">50</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String DISK_CACHE_NAME = <span class="string">"MyLauncher"</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> DISK_CACHE_INDEX = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> PackageManager mPackageMgr;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> List&lt;AppItem&gt; mAppList;</span><br><span class="line">	<span class="keyword">private</span> HashSet&lt;String&gt; mAppsName;</span><br><span class="line">	<span class="comment">// disk file cache for app icon</span></span><br><span class="line">	<span class="keyword">private</span> DiskLruCache mDiskCache;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">AppLoader</span><span class="params">(Context context)</span> </span>&#123;</span><br><span class="line">	    <span class="keyword">super</span>(context);</span><br><span class="line"></span><br><span class="line">	    mPackageMgr = context.getPackageManager();</span><br><span class="line"></span><br><span class="line">	    File cachePath = getDiskCachePath(context);</span><br><span class="line">	    <span class="keyword">if</span>(!cachePath.exists())&#123;</span><br><span class="line">	        cachePath.mkdirs();</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        <span class="keyword">if</span>(getUsableSpace(cachePath) &gt; DISK_CACHE_SIZE) &#123;</span><br><span class="line">	            mDiskCache = DiskLruCache.open(cachePath, <span class="number">1</span>, <span class="number">1</span>, DISK_CACHE_SIZE);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (IOException e)&#123;</span><br><span class="line">	        e.printStackTrace();</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> List&lt;AppItem&gt; <span class="title">loadInBackground</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	    Log.v(TAG, <span class="string">"loadInBackground()"</span>);</span><br><span class="line"></span><br><span class="line">	    List&lt;ApplicationInfo&gt; appInfoList = mPackageMgr.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(appInfoList == <span class="keyword">null</span>)&#123;</span><br><span class="line">	        appInfoList = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    Log.v(TAG,<span class="string">"loadInBackground(): installed apps size = "</span> + appInfoList.size());</span><br><span class="line"></span><br><span class="line">	    mAppList = <span class="keyword">new</span> ArrayList&lt;&gt;(appInfoList.size());</span><br><span class="line">	    mAppsName = <span class="keyword">new</span> HashSet&lt;&gt;();</span><br><span class="line">	    <span class="keyword">for</span>(ApplicationInfo info: appInfoList)&#123;</span><br><span class="line">	        String pkgName = info.packageName;</span><br><span class="line">	        String label = mPackageMgr.getApplicationLabel(info).toString();</span><br><span class="line">	        <span class="comment">// only launchable app is added</span></span><br><span class="line">	        <span class="keyword">if</span>(!mAppsName.contains(label) &amp;&amp;</span><br><span class="line">	                mPackageMgr.getLaunchIntentForPackage(pkgName) != <span class="keyword">null</span>)&#123;</span><br><span class="line">	            String key = getCacheKey(pkgName);</span><br><span class="line">	            Drawable d = loadFromDiskCache(key);</span><br><span class="line"></span><br><span class="line">	            AppItem item;</span><br><span class="line">	            <span class="keyword">if</span>(d != <span class="keyword">null</span>)&#123;</span><br><span class="line">	                item = <span class="keyword">new</span> AppItem(mPackageMgr,d,label);</span><br><span class="line">	                saveIconToDiskCache(key,d);</span><br><span class="line">	            &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">	                item = <span class="keyword">new</span> AppItem(mPackageMgr, info);</span><br><span class="line">	                saveIconToDiskCache(key,item.getAppIcon());</span><br><span class="line">	            &#125;</span><br><span class="line"></span><br><span class="line">	            mAppList.add(item);</span><br><span class="line">	            mAppsName.add(label);</span><br><span class="line"></span><br><span class="line">	            Log.v(TAG,<span class="string">"application label : label "</span> + label);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    Log.v(TAG, <span class="string">"loadInBackground(): app size = "</span> + mAppList.size());</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> mAppList;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">deliverResult</span><span class="params">(List&lt;AppItem&gt; appList)</span></span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">"deliverResult()"</span>);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(isReset())&#123;</span><br><span class="line">	        <span class="keyword">if</span>(appList != <span class="keyword">null</span>)&#123;</span><br><span class="line">	            onReleaseResources(appList);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    List&lt;AppItem&gt; oldApps = mAppList;</span><br><span class="line">	    mAppList = appList;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(isStarted())&#123;</span><br><span class="line">	        <span class="keyword">super</span>.deliverResult(appList);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(oldApps != <span class="keyword">null</span>)&#123;</span><br><span class="line">	        onReleaseResources(oldApps);</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">onStartLoading</span><span class="params">()</span></span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">"onStartLoading()"</span>);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(mAppList != <span class="keyword">null</span>)&#123;</span><br><span class="line">	        deliverResult(mAppList);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(takeContentChanged() || mAppList == <span class="keyword">null</span>)&#123;</span><br><span class="line">	        forceLoad();</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">onStopLoading</span><span class="params">()</span></span>&#123;</span><br><span class="line">	    cancelLoad();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onCanceled</span><span class="params">(List&lt;AppItem&gt; apps)</span> </span>&#123;</span><br><span class="line">	    <span class="keyword">super</span>.onCanceled(apps);</span><br><span class="line"></span><br><span class="line">	    onReleaseResources(apps);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">onReset</span><span class="params">()</span></span>&#123;</span><br><span class="line">	    <span class="keyword">super</span>.onReset();</span><br><span class="line"></span><br><span class="line">	    onStopLoading();</span><br><span class="line">	    <span class="keyword">if</span>(mAppList != <span class="keyword">null</span>)&#123;</span><br><span class="line">	        onReleaseResources(mAppList);</span><br><span class="line">	        mAppList = <span class="keyword">null</span>;</span><br><span class="line">	        mAppsName = <span class="keyword">null</span>;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// take care of releasing resources</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">onReleaseResources</span><span class="params">(List&lt;AppItem&gt; apps)</span> </span>&#123;</span><br><span class="line">	    <span class="comment">// for cursor, we may want to close it</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">private</span> String <span class="title">getCacheKey</span><span class="params">(String pkgName)</span></span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">"getCacheKey()"</span>);</span><br><span class="line">	    String key;</span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        MessageDigest digest = MessageDigest.getInstance(<span class="string">"SHA"</span>);</span><br><span class="line">	        digest.update(pkgName.getBytes());</span><br><span class="line">	        key = bytesToHexString(digest.digest());</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (NoSuchAlgorithmException e)&#123;</span><br><span class="line">	        key = pkgName;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> key;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">saveIconToDiskCache</span><span class="params">(String key,Drawable icon)</span></span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">"saveIconToDiskCache()"</span>);</span><br><span class="line">	    <span class="keyword">if</span>(mDiskCache == <span class="keyword">null</span>)&#123;</span><br><span class="line">	        Log.e(TAG,<span class="string">"saveIconToDiskCache(): disk cache is not available"</span>);</span><br><span class="line">	        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">	    &#125;</span><br><span class="line">	    Bitmap bitmap = BitmapUtil.drawableToBitmap(icon);</span><br><span class="line">	    ByteArrayOutputStream bos = <span class="keyword">new</span> ByteArrayOutputStream(bitmap.getByteCount());</span><br><span class="line">	    bitmap.compress(Bitmap.CompressFormat.PNG,<span class="number">100</span>,bos);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        DiskLruCache.Editor editor = mDiskCache.edit(key);</span><br><span class="line">	        <span class="keyword">if</span>(editor != <span class="keyword">null</span>)&#123;</span><br><span class="line">	            OutputStream os = editor.newOutputStream(DISK_CACHE_INDEX);</span><br><span class="line">	            os.write(bos.toByteArray());</span><br><span class="line">	            editor.commit();</span><br><span class="line">	        &#125;</span><br><span class="line">	        <span class="comment">// write to disk</span></span><br><span class="line">	        mDiskCache.flush();</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (IOException e)&#123;</span><br><span class="line">	        e.printStackTrace();</span><br><span class="line">	        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">private</span> Drawable <span class="title">loadFromDiskCache</span><span class="params">(String key)</span> </span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">"loadFromDiskCache()"</span>);</span><br><span class="line">	    <span class="keyword">if</span>(mDiskCache == <span class="keyword">null</span> || mDiskCache.size() &lt;= <span class="number">0</span>)&#123;</span><br><span class="line">	        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        DiskLruCache.Snapshot snapshot = mDiskCache.get(key);</span><br><span class="line">	        <span class="keyword">if</span>(snapshot != <span class="keyword">null</span>) &#123;</span><br><span class="line">	            FileInputStream fis = (FileInputStream) snapshot.getInputStream(DISK_CACHE_INDEX);</span><br><span class="line">	            Bitmap bitmap = BitmapFactory.decodeStream(fis);</span><br><span class="line">	            <span class="keyword">return</span> <span class="keyword">new</span> BitmapDrawable(getContext().getResources(),bitmap);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (IOException e)&#123;</span><br><span class="line">	        e.printStackTrace();</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">private</span> File <span class="title">getDiskCachePath</span><span class="params">(Context context)</span></span>&#123;</span><br><span class="line">	    <span class="keyword">boolean</span> isExternalMounted = Environment.getExternalStorageState().</span><br><span class="line">	            equals(Environment.MEDIA_MOUNTED);</span><br><span class="line">	    File diskCacheDir;</span><br><span class="line">	    <span class="keyword">if</span>(!isExternalMounted)&#123;</span><br><span class="line">	        diskCacheDir = <span class="keyword">new</span> File(context.getCacheDir(),DISK_CACHE_NAME);</span><br><span class="line">	    &#125;<span class="keyword">else</span>&#123;</span><br><span class="line">	        diskCacheDir = <span class="keyword">new</span> File(Environment.getExternalStorageDirectory(),DISK_CACHE_NAME);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> diskCacheDir;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">private</span> <span class="keyword">long</span> <span class="title">getUsableSpace</span><span class="params">(File path)</span></span>&#123;</span><br><span class="line">	    <span class="keyword">long</span> size = path.getUsableSpace();</span><br><span class="line">	    Log.v(TAG,<span class="string">"getUsableSpace(): size = "</span> + size);</span><br><span class="line">	    <span class="keyword">return</span> size;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">private</span> String <span class="title">bytesToHexString</span><span class="params">(<span class="keyword">byte</span>[] bytes)</span> </span>&#123;</span><br><span class="line">	    StringBuilder sb = <span class="keyword">new</span> StringBuilder();</span><br><span class="line">	    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; bytes.length; i++) &#123;</span><br><span class="line">	        String hex = Integer.toHexString(<span class="number">0xFF</span> &amp; bytes[i]);</span><br><span class="line">	        <span class="keyword">if</span> (hex.length() == <span class="number">1</span>) &#123;</span><br><span class="line">	            sb.append(<span class="string">'0'</span>);</span><br><span class="line">	        &#125;</span><br><span class="line">	        sb.append(hex);</span><br><span class="line">	    &#125;</span><br><span class="line">	    <span class="keyword">return</span> sb.toString();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>最后，建立一个ListAdapter，用于将数据与GridView进行绑定：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * an app item adapter to bind data to grid view</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">AppItemAdapter</span> <span class="keyword">extends</span> <span class="title">BaseAdapter</span></span>&#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TAG = <span class="string">"AppItemAdapter"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> DEFAULT_WIDTH = <span class="number">150</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> DEFAULT_HEIGHT = <span class="number">150</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> Context mContext;</span><br><span class="line">	<span class="keyword">private</span> List&lt;AppItem&gt; mAppList = Collections.EMPTY_LIST;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> SparseArray&lt;View&gt; sViewCache;</span><br><span class="line">	<span class="keyword">private</span> ItemClickListener mListener;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">ItemClickListener</span></span>&#123;</span><br><span class="line">	    <span class="function"><span class="keyword">void</span> <span class="title">onItemClick</span><span class="params">(<span class="keyword">int</span> position)</span></span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">AppItemAdapter</span><span class="params">(Context context)</span></span>&#123;</span><br><span class="line">	    mContext = context;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setListener</span><span class="params">(ItemClickListener listener)</span></span>&#123;</span><br><span class="line">	    mListener = listener;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">setData</span><span class="params">(List&lt;AppItem&gt; data)</span></span>&#123;</span><br><span class="line">	    mAppList = data;</span><br><span class="line">	    sViewCache = <span class="keyword">new</span> SparseArray&lt;&gt;(data.size());</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">getCount</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	    <span class="keyword">return</span> mAppList.size();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> AppItem <span class="title">getItem</span><span class="params">(<span class="keyword">int</span> position)</span> </span>&#123;</span><br><span class="line">	    <span class="keyword">return</span> mAppList.get(position);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">long</span> <span class="title">getItemId</span><span class="params">(<span class="keyword">int</span> position)</span> </span>&#123;</span><br><span class="line">	    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> View <span class="title">getView</span><span class="params">(<span class="keyword">int</span> position, View convertView, ViewGroup parent)</span> </span>&#123;</span><br><span class="line">	    <span class="comment">// if use convertView, the binded data list seems to be wrong</span></span><br><span class="line">	    View root = sViewCache.get(position);</span><br><span class="line">	    <span class="keyword">if</span>(root == <span class="keyword">null</span>) &#123;</span><br><span class="line">	        LayoutInflater inflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);</span><br><span class="line">	         root = inflater.inflate(R.layout.layout_app_item, parent, <span class="keyword">false</span>);</span><br><span class="line"></span><br><span class="line">	        ViewHolder vh = <span class="keyword">new</span> ViewHolder(root, position);</span><br><span class="line">	        sViewCache.setValueAt(position,root);</span><br><span class="line">	        <span class="comment">//<span class="doctag">TODO:</span> icon size may be different for different apps</span></span><br><span class="line">	        <span class="comment">// keep the size the same</span></span><br><span class="line">	        Drawable d = mAppList.get(position).getAppIcon();</span><br><span class="line">	        Bitmap bitmap = BitmapUtil.drawableToBitmap(d);</span><br><span class="line">	        Bitmap scaleBitmap = Bitmap.createScaledBitmap(bitmap, DEFAULT_WIDTH, DEFAULT_HEIGHT, <span class="keyword">false</span>);</span><br><span class="line">	        vh.ivIcon.setImageBitmap(scaleBitmap);</span><br><span class="line">	        vh.tvName.setText(mAppList.get(position).getAppName());</span><br><span class="line"></span><br><span class="line">	        Log.v(TAG, <span class="string">"application label = "</span> + vh.tvName.getText());</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> root;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="class"><span class="keyword">class</span> <span class="title">ViewHolder</span></span>&#123;</span><br><span class="line">	    ImageView ivIcon;</span><br><span class="line">	    TextView tvName;</span><br><span class="line"></span><br><span class="line">	    <span class="function"><span class="keyword">public</span> <span class="title">ViewHolder</span><span class="params">(View root, <span class="keyword">final</span> <span class="keyword">int</span> pos)</span></span>&#123;</span><br><span class="line">	        ImageView icon = (ImageView)root.findViewById(R.id.iv_app_icon);</span><br><span class="line">	        TextView name = (TextView)root.findViewById(R.id.tv_app_name);</span><br><span class="line">	        ivIcon = icon;</span><br><span class="line">	        tvName = name;</span><br><span class="line"></span><br><span class="line">	        root.setOnClickListener(<span class="keyword">new</span> View.OnClickListener() &#123;</span><br><span class="line">	            <span class="meta">@Override</span></span><br><span class="line">	            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onClick</span><span class="params">(View v)</span> </span>&#123;</span><br><span class="line">	                mListener.onItemClick(pos);</span><br><span class="line">	            &#125;</span><br><span class="line">	        &#125;);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="function"><span class="keyword">public</span> <span class="title">ViewHolder</span><span class="params">(ImageView icon,TextView name)</span></span>&#123;</span><br><span class="line">	        ivIcon = icon;</span><br><span class="line">	        tvName = name;</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这样一个简单的Launcher就写好了，项目详情请参考: </p>
+<blockquote><p><a href="https://github.com/runningforlife/AndroidExamples" title="参考Lanucher目录" target="_blank" rel="noopener">https://github.com/runningforlife/AndroidExamples</a></p>
+</blockquote>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Android/" rel="tag"># Android</a>
+          
+            <a href="/tags/Launcher/" rel="tag"># Launcher</a>
+          
+            <a href="/tags/SystemServer/" rel="tag"># SystemServer</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/01/07/如何在Java中调用C-C-方法/" rel="next" title="如何在Java中调用C_C++方法">
+                <i class="fa fa-chevron-left"></i> 如何在Java中调用C_C++方法
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/02/21/Android-Phone进程启动过程分析/" rel="prev" title="Android Phone进程启动过程分析">
+                Android Phone进程启动过程分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Launcher的启动"><span class="nav-number">1.</span> <span class="nav-text">Launcher的启动</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#自定义Launcher"><span class="nav-number">2.</span> <span class="nav-text">自定义Launcher</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

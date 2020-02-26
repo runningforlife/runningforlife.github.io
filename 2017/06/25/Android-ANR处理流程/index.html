@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Android,ANR,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="ANR即Application Not Responding, 应用无响应：当应用在某一个时间内无法及时响应用户请求时，系统会弹出一个对话框，告知用户应用无法响应。此时，用户可以选择关闭应用。对于Android应用来说，有一个UI线程(主线程）专门负责与用户交互，如果在此线程中进行耗时的操作，比如读取磁盘数据、从网络下载资源等IO操作，通常会导致UI线程阻塞，从而无法及时处理用户的输入请求，发生A">
+<meta name="keywords" content="Android,ANR">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android ANR处理流程">
+<meta property="og:url" content="http://sniffer.site/2017/06/25/Android-ANR处理流程/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="ANR即Application Not Responding, 应用无响应：当应用在某一个时间内无法及时响应用户请求时，系统会弹出一个对话框，告知用户应用无法响应。此时，用户可以选择关闭应用。对于Android应用来说，有一个UI线程(主线程）专门负责与用户交互，如果在此线程中进行耗时的操作，比如读取磁盘数据、从网络下载资源等IO操作，通常会导致UI线程阻塞，从而无法及时处理用户的输入请求，发生A">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/input_reader_seq.jpg">
+<meta property="og:updated_time" content="2019-10-25T11:42:51.504Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Android ANR处理流程">
+<meta name="twitter:description" content="ANR即Application Not Responding, 应用无响应：当应用在某一个时间内无法及时响应用户请求时，系统会弹出一个对话框，告知用户应用无法响应。此时，用户可以选择关闭应用。对于Android应用来说，有一个UI线程(主线程）专门负责与用户交互，如果在此线程中进行耗时的操作，比如读取磁盘数据、从网络下载资源等IO操作，通常会导致UI线程阻塞，从而无法及时处理用户的输入请求，发生A">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/input_reader_seq.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2017/06/25/Android-ANR处理流程/">
+
+
+
+
+
+  <title>Android ANR处理流程 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2017/06/25/Android-ANR处理流程/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">Android ANR处理流程</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-06-25T23:33:55+08:00">
+                2017-06-25
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android/" itemprop="url" rel="index">
+                    <span itemprop="name">Android</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2017/06/25/Android-ANR处理流程/" class="leancloud_visitors" data-flag-title="Android ANR处理流程">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>ANR即Application Not Responding, 应用无响应：当应用在某一个时间内无法及时响应用户请求时，系统会弹出一个对话框，告知用户应用无法响应。此时，用户可以选择关闭应用。对于Android应用来说，有一个UI线程(主线程）专门负责与用户交互，如果在此线程中进行耗时的操作，比如读取磁盘数据、从网络下载资源等IO操作，通常会导致UI线程阻塞，从而无法及时处理用户的输入请求，发生ANR。</p>
+<a id="more"></a>
+<p>Android是通过AMS跟WMS来监控应用响应状态的，一般有如下两种ANR情况：</p>
+<ul>
+<li>应用在给定时间内没有对用户输入(按键或者触屏操作）做出响应，通常是5s;</li>
+<li>广播接收者(BroadcastReceiver)没有在10s内处理完成；</li>
+</ul>
+<p>对于输入无响应的情况，native监控到输入无响应时，则告知WMS，最后由WMS发送消息告诉AMS，某个应用发送了ANR，最后AMS会弹出<strong>Application Not Responding</strong>的对话框，请求用户关闭应用；对于广播无响应的情况是由AMS负责处理的，AMS对于每个发送出去给广播接收者的广播都有一个10s的定时，如果广播接收者在10s内尚未处理完，则视为无响应，因此也会弹出<strong>Application Not Responding</strong>。</p>
+<p>首先来看下第一种情况。</p>
+<h2 id="输入无响应"><a href="#输入无响应" class="headerlink" title="输入无响应"></a><strong>输入无响应</strong></h2><p>输入无响应是指用户长时间（5s内）无法响应用户的输入操作，如触摸，按键等，此时AMS会弹出对话框提示用户应用出现ANR(Application Not Responding)。</p>
+<p>Android由<code>InputManagerService</code>（IMS）负责处理用户的输入事件，IMS会将输入转交给对应的应用窗口，最后由应用本身做出相应的操作；在native层，IMS有一个对应的<code>InputManager</code>来管理来自Kernel的输入事件（有关Android输入系统，请参考罗升阳<a href="http://blog.csdn.net/luoshengyang/article/details/6882903" title="Android应用程序键盘消息处理机制分析" target="_blank" rel="noopener">Android应用程序键盘消息处理机制分析</a>），<code>InputReader</code>负责读取输入事件，而<code>InputDispatcher</code>则负责将读取的事件分发出去。这里，就来看下<code>InputDispatcher</code>是如何检测应用输入无响应以及将其分发出去的。</p>
+<p>以下是输入ANR处理流程图(图片来自<a href="http://gityuan.com/images/input/input_reader_seq.jpg)：" target="_blank" rel="noopener">http://gityuan.com/images/input/input_reader_seq.jpg)：</a></p>
+<img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/input_reader_seq.jpg" class="[full-image]" title="Input ANR Process">
+<p>native的<code>InputManager</code>初始化时启动一个<code>InputDispatcherThread</code>用于输入事件的分发:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">InputManager::InputManager(</span><br><span class="line">        <span class="keyword">const</span> sp&lt;EventHubInterface&gt;&amp; eventHub,</span><br><span class="line">        <span class="keyword">const</span> sp&lt;InputReaderPolicyInterface&gt;&amp; readerPolicy,</span><br><span class="line">        <span class="keyword">const</span> sp&lt;InputDispatcherPolicyInterface&gt;&amp; dispatcherPolicy) &#123;</span><br><span class="line">    mDispatcher = <span class="keyword">new</span> InputDispatcher(dispatcherPolicy);</span><br><span class="line">    mReader = <span class="keyword">new</span> InputReader(eventHub, readerPolicy, mDispatcher);</span><br><span class="line">    initialize();</span><br><span class="line">&#125;</span><br><span class="line">....</span><br><span class="line"><span class="keyword">void</span> InputManager::initialize() &#123;</span><br><span class="line">    mReaderThread = <span class="keyword">new</span> InputReaderThread(mReader);</span><br><span class="line">    mDispatcherThread = <span class="keyword">new</span> InputDispatcherThread(mDispatcher);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">status_t</span> InputManager::start() &#123;</span><br><span class="line">    <span class="comment">// 分发线程</span></span><br><span class="line">    <span class="keyword">status_t</span> result = mDispatcherThread-&gt;run(<span class="string">"InputDispatcher"</span>, PRIORITY_URGENT_DISPLAY);</span><br><span class="line">    <span class="comment">// 读线程</span></span><br><span class="line">    result = mReaderThread-&gt;run(<span class="string">"InputReader"</span>, PRIORITY_URGENT_DISPLAY);</span><br><span class="line">    </span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> OK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>InputDispatcherThread</code>启动时，进入一个线程循环：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">InputDispatcherThread::InputDispatcherThread(<span class="keyword">const</span> sp&lt;InputDispatcherInterface&gt;&amp; dispatcher) :</span><br><span class="line">        Thread(<span class="comment">/*canCallJava*/</span> <span class="literal">true</span>), mDispatcher(dispatcher) &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//启动后，进入线程循环</span></span><br><span class="line"><span class="keyword">bool</span> InputDispatcherThread::threadLoop() &#123;</span><br><span class="line">    mDispatcher-&gt;dispatchOnce();</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>InputDispatcher</code>开始事件处理：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">void</span> InputDispatcher::dispatchOnce() &#123;</span><br><span class="line">    <span class="keyword">nsecs_t</span> nextWakeupTime = LONG_LONG_MAX;</span><br><span class="line">    &#123; <span class="comment">// acquire lock</span></span><br><span class="line">        AutoMutex _l(mLock);</span><br><span class="line">        mDispatcherIsAliveCondition.broadcast();</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 指令请求队列为空，则开始分发输入事件</span></span><br><span class="line">        <span class="keyword">if</span> (!haveCommandsLocked()) &#123;</span><br><span class="line">            dispatchOnceInnerLocked(&amp;nextWakeupTime);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Run all pending commands if there are any.</span></span><br><span class="line">        <span class="keyword">if</span> (runCommandsLockedInterruptible()) &#123;</span><br><span class="line">            nextWakeupTime = LONG_LONG_MIN;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="comment">// release lock</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Wait for callback or timeout or wake.  (make sure we round up, not down)</span></span><br><span class="line">    <span class="keyword">nsecs_t</span> currentTime = now();</span><br><span class="line">    <span class="keyword">int</span> timeoutMillis = toMillisecondTimeoutDelay(currentTime, nextWakeupTime);</span><br><span class="line">    <span class="comment">// 查看线程消息队列是否有新的消息</span></span><br><span class="line">    mLooper-&gt;pollOnce(timeoutMillis);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据输入事件的类型将事件分发出去，按键输入事件类型是<code>TYPE_KEY</code>，触屏输入事件<code>TYPE_MOTION</code>，这里假定应用处理的是一个按键事件:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">void</span> InputDispatcher::dispatchOnceInnerLocked(<span class="keyword">nsecs_t</span>* nextWakeupTime) &#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">switch</span> (mPendingEvent-&gt;type) &#123;</span><br><span class="line">        ....</span><br><span class="line">        <span class="comment">// 按键事件</span></span><br><span class="line">        <span class="keyword">case</span> EventEntry::TYPE_KEY: &#123;</span><br><span class="line">            ...</span><br><span class="line">            <span class="comment">//分发按键事件</span></span><br><span class="line">            done = dispatchKeyLocked(currentTime, typedEntry, &amp;dropReason, nextWakeupTime);</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 触屏事件</span></span><br><span class="line">        <span class="keyword">case</span> EventEntry::TYPE_MOTION: &#123;</span><br><span class="line">            ....</span><br><span class="line">            done = dispatchMotionLocked(currentTime, typedEntry,</span><br><span class="line">                    &amp;dropReason, nextWakeupTime);</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>分发键盘事件之前，首先需要找到当前响应输入的焦点窗口：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">bool</span> InputDispatcher::dispatchKeyLocked(<span class="keyword">nsecs_t</span> currentTime, KeyEntry* entry,</span><br><span class="line">        DropReason* dropReason, <span class="keyword">nsecs_t</span>* nextWakeupTime) &#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">// 找到当前输入焦点窗口</span></span><br><span class="line">    Vector&lt;InputTarget&gt; inputTargets;</span><br><span class="line">    <span class="keyword">int32_t</span> injectionResult = findFocusedWindowTargetsLocked(currentTime,</span><br><span class="line">            entry, inputTargets, nextWakeupTime);</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">// Dispatch the key.</span></span><br><span class="line">    dispatchEventLocked(currentTime, entry, inputTargets);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在查找目标焦点窗口之前，会检查是否有应用程序的窗口处于无响应状态：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">int32_t</span> InputDispatcher::findFocusedWindowTargetsLocked(<span class="keyword">nsecs_t</span> currentTime,</span><br><span class="line">        EventEntry* entry, Vector&lt;InputTarget&gt;&amp; inputTargets, <span class="keyword">nsecs_t</span>* nextWakeupTime) &#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">// Check whether the window is ready for more input</span></span><br><span class="line">    reason = checkWindowReadyForMoreInputLocked(currentTime,</span><br><span class="line">            focusedWindowHandle, entry, <span class="string">"focused"</span>);</span><br><span class="line">    <span class="comment">// 输入无响应</span></span><br><span class="line">    <span class="keyword">if</span> (!reason.isEmpty()) &#123;</span><br><span class="line">        injectionResult = handleTargetsNotReadyLocked(currentTime, entry,</span><br><span class="line">                <span class="comment">//mFocusedApplicationHandle, mFocusedWindowHandle, nextWakeupTime, reason.string());</span></span><br><span class="line">                mFocusedApplicationHandle, focusedWindowHandle, nextWakeupTime, reason.<span class="built_in">string</span>());</span><br><span class="line">        <span class="keyword">goto</span> Unresponsive;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Done.</span></span><br><span class="line">    Failed:</span><br><span class="line">    Unresponsive:</span><br><span class="line">        <span class="keyword">nsecs_t</span> timeSpentWaitingForApplication = getTimeSpentWaitingForApplicationLocked(currentTime);</span><br><span class="line">        updateDispatchStatisticsLocked(currentTime, entry,</span><br><span class="line">                injectionResult, timeSpentWaitingForApplication);</span><br><span class="line">        <span class="keyword">return</span> injectionResult;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果发现焦点窗口无法对用户事件作出响应，并且超过了给定的时间(Android设定的超时为5s)，则</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">int32_t</span> InputDispatcher::handleTargetsNotReadyLocked(<span class="keyword">nsecs_t</span> currentTime,</span><br><span class="line">        <span class="keyword">const</span> EventEntry* entry,</span><br><span class="line">        <span class="keyword">const</span> sp&lt;InputApplicationHandle&gt;&amp; applicationHandle,</span><br><span class="line">        <span class="keyword">const</span> sp&lt;InputWindowHandle&gt;&amp; windowHandle,</span><br><span class="line">        <span class="keyword">nsecs_t</span>* nextWakeupTime, <span class="keyword">const</span> <span class="keyword">char</span>* reason) &#123;</span><br><span class="line">        ....</span><br><span class="line">        <span class="comment">//应用无响应超时</span></span><br><span class="line">        <span class="keyword">if</span> (currentTime &gt;= mInputTargetWaitTimeoutTime) &#123;</span><br><span class="line">            onANRLocked(currentTime, applicationHandle, windowHandle,</span><br><span class="line">                    entry-&gt;eventTime, mInputTargetWaitStartTime, reason);</span><br><span class="line">            *nextWakeupTime = LONG_LONG_MIN;</span><br><span class="line">            <span class="keyword">return</span> INPUT_EVENT_INJECTION_PENDING;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// Force poll loop to wake up when timeout is due.</span></span><br><span class="line">            <span class="keyword">if</span> (mInputTargetWaitTimeoutTime &lt; *nextWakeupTime) &#123;</span><br><span class="line">                *nextWakeupTime = mInputTargetWaitTimeoutTime;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span> INPUT_EVENT_INJECTION_PENDING;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将ANR事件以<code>CommandEntry</code>的形式加入到命令队列中，等到下一次输入处理周期时在处理，处理时会调用函数<code>doNotifyANRLockedInterruptible</code>(见<code>dispatchOnce()</code>）:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">void</span> InputDispatcher::onANRLocked(</span><br><span class="line">        <span class="keyword">nsecs_t</span> currentTime, <span class="keyword">const</span> sp&lt;InputApplicationHandle&gt;&amp; applicationHandle,</span><br><span class="line">        <span class="keyword">const</span> sp&lt;InputWindowHandle&gt;&amp; windowHandle,</span><br><span class="line">        <span class="keyword">nsecs_t</span> eventTime, <span class="keyword">nsecs_t</span> waitStartTime, <span class="keyword">const</span> <span class="keyword">char</span>* reason) &#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment">// 将ANR事件添加到命令队列</span></span><br><span class="line">    CommandEntry* commandEntry = postCommandLocked(</span><br><span class="line">            &amp; InputDispatcher::doNotifyANRLockedInterruptible);</span><br><span class="line">    commandEntry-&gt;inputApplicationHandle = applicationHandle;</span><br><span class="line">    commandEntry-&gt;inputWindowHandle = windowHandle;</span><br><span class="line">    commandEntry-&gt;reason = reason;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通过<code>InputDispatcherPolicyInterface</code>接口通知<code>NativeInputMananger</code>有ANR事件发生：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">void</span> InputDispatcher::doNotifyANRLockedInterruptible(</span><br><span class="line">        CommandEntry* commandEntry) &#123;</span><br><span class="line">    mLock.unlock();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">nsecs_t</span> newTimeout = mPolicy-&gt;notifyANR(</span><br><span class="line">            commandEntry-&gt;inputApplicationHandle, commandEntry-&gt;inputWindowHandle,</span><br><span class="line">            commandEntry-&gt;reason);</span><br><span class="line"></span><br><span class="line">    mLock.lock();</span><br><span class="line"></span><br><span class="line">    resumeAfterTargetsNotReadyTimeoutLocked(newTimeout,</span><br><span class="line">            commandEntry-&gt;inputWindowHandle != <span class="literal">NULL</span></span><br><span class="line">                    ? commandEntry-&gt;inputWindowHandle-&gt;getInputChannel() : <span class="literal">NULL</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>到这里，准备通知<code>InputManagerService.java</code>（IMS）ANR事件了，<code>mServiceObj</code>实际是一个Java类<code>InputManagerService</code>的一个全局引用，通过<code>CallLongMethod</code>来调用IMS中的<code>notifyANR</code>方法：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">nsecs_t</span> NativeInputManager::notifyANR(<span class="keyword">const</span> sp&lt;InputApplicationHandle&gt;&amp; inputApplicationHandle,</span><br><span class="line">        <span class="keyword">const</span> sp&lt;InputWindowHandle&gt;&amp; inputWindowHandle, <span class="keyword">const</span> String8&amp; reason) &#123;</span><br><span class="line"></span><br><span class="line">    JNIEnv* env = jniEnv();</span><br><span class="line"></span><br><span class="line">    jobject inputApplicationHandleObj =</span><br><span class="line">            getInputApplicationHandleObjLocalRef(env, inputApplicationHandle);</span><br><span class="line">    jobject inputWindowHandleObj =</span><br><span class="line">            getInputWindowHandleObjLocalRef(env, inputWindowHandle);</span><br><span class="line">    jstring reasonObj = env-&gt;NewStringUTF(reason.<span class="built_in">string</span>());</span><br><span class="line">     <span class="comment">//调用IMS的notifyANR方法</span></span><br><span class="line">    jlong newTimeout = env-&gt;CallLongMethod(mServiceObj,</span><br><span class="line">                gServiceClassInfo.notifyANR, inputApplicationHandleObj, inputWindowHandleObj,</span><br><span class="line">                reasonObj);</span><br><span class="line"></span><br><span class="line">    env-&gt;DeleteLocalRef(reasonObj);</span><br><span class="line">    env-&gt;DeleteLocalRef(inputWindowHandleObj);</span><br><span class="line">    env-&gt;DeleteLocalRef(inputApplicationHandleObj);</span><br><span class="line">    <span class="keyword">return</span> newTimeout;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><code>NativeInputManager</code>位于<code>com_android_server_input_InputManagerService.cpp</code>,是<code>InputManagerService.java</code>对应的Native文件中的类，其负责初始化输入系统的native框架</p>
+</blockquote>
+<p>IMS收到ANR事件后，通过一个回调接口<code>WindowManagerCallbacks</code>通知WMS(WindowManagerService)， <code>WindowManagerCallbacks</code>接口实际是一个<code>InputMonitor.java</code>对象，在SystemServer进程启动时，将WMS中的<code>InputMonitor</code>设置为IMS的回调:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">long</span> <span class="title">notifyANR</span><span class="params">(InputApplicationHandle inputApplicationHandle,</span></span></span><br><span class="line"><span class="function"><span class="params">        InputWindowHandle inputWindowHandle, String reason)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// mWindowMangerCallbacks是InputMonitor实现的回调接口</span></span><br><span class="line">    <span class="keyword">return</span> mWindowManagerCallbacks.notifyANR(</span><br><span class="line">            inputApplicationHandle, inputWindowHandle, reason);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>向AMS发起<code>inputDispatchingTimedOut</code>的Binder请求，告知其ANR事件：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">long</span> <span class="title">notifyANR</span><span class="params">(InputApplicationHandle inputApplicationHandle,</span></span></span><br><span class="line"><span class="function"><span class="params">        InputWindowHandle inputWindowHandle, String reason)</span> </span>&#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="keyword">if</span> (appWindowToken != <span class="keyword">null</span> &amp;&amp; appWindowToken.appToken != <span class="keyword">null</span>) &#123;</span><br><span class="line">    <span class="comment">// 告知AMS有ANR事件</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (windowState != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// Notify the activity manager about the timeout and let it decide whether</span></span><br><span class="line">            <span class="comment">// to abort dispatching or keep waiting.</span></span><br><span class="line">            <span class="keyword">long</span> timeout = ActivityManagerNative.getDefault().inputDispatchingTimedOut(</span><br><span class="line">                    windowState.mSession.mPid, aboveSystem, reason);</span><br><span class="line">            <span class="keyword">if</span> (timeout &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="comment">// The activity manager declined to abort dispatching.</span></span><br><span class="line">                <span class="comment">// Wait a bit longer and timeout again later.</span></span><br><span class="line">                <span class="keyword">return</span> timeout * <span class="number">1000000L</span>; <span class="comment">// nanoseconds</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (RemoteException ex) &#123;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>; <span class="comment">// abort dispatching</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>AMS处理输入响应超时：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">long</span> <span class="title">inputDispatchingTimedOut</span><span class="params">(<span class="keyword">int</span> pid, <span class="keyword">final</span> <span class="keyword">boolean</span> aboveSystem, String reason)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    ProcessRecord proc;</span><br><span class="line">    <span class="keyword">long</span> timeout;</span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="keyword">this</span>) &#123;</span><br><span class="line">        <span class="keyword">synchronized</span> (mPidsSelfLocked) &#123;</span><br><span class="line">            proc = mPidsSelfLocked.get(pid);</span><br><span class="line">        &#125;</span><br><span class="line">        timeout = getInputDispatchingTimeoutLocked(proc);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!inputDispatchingTimedOut(proc, <span class="keyword">null</span>, <span class="keyword">null</span>, aboveSystem, reason)) &#123;</span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> timeout;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>发现有应用进程ANR，AMS向主线程发送一个可执行对象，执行ANR操作，最后<code>AppErrors</code>会向当前应用程序的UI线程发送一个ANR的对话框：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">inputDispatchingTimedOut</span><span class="params">(<span class="keyword">final</span> ProcessRecord proc,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">final</span> ActivityRecord activity, <span class="keyword">final</span> ActivityRecord parent,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">final</span> <span class="keyword">boolean</span> aboveSystem, String reason)</span> </span>&#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="keyword">if</span> (proc != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        mHandler.post(<span class="keyword">new</span> Runnable() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                mAppErrors.appNotResponding(proc, activity, parent, aboveSystem, annotation);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>接下来，再来看下广播处理超时的情况。</p>
+<h2 id="广播处理超时"><a href="#广播处理超时" class="headerlink" title="广播处理超时"></a><strong>广播处理超时</strong></h2><p>广播的运行机制很像“内容发布者-订阅者”这样的信息传递方式：新闻报纸就是典型的例子，订阅者首先得到新闻通讯社注册成为用户才能接收到报纸；而新闻媒体则负责将报纸发送给各个合法的注册者。与此类似，广播的发送者通过<code>Context</code>中的接口<code>sendBroadcast(Intent)</code>向系统发送广播；而接收者则需要通过<code>Context</code>中提供的接口<code>registerReceiver</code>来监听广播，对于有系统权限限制的广播，需要相应的用户权限才允许接收。</p>
+<p>Android系统广播由AMS(ActivityManagerService)负责管理，AMS中有两个广播队列，一个是前台广播(Intent中对应的标志位<code>FLAG_RECEIVER_FOREGROUND</code>),具有在前台运行的优先级；一个是后台广播，不指定前台标志位的广播都默认为后台广播。对于前台广播，接收者如果在10s内为完成，则视为超时；后台广播如果接收后60s内为完成，则超时。此时，AMS会向当前UI线程发送一个ANR的对话框。</p>
+<p>AMS中接收到广播后，将广播放入一个队列,根据广播接收者注册机制的不同，广播队列分为并行与串行两种处理方式，并行处理广播不用等待其他广播完成，主要用于处理用<code>Context</code>接口注册的广播接收者；串行方式则必须按照严格广播入队列的先后次序来处理.</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">final</span> <span class="keyword">int</span> <span class="title">broadcastIntentLocked</span><span class="params">(ProcessRecord callerApp,</span></span></span><br><span class="line"><span class="function"><span class="params">        String callerPackage, Intent intent, String resolvedType,</span></span></span><br><span class="line"><span class="function"><span class="params">        IIntentReceiver resultTo, <span class="keyword">int</span> resultCode, String resultData,</span></span></span><br><span class="line"><span class="function"><span class="params">        Bundle resultExtras, String[] requiredPermissions, <span class="keyword">int</span> appOp, Bundle bOptions,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">boolean</span> ordered, <span class="keyword">boolean</span> sticky, <span class="keyword">int</span> callingPid, <span class="keyword">int</span> callingUid, <span class="keyword">int</span> userId)</span> </span>&#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">// 从Context中注册的广播接收</span></span><br><span class="line">    <span class="keyword">int</span> NR = registeredReceivers != <span class="keyword">null</span> ? registeredReceivers.size() : <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> (!ordered &amp;&amp; NR &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="comment">// If we are not serializing this broadcast, then send the</span></span><br><span class="line">        <span class="comment">// registered receivers separately so they don't wait for the</span></span><br><span class="line">        <span class="comment">// components to be launched.</span></span><br><span class="line">        <span class="keyword">if</span> (isCallerSystem) &#123;</span><br><span class="line">            checkBroadcastFromSystem(intent, callerApp, callerPackage, callingUid,</span><br><span class="line">                    isProtectedBroadcast, registeredReceivers);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">final</span> BroadcastQueue queue = broadcastQueueForIntent(intent);</span><br><span class="line">        BroadcastRecord r = <span class="keyword">new</span> BroadcastRecord(queue, intent, callerApp,</span><br><span class="line">                callerPackage, callingPid, callingUid, resolvedType, requiredPermissions,</span><br><span class="line">                appOp, brOptions, registeredReceivers, resultTo, resultCode, resultData,</span><br><span class="line">                resultExtras, ordered, sticky, <span class="keyword">false</span>, userId);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">boolean</span> replaced = replacePending &amp;&amp; queue.replaceParallelBroadcastLocked(r);</span><br><span class="line">        <span class="comment">// 放入广播队列，并开始处理广播</span></span><br><span class="line">        <span class="keyword">if</span> (!replaced) &#123;</span><br><span class="line">            queue.enqueueParallelBroadcastLocked(r);</span><br><span class="line">            queue.scheduleBroadcastsLocked();</span><br><span class="line">        &#125;</span><br><span class="line">        registeredReceivers = <span class="keyword">null</span>;</span><br><span class="line">        NR = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// AndroidManifest.xml文件中声明的广播接收者</span></span><br><span class="line">    <span class="keyword">if</span> ((receivers != <span class="keyword">null</span> &amp;&amp; receivers.size() &gt; <span class="number">0</span>)</span><br><span class="line">            || resultTo != <span class="keyword">null</span>) &#123;</span><br><span class="line">        BroadcastQueue queue = broadcastQueueForIntent(intent);</span><br><span class="line">        BroadcastRecord r = <span class="keyword">new</span> BroadcastRecord(queue, intent, callerApp,</span><br><span class="line">                callerPackage, callingPid, callingUid, resolvedType,</span><br><span class="line">                requiredPermissions, appOp, brOptions, receivers, resultTo, resultCode,</span><br><span class="line"></span><br><span class="line">        <span class="keyword">boolean</span> replaced = replacePending &amp;&amp; queue.replaceOrderedBroadcastLocked(r);</span><br><span class="line">        <span class="keyword">if</span> (!replaced) &#123;</span><br><span class="line">            queue.enqueueOrderedBroadcastLocked(r);</span><br><span class="line">            queue.scheduleBroadcastsLocked();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ....</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ActivityManager.BROADCAST_SUCCESS;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>发送消息<code>BROADCAST_INTENT_MSG</code>请求处理广播：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">scheduleBroadcastsLocked</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">//当前有广播在处理，返回</span></span><br><span class="line">    <span class="keyword">if</span> (mBroadcastsScheduled) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    mHandler.sendMessage(mHandler.obtainMessage(BROADCAST_INTENT_MSG, <span class="keyword">this</span>));</span><br><span class="line">    mBroadcastsScheduled = <span class="keyword">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>Handler</code>接受到消息，开始处理队列中的广播：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">BroadcastHandler</span> <span class="keyword">extends</span> <span class="title">Handler</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> </span><br><span class="line">        BroadcastHandler(Looper looper) &#123;</span><br><span class="line">        <span class="keyword">super</span>(looper, <span class="keyword">null</span>, <span class="keyword">true</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleMessage</span><span class="params">(Message msg)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">switch</span> (msg.what) &#123;</span><br><span class="line">            <span class="keyword">case</span> BROADCAST_INTENT_MSG: &#123;</span><br><span class="line">                <span class="comment">//处理广播</span></span><br><span class="line">                processNextBroadcast(<span class="keyword">true</span>);</span><br><span class="line">            &#125; <span class="keyword">break</span>;</span><br><span class="line">            <span class="comment">// 广播超时消息</span></span><br><span class="line">            <span class="keyword">case</span> BROADCAST_TIMEOUT_MSG: &#123;</span><br><span class="line">                <span class="keyword">synchronized</span> (mService) &#123;</span><br><span class="line">                    broadcastTimeoutLocked(<span class="keyword">true</span>);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>处理下一个广播，简单起见，这里只分析串行分发广播的方式：首先记录下广播分发的时间<code>dispatchTime</code>,接着设置广播超时时间；最后开始处理广播，将其发送给广播接收者：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">final</span> <span class="keyword">void</span> <span class="title">processNextBroadcast</span><span class="params">(<span class="keyword">boolean</span> fromMsg)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">synchronized</span>(mService) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">do</span> &#123;</span><br><span class="line">            r = mOrderedBroadcasts.get(<span class="number">0</span>);</span><br><span class="line">            <span class="comment">// 取消广播超时设置</span></span><br><span class="line">            cancelBroadcastTimeoutLocked();</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">while</span> (r == <span class="keyword">null</span>);</span><br><span class="line">        ...</span><br><span class="line">        r.receiverTime = SystemClock.uptimeMillis();</span><br><span class="line">        <span class="keyword">if</span> (recIdx == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">// 广播分发时间</span></span><br><span class="line">            r.dispatchTime = r.receiverTime;</span><br><span class="line">            r.dispatchClockTime = System.currentTimeMillis();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (! mPendingBroadcastTimeoutMessage) &#123;</span><br><span class="line">            <span class="keyword">long</span> timeoutTime = r.receiverTime + mTimeoutPeriod;</span><br><span class="line">            <span class="comment">//设置广播超时消息</span></span><br><span class="line">            setBroadcastTimeoutLocked(timeoutTime);</span><br><span class="line">        &#125;</span><br><span class="line">        ....</span><br><span class="line">        <span class="comment">// Is this receiver's application already running?</span></span><br><span class="line">        <span class="keyword">if</span> (app != <span class="keyword">null</span> &amp;&amp; app.thread != <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                app.addPackage(info.activityInfo.packageName,</span><br><span class="line">                        info.activityInfo.applicationInfo.versionCode, mService.mProcessStats);</span><br><span class="line">                processCurBroadcastLocked(r, app);</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (RuntimeException e) &#123;</span><br><span class="line">                logBroadcastReceiverDiscardLocked(r);</span><br><span class="line">                finishReceiverLocked(r, r.resultCode, r.resultData,</span><br><span class="line">                        r.resultExtras, r.resultAbort, <span class="keyword">false</span>);</span><br><span class="line">                scheduleBroadcastsLocked();</span><br><span class="line">                <span class="comment">// We need to reset the state if we failed to start the receiver.</span></span><br><span class="line">                r.state = BroadcastRecord.IDLE;</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">     <span class="comment">//广播接收者进程不存在，启动之</span></span><br><span class="line">     <span class="keyword">if</span> ((r.curApp=mService.startProcessLocked(targetProcess,</span><br><span class="line">                        info.activityInfo.applicationInfo, <span class="keyword">true</span>,</span><br><span class="line">                        r.intent.getFlags() | Intent.FLAG_FROM_BACKGROUND,</span><br><span class="line">                        <span class="string">"broadcast"</span>, r.curComponent,</span><br><span class="line">                        (r.intent.getFlags()&amp;Intent.FLAG_RECEIVER_BOOT_UPGRADE) != <span class="number">0</span>, <span class="keyword">false</span>, <span class="keyword">false</span>, <span class="keyword">false</span>))</span><br><span class="line">                                == <span class="keyword">null</span>) &#123;</span><br><span class="line">                    <span class="comment">//启动应用失败</span></span><br><span class="line">                    finishReceiverLocked(r, r.resultCode, r.resultData,</span><br><span class="line">                            r.resultExtras, r.resultAbort, <span class="keyword">false</span>);</span><br><span class="line">                    scheduleBroadcastsLocked();</span><br><span class="line">                    r.state = BroadcastRecord.IDLE;</span><br><span class="line">                    <span class="keyword">return</span>;</span><br><span class="line">                &#125;</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+<p>如果广播处理在10s内未完成，则出发TIME_OUT的消息:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">final</span> <span class="keyword">void</span> <span class="title">broadcastTimeoutLocked</span><span class="params">(<span class="keyword">boolean</span> fromMsg)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (fromMsg) &#123;</span><br><span class="line">        mPendingBroadcastTimeoutMessage = <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mOrderedBroadcasts.size() == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">long</span> now = SystemClock.uptimeMillis();</span><br><span class="line">    BroadcastRecord r = mOrderedBroadcasts.get(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fromMsg) &#123;</span><br><span class="line">        <span class="keyword">long</span> timeoutTime = r.receiverTime + mTimeoutPeriod;</span><br><span class="line">        <span class="keyword">if</span> (timeoutTime &gt; now) &#123;</span><br><span class="line">            <span class="comment">// 处理成功，重新设置TIMEOUT时间，返回</span></span><br><span class="line">            setBroadcastTimeoutLocked(timeoutTime);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    ....</span><br><span class="line">    r.receiverTime = now;</span><br><span class="line">    r.anrCount++;</span><br><span class="line"></span><br><span class="line">    ProcessRecord app = <span class="keyword">null</span>;</span><br><span class="line">    String anrMessage = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">    Object curReceiver = r.receivers.get(r.nextReceiver-<span class="number">1</span>);</span><br><span class="line">    r.delivery[r.nextReceiver-<span class="number">1</span>] = BroadcastRecord.DELIVERY_TIMEOUT;</span><br><span class="line">    <span class="keyword">if</span> (curReceiver <span class="keyword">instanceof</span> BroadcastFilter) &#123;</span><br><span class="line">        BroadcastFilter bf = (BroadcastFilter)curReceiver;</span><br><span class="line">        <span class="keyword">if</span> (bf.receiverList.pid != <span class="number">0</span></span><br><span class="line">                &amp;&amp; bf.receiverList.pid != ActivityManagerService.MY_PID) &#123;</span><br><span class="line">            <span class="keyword">synchronized</span> (mService.mPidsSelfLocked) &#123;</span><br><span class="line">                app = mService.mPidsSelfLocked.get(</span><br><span class="line">                        bf.receiverList.pid);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        app = r.curApp;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Move on to the next receiver.</span></span><br><span class="line">    finishReceiverLocked(r, r.resultCode, r.resultData,</span><br><span class="line">            r.resultExtras, r.resultAbort, <span class="keyword">false</span>);</span><br><span class="line">    scheduleBroadcastsLocked();</span><br><span class="line">    <span class="comment">// 向超时应用发送ANR消息</span></span><br><span class="line">    <span class="keyword">if</span> (anrMessage != <span class="keyword">null</span>) &#123;</span><br><span class="line">        mHandler.post(<span class="keyword">new</span> AppNotResponding(app, anrMessage));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Android/" rel="tag"># Android</a>
+          
+            <a href="/tags/ANR/" rel="tag"># ANR</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/06/18/Java并发编程之锁/" rel="next" title="Java并发编程之锁">
+                <i class="fa fa-chevron-left"></i> Java并发编程之锁
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/07/01/Android中的任务管理/" rel="prev" title="Android中的任务管理">
+                Android中的任务管理 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#输入无响应"><span class="nav-number">1.</span> <span class="nav-text">输入无响应</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#广播处理超时"><span class="nav-number">2.</span> <span class="nav-text">广播处理超时</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Java,Process,waitfor,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:  从一个串口/dev/ttyUSBX读取数据 将数据写入到本地目录(读缓存大小为1KB)  本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读/写的子线程, 然后通过pthread_join主动等待子线程完成后退出. 问题是, 应用A调用的时保存的日">
+<meta name="keywords" content="Java,Process,waitfor">
+<meta property="og:type" content="article">
+<meta property="og:title" content="说说Process.waitfor()引起的进程阻塞问题">
+<meta property="og:url" content="http://sniffer.site/2019/09/04/说说Process-waitfor-引起的进程阻塞问题/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:  从一个串口/dev/ttyUSBX读取数据 将数据写入到本地目录(读缓存大小为1KB)  本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读/写的子线程, 然后通过pthread_join主动等待子线程完成后退出. 问题是, 应用A调用的时保存的日">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/process_stack.jpg">
+<meta property="og:updated_time" content="2019-09-05T01:58:12.601Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="说说Process.waitfor()引起的进程阻塞问题">
+<meta name="twitter:description" content="最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:  从一个串口/dev/ttyUSBX读取数据 将数据写入到本地目录(读缓存大小为1KB)  本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读/写的子线程, 然后通过pthread_join主动等待子线程完成后退出. 问题是, 应用A调用的时保存的日">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/process_stack.jpg">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2019/09/04/说说Process-waitfor-引起的进程阻塞问题/">
+
+
+
+
+
+  <title>说说Process.waitfor()引起的进程阻塞问题 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2019/09/04/说说Process-waitfor-引起的进程阻塞问题/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">说说Process.waitfor()引起的进程阻塞问题</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-09-04T16:35:16+08:00">
+                2019-09-04
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index">
+                    <span itemprop="name">Java</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2019/09/04/说说Process-waitfor-引起的进程阻塞问题/" class="leancloud_visitors" data-flag-title="说说Process.waitfor()引起的进程阻塞问题">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:</p>
+<ul>
+<li>从一个串口<code>/dev/ttyUSBX</code>读取数据</li>
+<li>将数据写入到本地目录(读缓存大小为1KB)</li>
+</ul>
+<p>本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读/写的子线程, 然后通过<code>pthread_join</code>主动等待子线程完成后退出.</p>
+<p>问题是, 应用A调用的时保存的日志大小雷打不动的停留在不到4M就停止了, 而应用B可以一直写数据. 看应用A调用时, 通过<code>debuggerd -b &lt;tid&gt;</code>查看本地进程的堆栈, 大概是这样的:</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/process_stack.jpg" alt="process stack"></p>
+<p>说明此时本地进程一直在”卡”在写数据上了, 那到底卡在哪里了? 查看<code>cat /proc/&lt;pid&gt;/wchan</code>(也可以通过<code>strace -p &lt;pid&gt;</code>来查看目前进程所调用的系统调用), 就是本地进程的正在执行的系统调用, 发现是<code>pipe_wait</code>, 这个是怎么回事? 本地进程本身并不会用到pipe来进行数据的传输, 那很可能是Java父进程与本地进程之间的数据通信管道了. </p>
+<p>回到最开始的问题, 为何两个APP调用同样的指令会有如此大的差异了? 我们再来看看应用A与应用B之间执行的代码到底有多少的差异?</p>
+<ul>
+<li>应用A的调用逻辑</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line">Process process = <span class="keyword">null</span>;</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    process = Runtime.getRuntime().exec(COMMAND);</span><br><span class="line">    process.waitFor();</span><br><span class="line">&#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">if</span>(process != <span class="keyword">null</span>) &#123;</span><br><span class="line">        process.destroy();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>应用B的调用逻辑</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Process process = <span class="keyword">null</span>;</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    process = Runtime.getRuntime().exec(COMMAND);</span><br><span class="line">&#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">if</span>(process != <span class="keyword">null</span>) &#123;</span><br><span class="line">        process.destroy();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这么一对比, 看起来问题是出在<code>Process.waitfor()</code>上了, 看了网上一个类似的案例<code>https://www.cnblogs.com/embedded-linux/p/6986525.html</code>, 顿时觉得豁然开朗, 这个不就是我碰到问题末!  看 <code>java.lang.Process</code>的文档说明(这里只拿了最关键的一段话): </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line">By default, the created process does not have its own terminal</span><br><span class="line">or console.  All its standard I/O (i.e. stdin, stdout, stderr)</span><br><span class="line">operations will be redirected to the parent process, where they can</span><br><span class="line">be accessed via the streams obtained using the methods</span><br><span class="line">&#123;@link #getOutputStream()&#125;,</span><br><span class="line">&#123;@link #getInputStream()&#125;, and</span><br><span class="line"> &#123;@link #getErrorStream()&#125;.</span><br><span class="line">The parent process uses these streams to feed input to and get output</span><br><span class="line">from the process.  Because some native platforms only provide</span><br><span class="line">limited buffer size for standard input and output streams, failure</span><br><span class="line">to promptly write the input stream or read the output stream of</span><br><span class="line">the process may cause the process to block, or even deadlock.</span><br></pre></td></tr></table></figure>
+<p>这段话的大概意思是, 通过Java创建的本地子进程本身是没有标准输入/输出以及错误流的, 这三个流都会被重定向到父进程; 父进程则通过<code>Process.getInputStream()/getOutputStream</code>等来获取子进程的流, 而如果父进程如果一直不读取子进程的输出流, 由于平台本身的输入输出流的缓冲大小是有限的, 此时子进程就可能阻塞, 甚至死锁(如果父进程也在等待子进程的话). 这样看起来, 问题的原因就很明显了:  应用A没有处理子进程的输出流, 且调用了<code>Process.waitfor()</code>, 由于本地进程一直在打印输出日志, 导致输出缓冲区满了之后发生阻塞, 而父进程并不知道子进程发生了阻塞, 一直傻傻的等.现在看来, 调用任何接口之前看<strong>看文档</strong>总是有益的, 至少在定位分析问题的时候可以少走弯路.</p>
+<p>我们先来看下Java调用本地进程的整个处理流程, 再来看具体如何解决这个问题.  调用<code>Runtime.exec(cmd)</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">      <span class="function"><span class="keyword">public</span> Process <span class="title">exec</span><span class="params">(String prog)</span> <span class="keyword">throws</span> java.io.IOException </span>&#123;</span><br><span class="line"><span class="keyword">return</span> exec(prog, <span class="keyword">null</span>, <span class="keyword">null</span>);</span><br><span class="line">      &#125;</span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line">      <span class="function"><span class="keyword">public</span> Process <span class="title">exec</span><span class="params">(String prog, String[] envp, File directory)</span> <span class="keyword">throws</span> java.io.IOException </span>&#123;</span><br><span class="line"><span class="comment">// Sanity checks</span></span><br><span class="line"><span class="keyword">if</span> (prog == <span class="keyword">null</span>) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException(<span class="string">"prog == null"</span>);</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (prog.isEmpty()) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"prog is empty"</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Break down into tokens, as described in Java docs</span></span><br><span class="line">StringTokenizer tokenizer = <span class="keyword">new</span> StringTokenizer(prog);</span><br><span class="line"><span class="keyword">int</span> length = tokenizer.countTokens();</span><br><span class="line">String[] progArray = <span class="keyword">new</span> String[length];</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; length; i++) &#123;</span><br><span class="line">    progArray[i] = tokenizer.nextToken();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Delegate</span></span><br><span class="line"><span class="keyword">return</span> exec(progArray, envp, directory);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line">  <span class="function"><span class="keyword">public</span> Process <span class="title">exec</span><span class="params">(String[] progArray, String[] envp, File directory)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">      <span class="comment">// ProcessManager is responsible for all argument checking.</span></span><br><span class="line">      <span class="keyword">return</span> ProcessManager.getInstance().exec(progArray, envp, directory, <span class="keyword">false</span>);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>接着调用<code>ProcessManager.getInstance().exec()</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Executes a process and returns an object representing it.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Process <span class="title">exec</span><span class="params">(String[] taintedCommand, String[] taintedEnvironment, File workingDirectory,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">boolean</span> redirectErrorStream)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    <span class="comment">// Make sure we throw the same exceptions as the RI.</span></span><br><span class="line">    <span class="keyword">if</span> (taintedCommand == <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException(<span class="string">"taintedCommand == null"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (taintedCommand.length == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IndexOutOfBoundsException(<span class="string">"taintedCommand.length == 0"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Handle security and safety by copying mutable inputs and checking them.</span></span><br><span class="line">    String[] command = taintedCommand.clone();</span><br><span class="line">    String[] environment = taintedEnvironment != <span class="keyword">null</span> ? taintedEnvironment.clone() : <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Check we're not passing null Strings to the native exec.</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; command.length; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (command[i] == <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException(<span class="string">"taintedCommand["</span> + i + <span class="string">"] == null"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// The environment is allowed to be null or empty, but no element may be null.</span></span><br><span class="line">    <span class="keyword">if</span> (environment != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; environment.length; i++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (environment[i] == <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException(<span class="string">"taintedEnvironment["</span> + i + <span class="string">"] == null"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    FileDescriptor in = <span class="keyword">new</span> FileDescriptor();</span><br><span class="line">    FileDescriptor out = <span class="keyword">new</span> FileDescriptor();</span><br><span class="line">    FileDescriptor err = <span class="keyword">new</span> FileDescriptor();</span><br><span class="line"></span><br><span class="line">    String workingPath = (workingDirectory == <span class="keyword">null</span>)</span><br><span class="line">            ? <span class="keyword">null</span></span><br><span class="line">            : workingDirectory.getPath();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Ensure onExit() doesn't access the process map before we add our</span></span><br><span class="line">    <span class="comment">// entry.</span></span><br><span class="line">    <span class="keyword">synchronized</span> (processReferences) &#123;</span><br><span class="line">        <span class="keyword">int</span> pid;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 调用JNI方法, 创建一个子进程, 并返回对应的PID</span></span><br><span class="line">            pid = exec(command, environment, workingPath, in, out, err, redirectErrorStream);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            IOException wrapper = <span class="keyword">new</span> IOException(<span class="string">"Error running exec()."</span></span><br><span class="line">                    + <span class="string">" Command: "</span> + Arrays.toString(command)</span><br><span class="line">                    + <span class="string">" Working Directory: "</span> + workingDirectory</span><br><span class="line">                    + <span class="string">" Environment: "</span> + Arrays.toString(environment));</span><br><span class="line">            wrapper.initCause(e);</span><br><span class="line">            <span class="keyword">throw</span> wrapper;</span><br><span class="line">        &#125;</span><br><span class="line">        ProcessImpl process = <span class="keyword">new</span> ProcessImpl(pid, in, out, err);</span><br><span class="line">        ProcessReference processReference = <span class="keyword">new</span> ProcessReference(process, referenceQueue);</span><br><span class="line">        processReferences.put(pid, processReference);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * This will wake up the child monitor thread in case there</span></span><br><span class="line"><span class="comment">         * weren't previously any children to wait on.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        processReferences.notifyAll();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> process;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在看下对应的JNI方法<code>java_lang_ProcessManager.cpp</code>,  看到<code>ExecuteProcess</code>中将子进程的输入输出以及错误流均重定向到pipe的一端, 而pipe的另一端则对应着父进程的输出输入以及错误流, 这样一看子进程所阻塞的函数<code>pipe_wait</code>正是因为输出流缓冲满了, 无法再继续写了(那么, 可能还有疑问? 为何本地进程一直要写pipe了, 手动输入命令调用下就知道, 这个本地进程一直变态的在打印自己写入数据的文件名到标准输出).</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> pid_t <span class="title">ProcessManager_exec</span><span class="params">(JNIEnv* env, jclass, jobjectArray javaCommands,</span></span></span><br><span class="line"><span class="function"><span class="params">	                         jobjectArray javaEnvironment, jstring javaWorkingDirectory,</span></span></span><br><span class="line"><span class="function"><span class="params">	                         jobject inDescriptor, jobject outDescriptor, jobject errDescriptor,</span></span></span><br><span class="line"><span class="function"><span class="params">	                         jboolean redirectErrorStream)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">  <span class="function">ExecStrings <span class="title">commands</span><span class="params">(env, javaCommands)</span></span>;</span><br><span class="line">  <span class="function">ExecStrings <span class="title">environment</span><span class="params">(env, javaEnvironment)</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Extract working directory string.</span></span><br><span class="line">  <span class="keyword">const</span> <span class="keyword">char</span>* workingDirectory = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="keyword">if</span> (javaWorkingDirectory != <span class="literal">NULL</span>) &#123;</span><br><span class="line">    workingDirectory = env-&gt;GetStringUTFChars(javaWorkingDirectory, <span class="literal">NULL</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">pid_t</span> result = ExecuteProcess(env, commands.get(), environment.get(), workingDirectory,</span><br><span class="line">	                        inDescriptor, outDescriptor, errDescriptor, redirectErrorStream);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Clean up working directory string.</span></span><br><span class="line">  <span class="keyword">if</span> (javaWorkingDirectory != <span class="literal">NULL</span>) &#123;</span><br><span class="line">    env-&gt;ReleaseStringUTFChars(javaWorkingDirectory, workingDirectory);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/** Executes a command in a child process. */</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> pid_t <span class="title">ExecuteProcess</span><span class="params">(JNIEnv* env, <span class="keyword">char</span>** commands, <span class="keyword">char</span>** environment,</span></span></span><br><span class="line"><span class="function"><span class="params">	                    <span class="keyword">const</span> <span class="keyword">char</span>* workingDirectory, jobject inDescriptor,</span></span></span><br><span class="line"><span class="function"><span class="params">	                    jobject outDescriptor, jobject errDescriptor,</span></span></span><br><span class="line"><span class="function"><span class="params">	                    jboolean redirectErrorStream)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Create 4 pipes: stdin, stdout, stderr, and an exec() status pipe.</span></span><br><span class="line">  <span class="keyword">int</span> pipes[PIPE_COUNT * <span class="number">2</span>] = &#123; <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span> &#125;;</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; PIPE_COUNT; i++) &#123;</span><br><span class="line">    <span class="keyword">if</span> (pipe(pipes + i * <span class="number">2</span>) == <span class="number">-1</span>) &#123;</span><br><span class="line">      jniThrowIOException(env, errno);</span><br><span class="line">      ClosePipes(pipes, <span class="number">-1</span>);</span><br><span class="line">      <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">int</span> stdinIn = pipes[<span class="number">0</span>];</span><br><span class="line">  <span class="keyword">int</span> stdinOut = pipes[<span class="number">1</span>];</span><br><span class="line">  <span class="keyword">int</span> stdoutIn = pipes[<span class="number">2</span>];</span><br><span class="line">  <span class="keyword">int</span> stdoutOut = pipes[<span class="number">3</span>];</span><br><span class="line">  <span class="keyword">int</span> stderrIn = pipes[<span class="number">4</span>];</span><br><span class="line">  <span class="keyword">int</span> stderrOut = pipes[<span class="number">5</span>];</span><br><span class="line">  <span class="keyword">int</span> statusIn = pipes[<span class="number">6</span>];</span><br><span class="line">  <span class="keyword">int</span> statusOut = pipes[<span class="number">7</span>];</span><br><span class="line"></span><br><span class="line">  <span class="keyword">pid_t</span> childPid = fork();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If fork() failed...</span></span><br><span class="line">  <span class="keyword">if</span> (childPid == <span class="number">-1</span>) &#123;</span><br><span class="line">    jniThrowIOException(env, errno);</span><br><span class="line">    ClosePipes(pipes, <span class="number">-1</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If this is the child process...</span></span><br><span class="line">  <span class="keyword">if</span> (childPid == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// Note: We cannot malloc(3) or free(3) after this point!</span></span><br><span class="line">    <span class="comment">// A thread in the parent that no longer exists in the child may have held the heap lock</span></span><br><span class="line">    <span class="comment">// when we forked, so an attempt to malloc(3) or free(3) would result in deadlock.</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Replace stdin, out, and err with pipes.</span></span><br><span class="line">    dup2(stdinIn, <span class="number">0</span>);</span><br><span class="line">    dup2(stdoutOut, <span class="number">1</span>);</span><br><span class="line">    <span class="keyword">if</span> (redirectErrorStream) &#123;</span><br><span class="line">      dup2(stdoutOut, <span class="number">2</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      dup2(stderrOut, <span class="number">2</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Close all but statusOut. This saves some work in the next step.</span></span><br><span class="line">    ClosePipes(pipes, statusOut);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Make statusOut automatically close if execvp() succeeds.</span></span><br><span class="line">    fcntl(statusOut, F_SETFD, FD_CLOEXEC);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Close remaining unwanted open fds.</span></span><br><span class="line">    CloseNonStandardFds(statusOut);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Switch to working directory.</span></span><br><span class="line">    <span class="keyword">if</span> (workingDirectory != <span class="literal">NULL</span>) &#123;</span><br><span class="line">      <span class="keyword">if</span> (chdir(workingDirectory) == <span class="number">-1</span>) &#123;</span><br><span class="line">	AbortChild(statusOut);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Set up environment.</span></span><br><span class="line">    <span class="keyword">if</span> (environment != <span class="literal">NULL</span>) &#123;</span><br><span class="line">      <span class="keyword">extern</span> <span class="keyword">char</span>** environ; <span class="comment">// Standard, but not in any header file.</span></span><br><span class="line">      environ = environment;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Execute process. By convention, the first argument in the arg array</span></span><br><span class="line">    <span class="comment">// should be the command itself.</span></span><br><span class="line">    execvp(commands[<span class="number">0</span>], commands);</span><br><span class="line">    AbortChild(statusOut);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// This is the parent process.</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// Close child's pipe ends.</span></span><br><span class="line">  close(stdinIn);</span><br><span class="line">  close(stdoutOut);</span><br><span class="line">  close(stderrOut);</span><br><span class="line">  close(statusOut);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Check status pipe for an error code. If execvp(2) succeeds, the other</span></span><br><span class="line">  <span class="comment">// end of the pipe should automatically close, in which case, we'll read</span></span><br><span class="line">  <span class="comment">// nothing.</span></span><br><span class="line">  <span class="keyword">int</span> child_errno;</span><br><span class="line">  <span class="keyword">ssize_t</span> count = TEMP_FAILURE_RETRY(read(statusIn, &amp;child_errno, <span class="keyword">sizeof</span>(<span class="keyword">int</span>)));</span><br><span class="line">  close(statusIn);</span><br><span class="line">  <span class="keyword">if</span> (count &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// chdir(2) or execvp(2) in the child failed.</span></span><br><span class="line">    <span class="comment">// <span class="doctag">TODO:</span> track which so we can be more specific in the detail message.</span></span><br><span class="line">    jniThrowIOException(env, child_errno);</span><br><span class="line"></span><br><span class="line">    close(stdoutIn);</span><br><span class="line">    close(stdinOut);</span><br><span class="line">    close(stderrIn);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Reap our zombie child right away.</span></span><br><span class="line">    <span class="keyword">int</span> status;</span><br><span class="line">    <span class="keyword">int</span> rc = TEMP_FAILURE_RETRY(waitpid(childPid, &amp;status, <span class="number">0</span>));</span><br><span class="line">    <span class="keyword">if</span> (rc == <span class="number">-1</span>) &#123;</span><br><span class="line">      ALOGW(<span class="string">"waitpid on failed exec failed: %s"</span>, strerror(errno));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Fill in file descriptor wrappers.</span></span><br><span class="line">  jniSetFileDescriptorOfFD(env, inDescriptor, stdoutIn);</span><br><span class="line">  jniSetFileDescriptorOfFD(env, outDescriptor, stdinOut);</span><br><span class="line">  jniSetFileDescriptorOfFD(env, errDescriptor, stderrIn);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> childPid;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果有兴趣还可以继续看下kernel的代码<code>fs/pipe.c</code>是如何实现<code>pipe_write/pipe_read</code>以及<code>pipe_wait</code>是如何发生的.</p>
+<p>这么一看代码流程, 如何解决这个问题的思路也有了, 大致有这么几种:</p>
+<ul>
+<li>直接在Java代码中去掉<code>Process.waitfor()</code>, 这个方法可能还是会有导致子进程阻塞的风险, 虽然不会死锁</li>
+<li>在新的线程中读取子线程的输出流:<code>Process.getInputStream()</code>, 这样确保子进程不会被阻塞</li>
+<li>直接将子进程的流全部丢弃(如果本身不感兴趣的话)</li>
+<li>要写本地进程的人把所有这些不必要的打印全部去掉(这个最好不要当作终极解决方案)</li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Java/" rel="tag"># Java</a>
+          
+            <a href="/tags/Process/" rel="tag"># Process</a>
+          
+            <a href="/tags/waitfor/" rel="tag"># waitfor</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/07/30/聊一聊TCP协议/" rel="next" title="聊一聊TCP协议">
+                <i class="fa fa-chevron-left"></i> 聊一聊TCP协议
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/11/07/BPF与eBPF/" rel="prev" title="BPF与eBPF">
+                BPF与eBPF <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+
+      <section class="site-overview sidebar-panel sidebar-panel-active">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

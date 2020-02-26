@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="RILD,Binder,HAL,RILJ,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="Telephony(RIL Java,以下简称RILJ）与RILD(RIL Daemon)的通信在Android OO8.0以前都是基于socket通信，而Android 8.0则是基于HAL binder进行IPC的数据交换。有关RILJ与RILD的工作原理可以参考之前的两篇文章：Android RIL概述以及RILD详解。这篇文章主要分析RILJ与RILD是如何通过HAL Binder进行通信">
+<meta name="keywords" content="RILD,Binder,HAL,RILJ">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HAL binder工作流程-以RILJ&#x2F;RILD通信为例">
+<meta property="og:url" content="http://sniffer.site/2018/06/17/HAL-binder工作流程-以RILJ-RILD通信为例/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="Telephony(RIL Java,以下简称RILJ）与RILD(RIL Daemon)的通信在Android OO8.0以前都是基于socket通信，而Android 8.0则是基于HAL binder进行IPC的数据交换。有关RILJ与RILD的工作原理可以参考之前的两篇文章：Android RIL概述以及RILD详解。这篇文章主要分析RILJ与RILD是如何通过HAL Binder进行通信">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2019-09-06T10:00:19.332Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="HAL binder工作流程-以RILJ&#x2F;RILD通信为例">
+<meta name="twitter:description" content="Telephony(RIL Java,以下简称RILJ）与RILD(RIL Daemon)的通信在Android OO8.0以前都是基于socket通信，而Android 8.0则是基于HAL binder进行IPC的数据交换。有关RILJ与RILD的工作原理可以参考之前的两篇文章：Android RIL概述以及RILD详解。这篇文章主要分析RILJ与RILD是如何通过HAL Binder进行通信">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2018/06/17/HAL-binder工作流程-以RILJ-RILD通信为例/">
+
+
+
+
+
+  <title>HAL binder工作流程-以RILJ/RILD通信为例 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2018/06/17/HAL-binder工作流程-以RILJ-RILD通信为例/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">HAL binder工作流程-以RILJ/RILD通信为例</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-06-17T22:26:35+08:00">
+                2018-06-17
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android/" itemprop="url" rel="index">
+                    <span itemprop="name">Android</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2018/06/17/HAL-binder工作流程-以RILJ-RILD通信为例/" class="leancloud_visitors" data-flag-title="HAL binder工作流程-以RILJ/RILD通信为例">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><code>Telephony</code>(RIL Java,以下简称RILJ）与RILD(RIL Daemon)的通信在Android OO8.0以前都是基于socket通信，而Android 8.0则是基于HAL binder进行IPC的数据交换。有关RILJ与RILD的工作原理可以参考之前的两篇文章：<a href="http://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android RIL概述</a>以及<a href="http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/" title="RILD详解">RILD详解</a>。这篇文章主要分析RILJ与RILD是如何通过HAL Binder进行通信。</p>
+<p>RILJ与RILD的通信，服务端是<code>RILD</code>,客户端是<code>RILJ</code>。对于RILD而言，其对应的HAL接口是<code>/android/hardware/interfaces/radio/1.0/IRadio.hal</code>:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * This interface is used by telephony &amp; telecom to talk to cellular radio.</span></span><br><span class="line"><span class="comment"> * All the functions have minimum one parameter:</span></span><br><span class="line"><span class="comment"> * serial: which corresponds to serial no. of request. Serial numbers must only be memorized for the</span></span><br><span class="line"><span class="comment"> * duration of a method call. If clients provide colliding serials (including passing the same</span></span><br><span class="line"><span class="comment"> * serial to different methods), multiple responses (one for each method call) must still be served.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">interface IRadio &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Set response functions for radio requests &amp; radio indications.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @param radioResponse Object containing response functions</span></span><br><span class="line"><span class="comment">     * @param radioIndication Object containing radio indications</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    setResponseFunctions(IRadioResponse radioResponse,</span><br><span class="line">            IRadioIndication radioIndication);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Requests status of the ICC card</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @param serial Serial number of request.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * Response function is IRadioResponse.getIccCardStatusResponse()</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">oneway <span class="title">getIccCardStatus</span><span class="params">(<span class="keyword">int32_t</span> serial)</span></span>;</span><br><span class="line">    </span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>而RILJ对应的回调接口有两个：<code>/android/hardware/interfaces/radio/1.0/IRadioResponse.hal</code>(RILJ发送给RILD的请求响应）; <code>/android/hardware/interfaces/radio/1.0/IRadioIndication.hal</code>（RILD主动上班的事件）：</p>
+<ul>
+<li><code>IRadioResponse.hal</code></li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Interface declaring response functions to solicited radio requests.</span></span><br><span class="line"><span class="comment"> * Response functions defined in this interface are as per following convention:</span></span><br><span class="line"><span class="comment"> * &lt;xyz&gt;Response is response to IRadio.&lt;xyz&gt;</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">interface IRadioResponse &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * @param info Response info struct containing response type, serial no. and error</span></span><br><span class="line"><span class="comment">     * @param cardStatus ICC card status as defined by CardStatus in types.hal</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * Valid errors returned:</span></span><br><span class="line"><span class="comment">     *   RadioError:NONE</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">oneway <span class="title">getIccCardStatusResponse</span><span class="params">(RadioResponseInfo info, CardStatus cardStatus)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * @param info Response info struct containing response type, serial no. and error</span></span><br><span class="line"><span class="comment">     * @param remainingRetries Number of retries remaining, must be equal to -1 if unknown.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * Valid errors returned:</span></span><br><span class="line"><span class="comment">     *   RadioError:NONE</span></span><br><span class="line"><span class="comment">     *   RadioError:RADIO_NOT_AVAILABLE (radio resetting)</span></span><br><span class="line"><span class="comment">     *   RadioError:PASSWORD_INCORRECT</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">oneway <span class="title">supplyIccPinForAppResponse</span><span class="params">(RadioResponseInfo info, <span class="keyword">int32_t</span> remainingRetries)</span></span>;</span><br><span class="line"></span><br><span class="line">    ....</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>IRadioIndication.hal</code></li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Interface declaring unsolicited radio indications.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">interface IRadioIndication &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Indicates when radio state changes.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @param type Type of radio indication</span></span><br><span class="line"><span class="comment">     * @param radioState Current radio state</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">oneway <span class="title">radioStateChanged</span><span class="params">(RadioIndicationType type, RadioState radioState)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Indicates when call state has changed.</span></span><br><span class="line"><span class="comment">     * Callee must invoke IRadio.getCurrentCalls()</span></span><br><span class="line"><span class="comment">     * Must be invoked on, for example,</span></span><br><span class="line"><span class="comment">     * "RING", "BUSY", "NO CARRIER", and also call state</span></span><br><span class="line"><span class="comment">     * transitions (DIALING-&gt;ALERTING ALERTING-&gt;ACTIVE)</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * Redundent or extraneous invocations are tolerated</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @param type Type of radio indication</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">oneway <span class="title">callStateChanged</span><span class="params">(RadioIndicationType type)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Indicates when voice or data network state changed</span></span><br><span class="line"><span class="comment">     * Callee must invoke IRadio.getVoiceRegistrationState(), IRadio.getDataRegistrationState(),</span></span><br><span class="line"><span class="comment">     * and IRadio.getOperator()</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @param type Type of radio indication</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function">oneway <span class="title">networkStateChanged</span><span class="params">(RadioIndicationType type)</span></span>;</span><br><span class="line">    </span><br><span class="line">    ....</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>RILJ与RILD的通信大致要经历三个步骤：</p>
+<ul>
+<li>RILD启动后，向<code>HwServiceManager</code>注册服务<code>slot1</code>(第二个RILD对应<code>slot2</code>);</li>
+<li>RILJ启动后，从<code>HwServiceManager</code>获取RILD服务，并且注册两个回调函数: <code>IRadioRepsone.java</code>以及<code>IRadioIndication.java</code>分别用于接收来自RILD的消息；</li>
+<li>RILD收到来自RILJ的回调注册后，注册一个RILJ的死亡通知对象，并且发送消息告知RILJ链接建立成功。</li>
+</ul>
+<h2 id="注册RILD服务"><a href="#注册RILD服务" class="headerlink" title="注册RILD服务"></a><strong>注册RILD服务</strong></h2><p>在RILD启动后，加载完vendor RIL之后，vendor RIL注册一个回调函数<code>RIL_RadioFunctions</code>:</p>
+<blockquote>
+<p> 关于RILD的详细介绍可以参考</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// ril_service.cpp</span></span><br><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> <span class="keyword">void</span></span><br><span class="line">RIL_register (<span class="keyword">const</span> RIL_RadioFunctions *callbacks) &#123;</span><br><span class="line">    <span class="keyword">int</span> ret;</span><br><span class="line">    <span class="keyword">int</span> flags;</span><br><span class="line"></span><br><span class="line">    RLOGI(<span class="string">"SIM_COUNT: %d"</span>, SIM_COUNT);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (callbacks == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        RLOGE(<span class="string">"RIL_register: RIL_RadioFunctions * null"</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    RLOGE(<span class="string">"RIL_register: RIL version %d"</span>, callbacks-&gt;version);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (s_registerCalled &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        RLOGE(<span class="string">"RIL_register has been called more than once. "</span></span><br><span class="line">                <span class="string">"Subsequent call ignored"</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">memcpy</span>(&amp;s_callbacks, callbacks, <span class="keyword">sizeof</span> (RIL_RadioFunctions));</span><br><span class="line"></span><br><span class="line">    s_registerCalled = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    RLOGI(<span class="string">"s_registerCalled flag set, %d"</span>, s_started);</span><br><span class="line">    <span class="comment">// Little self-check</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; (<span class="keyword">int</span>)NUM_ELEMS(s_commands); i++) &#123;</span><br><span class="line">        assert(i == s_commands[i].requestNumber);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; (<span class="keyword">int</span>)NUM_ELEMS(s_unsolResponses); i++) &#123;</span><br><span class="line">        assert(i + RIL_UNSOL_RESPONSE_BASE</span><br><span class="line">                == s_unsolResponses[i].requestNumber);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 注册RILD服务</span></span><br><span class="line">    radio::registerService(&amp;s_callbacks, s_commands);</span><br><span class="line">    RLOGI(<span class="string">"RILHIDL called registerService"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>注册RILD服务:(1) 启动RILD服务所需的HAL binder线程池，线程数目为1；（2）将RIL服务<code>RadioImpl</code>注册为系统服务，供客户端调用。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">void</span> radio::registerService(RIL_RadioFunctions *callbacks, CommandInfo *commands) &#123;</span><br><span class="line">    <span class="keyword">using</span> <span class="keyword">namespace</span> android::hardware;</span><br><span class="line">    <span class="keyword">int</span> simCount = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">char</span> *serviceNames[] = &#123;</span><br><span class="line">            android::RIL_getServiceName()</span><br><span class="line">            #<span class="keyword">if</span> (SIM_COUNT &gt;= <span class="number">2</span>)</span><br><span class="line">            , RIL2_SERVICE_NAME</span><br><span class="line">            #<span class="keyword">if</span> (SIM_COUNT &gt;= <span class="number">3</span>)</span><br><span class="line">            , RIL3_SERVICE_NAME</span><br><span class="line">            #<span class="keyword">if</span> (SIM_COUNT &gt;= <span class="number">4</span>)</span><br><span class="line">            , RIL4_SERVICE_NAME</span><br><span class="line">            #endif</span><br><span class="line">            #endif</span><br><span class="line">            #endif</span><br><span class="line">            &#125;;</span><br><span class="line">    <span class="meta">#<span class="meta-keyword">if</span> (SIM_COUNT &gt;= 2)</span></span><br><span class="line">    simCount = SIM_COUNT;</span><br><span class="line">    <span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    configureRpcThreadpool(<span class="number">1</span>, <span class="literal">true</span> <span class="comment">/* callerWillJoin */</span>);</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; simCount; i++) &#123;</span><br><span class="line">        <span class="keyword">pthread_rwlock_t</span> *radioServiceRwlockPtr = getRadioServiceRwlock(i);</span><br><span class="line">        <span class="keyword">int</span> ret = pthread_rwlock_wrlock(radioServiceRwlockPtr);</span><br><span class="line">        assert(ret == <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">        radioService[i] = <span class="keyword">new</span> RadioImpl;</span><br><span class="line">        radioService[i]-&gt;mSlotId = i;</span><br><span class="line">        oemHookService[i] = <span class="keyword">new</span> OemHookImpl;</span><br><span class="line">        oemHookService[i]-&gt;mSlotId = i;</span><br><span class="line">        RLOGD(<span class="string">"registerService: starting IRadio %s"</span>, serviceNames[i]);</span><br><span class="line">        android::<span class="keyword">status_t</span> status = radioService[i]-&gt;registerAsService(serviceNames[i]);</span><br><span class="line">        status = oemHookService[i]-&gt;registerAsService(serviceNames[i]);</span><br><span class="line"></span><br><span class="line">        ret = pthread_rwlock_unlock(radioServiceRwlockPtr);</span><br><span class="line">        assert(ret == <span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    s_vendorFunctions = callbacks;</span><br><span class="line">    s_commands = commands;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>RadioImpl</code>实际继承了<code>IRadio.hal</code>中定义的接口，这个接口在编译时，Android利用HIDL的工具<code>hidl-gen</code>来产生对应的客户端代理Proxy对象以及服务端存根Stub对象，但<code>IRadio.hal</code>中并没有声明<code>registerAsService</code>接口，那么这个接口是从何而来了？猜测应该是由HIDL工具主动生成的接口。不妨看看<code>hidl-gen</code>的代码<code>/android/system/tools/hidl/</code>。找到相应的<code>main</code>函数:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> outputPath;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">std</span>::<span class="built_in">string</span>&gt; packageRootPaths;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">std</span>::<span class="built_in">string</span>&gt; packageRoots;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">char</span> *me = argv[<span class="number">0</span>];</span><br><span class="line">    OutputHandler *outputFormat = <span class="literal">nullptr</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 解析参数</span></span><br><span class="line">    <span class="keyword">int</span> res;</span><br><span class="line">    <span class="keyword">while</span> ((res = getopt(argc, argv, <span class="string">"ho:r:L:"</span>)) &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">switch</span> (res) &#123;</span><br><span class="line">            <span class="keyword">case</span> <span class="string">'o'</span>:</span><br><span class="line">            &#123;</span><br><span class="line">                outputPath = optarg;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">case</span> <span class="string">'r'</span>:</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">val</span><span class="params">(optarg)</span></span>;</span><br><span class="line">                <span class="keyword">auto</span> index = val.find_first_of(<span class="string">':'</span>);</span><br><span class="line">                CHECK(index != <span class="built_in">std</span>::<span class="built_in">string</span>::npos);</span><br><span class="line"></span><br><span class="line">                <span class="keyword">auto</span> package = val.substr(<span class="number">0</span>, index);</span><br><span class="line">                <span class="keyword">auto</span> path = val.substr(index + <span class="number">1</span>);</span><br><span class="line">                packageRootPaths.push_back(path);</span><br><span class="line">                packageRoots.push_back(package);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">case</span> <span class="string">'L'</span>:</span><br><span class="line">            &#123;</span><br><span class="line">                CHECK(outputFormat == <span class="literal">nullptr</span>) &lt;&lt; <span class="string">"Only one -L option allowed."</span>;</span><br><span class="line">                <span class="keyword">for</span> (<span class="keyword">auto</span> &amp;e : formats) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (e.mKey == optarg) &#123;</span><br><span class="line">                        outputFormat = &amp;e;</span><br><span class="line">                        <span class="keyword">break</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                CHECK(outputFormat != <span class="literal">nullptr</span>) &lt;&lt; <span class="string">"Output format not recognized."</span>;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">case</span> <span class="string">'?'</span>:</span><br><span class="line">            <span class="keyword">case</span> <span class="string">'h'</span>:</span><br><span class="line">            <span class="keyword">default</span>:</span><br><span class="line">            &#123;</span><br><span class="line">                usage(me);</span><br><span class="line">                <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    argc -= optind;</span><br><span class="line">    argv += optind;</span><br><span class="line">    ....</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 负责产生.hal接口的头文件，源文件</span></span><br><span class="line">    <span class="function">Coordinator <span class="title">coordinator</span><span class="params">(packageRootPaths, packageRoots)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; argc; ++i) &#123;</span><br><span class="line">        <span class="function">FQName <span class="title">fqName</span><span class="params">(argv[i])</span></span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!fqName.isValid()) &#123;</span><br><span class="line">            <span class="built_in">fprintf</span>(<span class="built_in">stderr</span>,</span><br><span class="line">                    <span class="string">"ERROR: Invalid fully-qualified name.\n"</span>);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        OutputHandler::ValRes valid =</span><br><span class="line">            outputFormat-&gt;validate(fqName, outputFormat-&gt;mKey);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (valid == OutputHandler::FAILED) &#123;</span><br><span class="line">            <span class="built_in">fprintf</span>(<span class="built_in">stderr</span>,</span><br><span class="line">                    <span class="string">"ERROR: output handler failed.\n"</span>);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 产生对应的代理与存根文件</span></span><br><span class="line">        <span class="keyword">status_t</span> err =</span><br><span class="line">            outputFormat-&gt;generate(fqName, me, &amp;coordinator, outputPath);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (err != OK) &#123;</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>hidl-gen</code>大致包含了以下几个参数:</p>
+<ul>
+<li>输出路径；</li>
+<li>产生的语言类型,C++还是Java还是头文件;</li>
+<li>接口所在的根目录；</li>
+<li>接口的全限定名(Full qulified name);</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">hidl-gen -o output-path -<span class="function">L <span class="title">language</span> <span class="params">(-r interface-root)</span> fqname</span></span><br></pre></td></tr></table></figure>
+<p>对于RILD服务来说，其生成的指令如下(参考对应接口目录的<code>Android.bp</code>脚本）:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">hidl-gen -o $(genDir) -Lc++-sources -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport android.hardware.radio@<span class="number">1.0</span><span class="string">",</span></span><br></pre></td></tr></table></figure>
+<p>对于C++源文件，最后会调用<code>generatedCpp.cpp</code>中的<code>generateCppSources</code>函数产生接口对应的Proxy/Stub代码:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">status_t</span> AST::generateCppSources(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;outputPath) <span class="keyword">const</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> path = outputPath;</span><br><span class="line">    path.append(mCoordinator-&gt;convertPackageRootToPath(mPackage));</span><br><span class="line">    path.append(mCoordinator-&gt;getPackagePath(mPackage, <span class="literal">true</span> <span class="comment">/* relative */</span>));</span><br><span class="line"></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> ifaceName;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> baseName;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> Interface *iface = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">bool</span> isInterface;</span><br><span class="line">    <span class="keyword">if</span> (!AST::isInterface(&amp;ifaceName)) &#123;</span><br><span class="line">        baseName = <span class="string">"types"</span>;</span><br><span class="line">        isInterface = <span class="literal">false</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        iface = mRootScope-&gt;getInterface();</span><br><span class="line">        baseName = iface-&gt;getBaseName();</span><br><span class="line">        isInterface = <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    path.append(baseName);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (baseName != <span class="string">"types"</span>) &#123;</span><br><span class="line">        path.append(<span class="string">"All"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    path.append(<span class="string">".cpp"</span>);</span><br><span class="line"></span><br><span class="line">    CHECK(Coordinator::MakeParentHierarchy(path));</span><br><span class="line">    FILE *file = fopen(path.c_str(), <span class="string">"w"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (file == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> -errno;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function">Formatter <span class="title">out</span><span class="params">(file)</span></span>;</span><br><span class="line"></span><br><span class="line">    out &lt;&lt; <span class="string">"#include &lt;android/log.h&gt;\n"</span>;</span><br><span class="line">    out &lt;&lt; <span class="string">"#include &lt;cutils/trace.h&gt;\n"</span>;</span><br><span class="line">    out &lt;&lt; <span class="string">"#include &lt;hidl/HidlTransportSupport.h&gt;\n\n"</span>;</span><br><span class="line">    <span class="keyword">if</span> (isInterface) &#123;</span><br><span class="line">        <span class="comment">// This is a no-op for IServiceManager itself.</span></span><br><span class="line">        out &lt;&lt; <span class="string">"#include &lt;android/hidl/manager/1.0/IServiceManager.h&gt;\n"</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// TODO(b/34274385) remove this</span></span><br><span class="line">        out &lt;&lt; <span class="string">"#include &lt;hidl/LegacySupport.h&gt;\n"</span>;</span><br><span class="line"></span><br><span class="line">        generateCppPackageInclude(out, mPackage, iface-&gt;getProxyName());</span><br><span class="line">        generateCppPackageInclude(out, mPackage, iface-&gt;getStubName());</span><br><span class="line">        generateCppPackageInclude(out, mPackage, iface-&gt;getPassthroughName());</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">const</span> Interface *superType : iface-&gt;superTypeChain()) &#123;</span><br><span class="line">            generateCppPackageInclude(out,</span><br><span class="line">                                      superType-&gt;fqName(),</span><br><span class="line">                                      superType-&gt;fqName().getInterfaceProxyName());</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        out &lt;&lt; <span class="string">"#include &lt;hidl/ServiceManagement.h&gt;\n"</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        generateCppPackageInclude(out, mPackage, <span class="string">"types"</span>);</span><br><span class="line">        generateCppPackageInclude(out, mPackage, <span class="string">"hwtypes"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    ....</span><br><span class="line">    <span class="keyword">if</span> (err == OK &amp;&amp; isInterface) &#123;</span><br><span class="line">        <span class="keyword">const</span> Interface *iface = mRootScope-&gt;getInterface();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// need to be put here, generateStubSource is using this.</span></span><br><span class="line">        out &lt;&lt; <span class="string">"const char* "</span></span><br><span class="line">            &lt;&lt; iface-&gt;localName()</span><br><span class="line">            &lt;&lt; <span class="string">"::descriptor(\""</span></span><br><span class="line">            &lt;&lt; iface-&gt;fqName().<span class="built_in">string</span>()</span><br><span class="line">            &lt;&lt; <span class="string">"\");\n\n"</span>;</span><br><span class="line">        out &lt;&lt; <span class="string">"__attribute__((constructor))"</span>;</span><br><span class="line">        out &lt;&lt; <span class="string">"static void static_constructor() &#123;\n"</span>;</span><br><span class="line">        out.indent([&amp;] &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"::android::hardware::details::gBnConstructorMap.set("</span></span><br><span class="line">                &lt;&lt; iface-&gt;localName()</span><br><span class="line">                &lt;&lt; <span class="string">"::descriptor,\n"</span>;</span><br><span class="line">            out.indent(<span class="number">2</span>, [&amp;] &#123;</span><br><span class="line">                out &lt;&lt; <span class="string">"[](void *iIntf) -&gt; ::android::sp&lt;::android::hardware::IBinder&gt; &#123;\n"</span>;</span><br><span class="line">                out.indent([&amp;] &#123;</span><br><span class="line">                    out &lt;&lt; <span class="string">"return new "</span></span><br><span class="line">                        &lt;&lt; iface-&gt;getStubName()</span><br><span class="line">                        &lt;&lt; <span class="string">"(static_cast&lt;"</span></span><br><span class="line">                        &lt;&lt; iface-&gt;localName()</span><br><span class="line">                        &lt;&lt; <span class="string">" *&gt;(iIntf));\n"</span>;</span><br><span class="line">                &#125;);</span><br><span class="line">                out &lt;&lt; <span class="string">"&#125;);\n"</span>;</span><br><span class="line">            &#125;);</span><br><span class="line">            out &lt;&lt; <span class="string">"::android::hardware::details::gBsConstructorMap.set("</span></span><br><span class="line">                &lt;&lt; iface-&gt;localName()</span><br><span class="line">                &lt;&lt; <span class="string">"::descriptor,\n"</span>;</span><br><span class="line">            out.indent(<span class="number">2</span>, [&amp;] &#123;</span><br><span class="line">                out &lt;&lt; <span class="string">"[](void *iIntf) -&gt; ::android::sp&lt;"</span></span><br><span class="line">                    &lt;&lt; gIBaseFqName.cppName()</span><br><span class="line">                    &lt;&lt; <span class="string">"&gt; &#123;\n"</span>;</span><br><span class="line">                out.indent([&amp;] &#123;</span><br><span class="line">                    out &lt;&lt; <span class="string">"return new "</span></span><br><span class="line">                        &lt;&lt; iface-&gt;getPassthroughName()</span><br><span class="line">                        &lt;&lt; <span class="string">"(static_cast&lt;"</span></span><br><span class="line">                        &lt;&lt; iface-&gt;localName()</span><br><span class="line">                        &lt;&lt; <span class="string">" *&gt;(iIntf));\n"</span>;</span><br><span class="line">                &#125;);</span><br><span class="line">                out &lt;&lt; <span class="string">"&#125;);\n"</span>;</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;);</span><br><span class="line">        out &lt;&lt; <span class="string">"&#125;;\n\n"</span>;</span><br><span class="line">        out &lt;&lt; <span class="string">"__attribute__((destructor))"</span>;</span><br><span class="line">        out &lt;&lt; <span class="string">"static void static_destructor() &#123;\n"</span>;</span><br><span class="line">        out.indent([&amp;] &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"::android::hardware::details::gBnConstructorMap.erase("</span></span><br><span class="line">                &lt;&lt; iface-&gt;localName()</span><br><span class="line">                &lt;&lt; <span class="string">"::descriptor);\n"</span>;</span><br><span class="line">            out &lt;&lt; <span class="string">"::android::hardware::details::gBsConstructorMap.erase("</span></span><br><span class="line">                &lt;&lt; iface-&gt;localName()</span><br><span class="line">                &lt;&lt; <span class="string">"::descriptor);\n"</span>;</span><br><span class="line">        &#125;);</span><br><span class="line">        out &lt;&lt; <span class="string">"&#125;;\n\n"</span>;</span><br><span class="line"></span><br><span class="line">        err = generateInterfaceSource(out);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (err == OK &amp;&amp; isInterface) &#123;</span><br><span class="line">        err = generateProxySource(out, iface-&gt;fqName());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (err == OK &amp;&amp; isInterface) &#123;</span><br><span class="line">        err = generateStubSource(out, iface);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (err == OK &amp;&amp; isInterface) &#123;</span><br><span class="line">        err = generatePassthroughSource(out);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (err == OK &amp;&amp; isInterface) &#123;</span><br><span class="line">        <span class="keyword">const</span> Interface *iface = mRootScope-&gt;getInterface();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (isIBase()) &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"// skipped getService, registerAsService, registerForNotifications\n"</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">string</span> package = iface-&gt;fqName().package()</span><br><span class="line">                    + iface-&gt;fqName().atVersion();</span><br><span class="line">                    </span><br><span class="line">            implementServiceManagerInteractions(out, iface-&gt;fqName(), package);</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>正是在<code>implementServiceManagerInteractions</code>这个函数里，对于<code>IRadio.hal</code>接口生成了获取服务<code>getService</code>以及注册服务的<code>registerAsService</code>的接口。可以看到，<code>registerAsService</code>利用了<code>defaultServiceManager()</code>来调用<code>IServiceManager</code>进行服务注册。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">implementServiceManagerInteractions</span><span class="params">(Formatter &amp;out,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">const</span> FQName &amp;fqName, <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;package)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> interfaceName = fqName.getInterfaceName();</span><br><span class="line"></span><br><span class="line">    implementGetService(out, fqName, <span class="literal">true</span> <span class="comment">/* isTry */</span>);</span><br><span class="line">    implementGetService(out, fqName, <span class="literal">false</span> <span class="comment">/* isTry */</span>);</span><br><span class="line"></span><br><span class="line">    out &lt;&lt; <span class="string">"::android::status_t "</span> &lt;&lt; interfaceName &lt;&lt; <span class="string">"::registerAsService("</span></span><br><span class="line">        &lt;&lt; <span class="string">"const std::string &amp;serviceName) "</span>;</span><br><span class="line">    out.block([&amp;] &#123;</span><br><span class="line">        out &lt;&lt; <span class="string">"::android::hardware::details::onRegistration(\""</span></span><br><span class="line">            &lt;&lt; fqName.getPackageAndVersion().<span class="built_in">string</span>() &lt;&lt; <span class="string">"\", \""</span></span><br><span class="line">            &lt;&lt; interfaceName</span><br><span class="line">            &lt;&lt; <span class="string">"\", serviceName);\n\n"</span>;</span><br><span class="line">        out &lt;&lt; <span class="string">"const ::android::sp&lt;::android::hidl::manager::V1_0::IServiceManager&gt; sm\n"</span>;</span><br><span class="line">        out.indent(<span class="number">2</span>, [&amp;] &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"= ::android::hardware::defaultServiceManager();\n"</span>;</span><br><span class="line">        &#125;);</span><br><span class="line">        out.sIf(<span class="string">"sm == nullptr"</span>, [&amp;] &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"return ::android::INVALID_OPERATION;\n"</span>;</span><br><span class="line">        &#125;).<span class="built_in">endl</span>();</span><br><span class="line">        out &lt;&lt; <span class="string">"::android::hardware::Return&lt;bool&gt; ret = "</span></span><br><span class="line">            &lt;&lt; <span class="string">"sm-&gt;add(serviceName.c_str(), this);\n"</span></span><br><span class="line">            &lt;&lt; <span class="string">"return ret.isOk() &amp;&amp; ret ? ::android::OK : ::android::UNKNOWN_ERROR;\n"</span>;</span><br><span class="line">    &#125;).<span class="built_in">endl</span>().<span class="built_in">endl</span>();</span><br><span class="line"></span><br><span class="line">    out &lt;&lt; <span class="string">"bool "</span> &lt;&lt; interfaceName &lt;&lt; <span class="string">"::registerForNotifications(\n"</span>;</span><br><span class="line">    out.indent(<span class="number">2</span>, [&amp;] &#123;</span><br><span class="line">        out &lt;&lt; <span class="string">"const std::string &amp;serviceName,\n"</span></span><br><span class="line">            &lt;&lt; <span class="string">"const ::android::sp&lt;::android::hidl::manager::V1_0::IServiceNotification&gt; "</span></span><br><span class="line">            &lt;&lt; <span class="string">"&amp;notification) "</span>;</span><br><span class="line">    &#125;);</span><br><span class="line">    out.block([&amp;] &#123;</span><br><span class="line">        out &lt;&lt; <span class="string">"const ::android::sp&lt;::android::hidl::manager::V1_0::IServiceManager&gt; sm\n"</span>;</span><br><span class="line">        out.indent(<span class="number">2</span>, [&amp;] &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"= ::android::hardware::defaultServiceManager();\n"</span>;</span><br><span class="line">        &#125;);</span><br><span class="line">        out.sIf(<span class="string">"sm == nullptr"</span>, [&amp;] &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"return false;\n"</span>;</span><br><span class="line">        &#125;).<span class="built_in">endl</span>();</span><br><span class="line">        out &lt;&lt; <span class="string">"::android::hardware::Return&lt;bool&gt; success =\n"</span>;</span><br><span class="line">        out.indent(<span class="number">2</span>, [&amp;] &#123;</span><br><span class="line">            out &lt;&lt; <span class="string">"sm-&gt;registerForNotifications(\""</span> &lt;&lt; package &lt;&lt; <span class="string">"::"</span> &lt;&lt; interfaceName &lt;&lt; <span class="string">"\",\n"</span>;</span><br><span class="line">            out.indent(<span class="number">2</span>, [&amp;] &#123;</span><br><span class="line">                out &lt;&lt; <span class="string">"serviceName, notification);\n"</span>;</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;);</span><br><span class="line">        out &lt;&lt; <span class="string">"return success.isOk() &amp;&amp; success;\n"</span>;</span><br><span class="line">    &#125;).<span class="built_in">endl</span>().<span class="built_in">endl</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>defaultServiceManager</code>在<code>ServiceManagement.cpp</code>中定义,HAL服务管家<code>HwServiceManager</code>初始化完成后，会设置属性值<code>hwservicemanager.ready</code>;这样<code>defaultServiceManager</code>实际返回的是一个强引用的变量<code>gDefaultServiceManager</code>:</p>
+<blockquote>
+<p>代码路径<code>/android/system/libhidl/transport/ServiceManagement.cpp</code></p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sp&lt;IServiceManager&gt; defaultServiceManager() &#123;</span><br><span class="line">    &#123;</span><br><span class="line">        AutoMutex _l(details::gDefaultServiceManagerLock);</span><br><span class="line">        <span class="keyword">if</span> (details::gDefaultServiceManager != <span class="literal">NULL</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> details::gDefaultServiceManager;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (access(<span class="string">"/dev/hwbinder"</span>, F_OK|R_OK|W_OK) != <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">// HwBinder not available on this device or not accessible to</span></span><br><span class="line">            <span class="comment">// this process.</span></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        waitForHwServiceManager();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (details::gDefaultServiceManager == <span class="literal">NULL</span>) &#123;</span><br><span class="line">            details::gDefaultServiceManager =</span><br><span class="line">                    fromBinder&lt;IServiceManager, BpHwServiceManager, BnHwServiceManager&gt;(</span><br><span class="line">                        ProcessState::self()-&gt;getContextObject(<span class="literal">NULL</span>));</span><br><span class="line">            <span class="keyword">if</span> (details::gDefaultServiceManager == <span class="literal">NULL</span>) &#123;</span><br><span class="line">                LOG(ERROR) &lt;&lt; <span class="string">"Waited for hwservicemanager, but got nullptr."</span>;</span><br><span class="line">                sleep(<span class="number">1</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> details::gDefaultServiceManager;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//等待hwservicemanager启动完成</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">waitForHwServiceManager</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">using</span> <span class="built_in">std</span>::literals::chrono_literals::<span class="keyword">operator</span><span class="string">""</span>s;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (!WaitForProperty(kHwServicemanagerReadyProperty, <span class="string">"true"</span>, <span class="number">1</span>s)) &#123;</span><br><span class="line">        LOG(WARNING) &lt;&lt; <span class="string">"Waited for hwservicemanager.ready for a second, waiting another..."</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>那么，<code>gDefaultServiceManager</code>又是什么东东了？先来看看<code>ProcessState::self()-&gt;getContextObject(NULL)</code>得到的是一个什么对象:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sp&lt;IBinder&gt; ProcessState::getContextObject(<span class="keyword">const</span> sp&lt;IBinder&gt;&amp; <span class="comment">/*caller*/</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> getStrongProxyForHandle(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">sp&lt;IBinder&gt; ProcessState::getStrongProxyForHandle(<span class="keyword">int32_t</span> handle)</span><br><span class="line">&#123;</span><br><span class="line">    sp&lt;IBinder&gt; result;</span><br><span class="line"></span><br><span class="line">    AutoMutex _l(mLock);</span><br><span class="line"></span><br><span class="line">    handle_entry* e = lookupHandleLocked(handle);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (e != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="comment">// We need to create a new BpHwBinder if there isn't currently one, OR we</span></span><br><span class="line">        <span class="comment">// are unable to acquire a weak reference on this current one.  See comment</span></span><br><span class="line">        <span class="comment">// in getWeakProxyForHandle() for more info about this.</span></span><br><span class="line">        IBinder* b = e-&gt;binder;</span><br><span class="line">        <span class="keyword">if</span> (b == <span class="literal">NULL</span> || !e-&gt;refs-&gt;attemptIncWeak(<span class="keyword">this</span>)) &#123;</span><br><span class="line">            b = <span class="keyword">new</span> BpHwBinder(handle);</span><br><span class="line">            e-&gt;binder = b;</span><br><span class="line">            <span class="keyword">if</span> (b) e-&gt;refs = b-&gt;getWeakRefs();</span><br><span class="line">            result = b;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            result.force_set(b);</span><br><span class="line">            e-&gt;refs-&gt;decWeak(<span class="keyword">this</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从上面的代码不难看出，<code>ProcessState::self()-&gt;getContextObject(NULL)</code>实际返回的是一个<code>BpHwBinder(0)</code>的Binder代理对象，函数<code>fromBinder</code>会根据这个Binder对象转换成相应的<code>IServiceManager</code>: <code>BpHwServerceManager(BpHwBinder(0))</code>,<code>BpHwServerceManager</code>实际上也是根据接口<code>IServiceManager.hal</code>通过<code>generatedCpp.cpp</code>中的函数生成的代理对象，</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> IType, <span class="keyword">typename</span> ProxyType, <span class="keyword">typename</span> StubType&gt;</span><br><span class="line">sp&lt;IType&gt; fromBinder(<span class="keyword">const</span> sp&lt;IBinder&gt;&amp; binderIface) &#123;</span><br><span class="line">    <span class="keyword">using</span> ::android::hidl::base::V1_0::IBase;</span><br><span class="line">    <span class="keyword">using</span> ::android::hidl::base::V1_0::BnHwBase;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (binderIface.get() == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 代理对象，本地binder为空</span></span><br><span class="line">    <span class="keyword">if</span> (binderIface-&gt;localBinder() == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> ProxyType(binderIface);</span><br><span class="line">    &#125;</span><br><span class="line">    sp&lt;IBase&gt; base = <span class="keyword">static_cast</span>&lt;BnHwBase*&gt;(binderIface.get())-&gt;getImpl();</span><br><span class="line">    <span class="keyword">if</span> (details::canCastInterface(base.get(), IType::descriptor)) &#123;</span><br><span class="line">        StubType* stub = <span class="keyword">static_cast</span>&lt;StubType*&gt;(binderIface.get());</span><br><span class="line">        <span class="keyword">return</span> stub-&gt;getImpl();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样<code>HwServiceManager</code>的在客户端的代理对象<code>BpHwServerceManager</code>将客户端请求发送给HAL Binder驱动；HAL Binder驱动则将请求发送给HAL服务管家的stub对象<code>BnHwServiceManager</code>（<code>BnHwServiceManager</code>在何时成为HAL服务上下文管家的，可以看看上一篇文章“Android HAL binder详解”)来完成服务的注册。</p>
+<h2 id="获取RILD服务"><a href="#获取RILD服务" class="headerlink" title="获取RILD服务"></a><strong>获取RILD服务</strong></h2><p>RILD HAL服务注册完成之后，RILJ是如何获取到服务的了？Phone进程启动后，对RILJ进行初始化，这时RILJ会去获取RILD服务，</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">RIL</span><span class="params">(Context context, <span class="keyword">int</span> preferredNetworkType, <span class="keyword">int</span> cdmaSubscription)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">this</span>(context, preferredNetworkType, cdmaSubscription, <span class="keyword">null</span>);</span><br><span class="line">&#125;</span><br><span class="line">    </span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">RIL</span><span class="params">(Context context, <span class="keyword">int</span> preferredNetworkType,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">int</span> cdmaSubscription, Integer instanceId)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">super</span>(context);</span><br><span class="line">    </span><br><span class="line">    mContext = context;</span><br><span class="line">    mPreferredNetworkType = preferredNetworkType;</span><br><span class="line">    mPhoneType = RILConstants.NO_PHONE;</span><br><span class="line">    mPhoneId = instanceId;</span><br><span class="line">    </span><br><span class="line">    ConnectivityManager cm = (ConnectivityManager)context.getSystemService(</span><br><span class="line">            Context.CONNECTIVITY_SERVICE);</span><br><span class="line">    mIsMobileNetworkSupported = cm.isNetworkSupported(ConnectivityManager.TYPE_MOBILE);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 新建response,indication，用于接收RILD的消息</span></span><br><span class="line">    mRadioResponse = <span class="keyword">new</span> RadioResponse(<span class="keyword">this</span>);</span><br><span class="line">    mRadioIndication = <span class="keyword">new</span> RadioIndication(<span class="keyword">this</span>);</span><br><span class="line">    mOemHookResponse = <span class="keyword">new</span> OemHookResponse(<span class="keyword">this</span>);</span><br><span class="line">    mOemHookIndication = <span class="keyword">new</span> OemHookIndication(<span class="keyword">this</span>);</span><br><span class="line">    mRilHandler = <span class="keyword">new</span> RilHandler();</span><br><span class="line">    mRadioProxyDeathRecipient = <span class="keyword">new</span> RadioProxyDeathRecipient();</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">// 获取RILD HAL服务</span></span><br><span class="line">    getRadioProxy(<span class="keyword">null</span>);</span><br><span class="line">    getOemHookProxy(<span class="keyword">null</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>getRadioProxy</code>首先判断终端是否支持移动数据，如果没有移动数据（没有modem），则直接返回空；如果已经获取到了，则返回之前获取到的代理对象<code>mRadioProxy</code>。如果都不是，通过<code>IRadio.getService</code>来获取RILD服务的代理对象，接着向RILD注册回调函数<code>mRadioResponse</code>以及<code>mRadioIndication</code>,同时还需要注册RILD服务的死亡注册通知接收器，以便RILD异常退出后，RILJ能够收到该信息做相应的处理。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> IRadio <span class="title">getRadioProxy</span><span class="params">(Message result)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!mIsMobileNetworkSupported) &#123;</span><br><span class="line">        <span class="keyword">if</span> (RILJ_LOGV) riljLog(<span class="string">"getRadioProxy: Not calling getService(): wifi-only"</span>);</span><br><span class="line">        <span class="keyword">if</span> (result != <span class="keyword">null</span>) &#123;</span><br><span class="line">            AsyncResult.forMessage(result, <span class="keyword">null</span>,</span><br><span class="line">                    CommandException.fromRilErrno(RADIO_NOT_AVAILABLE));</span><br><span class="line">            result.sendToTarget();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mRadioProxy != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> mRadioProxy;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        mRadioProxy = IRadio.getService(HIDL_SERVICE_NAME[mPhoneId == <span class="keyword">null</span> ? <span class="number">0</span> : mPhoneId]);</span><br><span class="line">        <span class="keyword">if</span> (mRadioProxy != <span class="keyword">null</span>) &#123;</span><br><span class="line">            mRadioProxy.linkToDeath(mRadioProxyDeathRecipient,</span><br><span class="line">                    mRadioProxyCookie.incrementAndGet());</span><br><span class="line">            mRadioProxy.setResponseFunctions(mRadioResponse, mRadioIndication);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            riljLoge(<span class="string">"getRadioProxy: mRadioProxy == null"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (RemoteException | RuntimeException e) &#123;</span><br><span class="line">        mRadioProxy = <span class="keyword">null</span>;</span><br><span class="line">        riljLoge(<span class="string">"RadioProxy getService/setResponseFunctions: "</span> + e);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mRadioProxy == <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (result != <span class="keyword">null</span>) &#123;</span><br><span class="line">            AsyncResult.forMessage(result, <span class="keyword">null</span>,</span><br><span class="line">                    CommandException.fromRilErrno(RADIO_NOT_AVAILABLE));</span><br><span class="line">            result.sendToTarget();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 此时RILD服务还无法获取到，则延迟几秒再次获取</span></span><br><span class="line">        mRilHandler.sendMessageDelayed(</span><br><span class="line">                mRilHandler.obtainMessage(EVENT_RADIO_PROXY_DEAD,</span><br><span class="line">                        mRadioProxyCookie.incrementAndGet()),</span><br><span class="line">                IRADIO_GET_SERVICE_DELAY_MILLIS);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> mRadioProxy;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里有一个问题，搜索Android源码并没有<code>IRadio.java</code>类，那么只能说同之前<code>HwServiceMananger</code>一样，这个类也是通过<code>hidl-gen</code>来产生的。看下<code>IRadio.hal</code>对应目录的<code>Android.bp</code>并没有定义生成规则，是不是在<code>Android.mk</code>里边了？搜了下，果然在：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">#</span><br><span class="line"># Build IRadio.hal</span><br><span class="line">#</span><br><span class="line">GEN := $(intermediates)/android/hardware/radio/V1_0/IRadio.java</span><br><span class="line">$(GEN): $(HIDL)</span><br><span class="line">$(GEN): PRIVATE_HIDL := $(HIDL)</span><br><span class="line">$(GEN): PRIVATE_DEPS := $(LOCAL_PATH)/IRadio.hal</span><br><span class="line">$(GEN): PRIVATE_DEPS += $(LOCAL_PATH)/IRadioIndication.hal</span><br><span class="line">$(GEN): $(LOCAL_PATH)/IRadioIndication.hal</span><br><span class="line">$(GEN): PRIVATE_DEPS += $(LOCAL_PATH)/IRadioResponse.hal</span><br><span class="line">$(GEN): $(LOCAL_PATH)/IRadioResponse.hal</span><br><span class="line">$(GEN): PRIVATE_DEPS += $(LOCAL_PATH)/types.hal</span><br><span class="line">$(GEN): $(LOCAL_PATH)/types.hal</span><br><span class="line">$(GEN): PRIVATE_OUTPUT_DIR := $(intermediates)</span><br><span class="line">$(GEN): PRIVATE_CUSTOM_TOOL = \</span><br><span class="line">        $(PRIVATE_HIDL) -o $(PRIVATE_OUTPUT_DIR) \</span><br><span class="line">        -Ljava \</span><br><span class="line">        -randroid.hardware:hardware/interfaces \</span><br><span class="line">        -randroid.hidl:system/libhidl/transport \</span><br><span class="line">        android.hardware.radio@<span class="number">1.0</span>::IRadio</span><br><span class="line"></span><br><span class="line">$(GEN): $(LOCAL_PATH)/IRadio.hal</span><br><span class="line">    $(transform-generated-source)</span><br><span class="line">LOCAL_GENERATED_SOURCES += $(GEN)</span><br></pre></td></tr></table></figure>
+<p>可以简单的写成如下这个指令，其作用是生成一个Java层的类用于获取RILD的服务。</p>
+<blockquote>
+<p><code>hidl-gen</code>利用<code>generateJava.cpp</code>中的函数<code>generateJava</code>来自动生成对应的类</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">hidl-gen -o $(PRIVATE_OUTPUT_DIR) -LJava -randroid.hardware:hardware/interfaces -randroid.hidl:system/libhidl/transport `</span><br></pre></td></tr></table></figure>
+<p><code>generateJava.cpp</code>生成的<code>IRadio.java</code>大致结构如下（只写了几个关键函数）。绕来绕去，<code>IRadio.getService(&quot;slot1&quot;)</code>实际返回的是一个由<code>HwBinder.getService</code>返回的<code>IHwBinder</code>对象：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">package</span> android.hardware.radio;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">IRaio</span> <span class="keyword">extends</span> <span class="title">android</span>.<span class="title">os</span>.<span class="title">IHwInterface</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> String kInterfaceName = <span class="string">"android.hardware.radio::IRadio"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">static</span> <span class="title">asInterface</span><span class="params">(android.os.IHwBinder binder)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (binder == <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        android.os.IHwInterface iface = binder.queryLocalInterface(kInterfaceName);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (iface != <span class="keyword">null</span> &amp;&amp; iface <span class="keyword">instanceof</span> IRaio) &#123;</span><br><span class="line">            <span class="keyword">return</span> (IRadio)iface;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        IRadio proxy = <span class="keyword">new</span> IRadio.Proxy(binder);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">for</span> (String descriptor : proxy.interfaceChain()) &#123;</span><br><span class="line">                <span class="keyword">if</span> (descriptor.equals(kInterfaceName)) &#123;</span><br><span class="line">                    <span class="keyword">return</span> proxy;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (android.os.RemoteException e) &#123;</span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="title">getService</span><span class="params">(String serviceName)</span> <span class="keyword">throws</span> android.os.RemoteException </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> IRadio.asInterface(android.os.HwBinder.getService(</span><br><span class="line">                android.hardware.radio@<span class="number">1.0</span>::IRadio, serviceName));</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ...</span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">Proxy</span> <span class="keyword">implements</span> <span class="title">IRadio</span> </span>&#123;</span><br><span class="line">            <span class="keyword">private</span> android.os.IHwBinder mRemote;</span><br><span class="line"></span><br><span class="line">            <span class="function"><span class="keyword">public</span> <span class="title">Proxy</span><span class="params">(android.os.IHwBinder remote)</span> </span>&#123;</span><br><span class="line">                mRemote = java.util.Objects.requireNonNull(remote);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">public</span> android.os.<span class="function">IHwBinder <span class="title">asBinder</span><span class="params">()</span> </span>&#123;</span><br><span class="line">                <span class="keyword">return</span> mRemote;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>继续看看<code>HwBinder.getService</code>返回的是什么东东？原来是一个native函数调用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">HwBinder</span> <span class="keyword">implements</span> <span class="title">IHwBinder</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TAG = <span class="string">"HwBinder"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> NativeAllocationRegistry sNativeRegistry;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">HwBinder</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        native_setup();</span><br><span class="line"></span><br><span class="line">        sNativeRegistry.registerNativeAllocation(</span><br><span class="line">                <span class="keyword">this</span>,</span><br><span class="line">                mNativeContext);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">native</span> <span class="keyword">void</span> <span class="title">transact</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">            <span class="keyword">int</span> code, HwParcel request, HwParcel reply, <span class="keyword">int</span> flags)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> RemoteException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">onTransact</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">            <span class="keyword">int</span> code, HwParcel request, HwParcel reply, <span class="keyword">int</span> flags)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> RemoteException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">native</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title">registerService</span><span class="params">(String serviceName)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> RemoteException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// native接口</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">native</span> <span class="keyword">final</span> IHwBinder <span class="title">getService</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">            String iface,</span></span></span><br><span class="line"><span class="function"><span class="params">            String serviceName)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> RemoteException, NoSuchElementException</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Returns address of the "freeFunction".</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">native</span> <span class="keyword">final</span> <span class="keyword">long</span> <span class="title">native_init</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">native</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title">native_setup</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">static</span> &#123;</span><br><span class="line">        <span class="keyword">long</span> freeFunction = native_init();</span><br><span class="line"></span><br><span class="line">        sNativeRegistry = <span class="keyword">new</span> NativeAllocationRegistry(</span><br><span class="line">                HwBinder.class.getClassLoader(),</span><br><span class="line">                freeFunction,</span><br><span class="line">                <span class="number">128</span> <span class="comment">/* size */</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">long</span> mNativeContext;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>native层获取HAL服务，仍然是通过<code>defaultServiceManager</code>来获取服务的代理对象，从上面获取上下文服务<code>ServiceManager</code>的过程不难看出<code>hardware::defaultServiceManager()-&gt;get(&quot;android.hardware.radio@1.0::IRadio&quot;, &quot;slot1&quot;)</code>返回的实际上是一个与RILD服务binder代理对象<code>BpHwBinder(handle)</code>（handle由注册服务时binder驱动自动生成）：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> jobject <span class="title">JHwBinder_native_getService</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">        JNIEnv *env,</span></span></span><br><span class="line"><span class="function"><span class="params">        jclass <span class="comment">/* clazzObj */</span>,</span></span></span><br><span class="line"><span class="function"><span class="params">        jstring ifaceNameObj,</span></span></span><br><span class="line"><span class="function"><span class="params">        jstring serviceNameObj)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">using</span> ::android::hidl::base::V1_0::IBase;</span><br><span class="line">    <span class="keyword">using</span> ::android::hidl::manager::V1_0::IServiceManager;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ifaceNameObj == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        jniThrowException(env, <span class="string">"java/lang/NullPointerException"</span>, <span class="literal">NULL</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (serviceNameObj == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        jniThrowException(env, <span class="string">"java/lang/NullPointerException"</span>, <span class="literal">NULL</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> manager = hardware::defaultServiceManager();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (manager == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">        LOG(ERROR) &lt;&lt; <span class="string">"Could not get hwservicemanager."</span>;</span><br><span class="line">        signalExceptionForError(env, UNKNOWN_ERROR, <span class="literal">true</span> <span class="comment">/* canThrowRemoteException */</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">char</span> *ifaceNameCStr = env-&gt;GetStringUTFChars(ifaceNameObj, <span class="literal">NULL</span>);</span><br><span class="line">    <span class="keyword">if</span> (ifaceNameCStr == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>; <span class="comment">// XXX exception already pending?</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">ifaceName</span><span class="params">(ifaceNameCStr)</span></span>;</span><br><span class="line">    env-&gt;ReleaseStringUTFChars(ifaceNameObj, ifaceNameCStr);</span><br><span class="line">    ::android::hardware::hidl_string ifaceNameHStr;</span><br><span class="line">    ifaceNameHStr.setToExternal(ifaceName.c_str(), ifaceName.size());</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">char</span> *serviceNameCStr = env-&gt;GetStringUTFChars(serviceNameObj, <span class="literal">NULL</span>);</span><br><span class="line">    <span class="keyword">if</span> (serviceNameCStr == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>; <span class="comment">// XXX exception already pending?</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">serviceName</span><span class="params">(serviceNameCStr)</span></span>;</span><br><span class="line">    env-&gt;ReleaseStringUTFChars(serviceNameObj, serviceNameCStr);</span><br><span class="line">    ::android::hardware::hidl_string serviceNameHStr;</span><br><span class="line">    serviceNameHStr.setToExternal(serviceName.c_str(), serviceName.size());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 判断当前service是直通式（C/S在同一进程）还是跨进程的binder类型</span></span><br><span class="line">    Return&lt;IServiceManager::Transport&gt; transportRet =</span><br><span class="line">            manager-&gt;getTransport(ifaceNameHStr, serviceNameHStr);</span><br><span class="line">    ....</span><br><span class="line"></span><br><span class="line">    IServiceManager::Transport transport = transportRet;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (transport != IServiceManager::Transport::HWBINDER &amp;&amp; !vintfLegacy) &#123;</span><br><span class="line">        LOG(ERROR) &lt;&lt; <span class="string">"service "</span> &lt;&lt; ifaceName &lt;&lt; <span class="string">" declares transport method "</span></span><br><span class="line">                   &lt;&lt; toString(transport) &lt;&lt; <span class="string">" but framework expects hwbinder."</span>;</span><br><span class="line">        signalExceptionForError(env, UNKNOWN_ERROR, <span class="literal">true</span> <span class="comment">/* canThrowRemoteException */</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 返回一个BpHwBinder(handle)对象</span></span><br><span class="line">    Return&lt;sp&lt;hidl::base::V1_0::IBase&gt;&gt; ret = manager-&gt;get(ifaceNameHStr, serviceNameHStr);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!ret.isOk()) &#123;</span><br><span class="line">        signalExceptionForError(env, UNKNOWN_ERROR, <span class="literal">true</span> <span class="comment">/* canThrowRemoteException */</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//对于远程代理对象，toBinder返回的是一个downcast后的`IBinder`对象（BpHwBinder)</span></span><br><span class="line">    sp&lt;hardware::IBinder&gt; service = hardware::toBinder&lt;</span><br><span class="line">            hidl::base::V1_0::IBase, hidl::base::V1_0::BpHwBase&gt;(ret);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (service == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        signalExceptionForError(env, NAME_NOT_FOUND);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    LOG(INFO) &lt;&lt; <span class="string">"Starting thread pool."</span>;</span><br><span class="line">    ::android::hardware::ProcessState::self()-&gt;startThreadPool();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 返回一个HwRemoteBinder(BpHwBinder(handle))</span></span><br><span class="line">    <span class="keyword">return</span> JHwRemoteBinder::NewObject(env, service);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// static</span></span><br><span class="line">jobject JHwRemoteBinder::NewObject(</span><br><span class="line">        JNIEnv *env, <span class="keyword">const</span> sp&lt;hardware::IBinder&gt; &amp;binder) &#123;</span><br><span class="line">    ScopedLocalRef&lt;jclass&gt; clazz(env, FindClassOrDie(env, CLASS_PATH));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// XXX Have to look up the constructor here because otherwise that static</span></span><br><span class="line">    <span class="comment">// class initializer isn't called and gProxyOffsets.constructID is undefined :(</span></span><br><span class="line"></span><br><span class="line">    jmethodID constructID = GetMethodIDOrDie(env, clazz.get(), <span class="string">"&lt;init&gt;"</span>, <span class="string">"()V"</span>);</span><br><span class="line"></span><br><span class="line">    jobject obj = env-&gt;NewObject(clazz.get(), constructID);</span><br><span class="line">    JHwRemoteBinder::GetNativeContext(env, obj)-&gt;setBinder(binder);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> obj;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>native层得到RILD服务的<code>IBinder</code>对象后，将其保存到native对象<code>JHwRemoteBinder</code>(其对应的Java对象是<code>HwRemoteBinder.java</code>)，这样Java层代码binder就可以通过native接口来实现binder通信了。回到最开始调用的地方，至此我们知道，实际<code>RILJ</code>通过调用<code>IRadio.getService</code>得到的是一个私有变量<code>mRemote=HwRemoteBinder</code>的<code>Proxy</code>代理对象。这样RILJ就可以通过该代理对象与RILD进行通信了。大功告成。RILJ跟RILD的通信还差最后一步：RILJ向RILD注册回调。</p>
+<blockquote>
+<p>HAL服务的类型（直通或者binder类型）是由各个厂商定义的，配置文件<code>manifest.xml</code>放在<code>/android/device/</code>目录下，其基本结构如下:</p>
+</blockquote>
+ <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">manifest</span> <span class="attr">version</span>=<span class="string">"1.0"</span> <span class="attr">type</span>=<span class="string">"device"</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">hal</span> <span class="attr">format</span>=<span class="string">"hidl"</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">name</span>&gt;</span>android.hardware.radio<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">transport</span>&gt;</span>hwbinder<span class="tag">&lt;/<span class="name">transport</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">interface</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">name</span>&gt;</span>IRadio<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">instance</span>&gt;</span>slot1<span class="tag">&lt;/<span class="name">instance</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">instance</span>&gt;</span>slot2<span class="tag">&lt;/<span class="name">instance</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;/<span class="name">interface</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">interface</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">name</span>&gt;</span>ISap<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">instance</span>&gt;</span>slot1<span class="tag">&lt;/<span class="name">instance</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">instance</span>&gt;</span>slot2<span class="tag">&lt;/<span class="name">instance</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;/<span class="name">interface</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;/<span class="name">hal</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">hal</span> <span class="attr">format</span>=<span class="string">"hidl"</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">name</span>&gt;</span>android.hardware.radio.deprecated<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">transport</span>&gt;</span>hwbinder<span class="tag">&lt;/<span class="name">transport</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">version</span>&gt;</span>1.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;<span class="name">interface</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">name</span>&gt;</span>IOemHook<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">instance</span>&gt;</span>slot1<span class="tag">&lt;/<span class="name">instance</span>&gt;</span></span><br><span class="line">           <span class="tag">&lt;<span class="name">instance</span>&gt;</span>slot2<span class="tag">&lt;/<span class="name">instance</span>&gt;</span></span><br><span class="line">       <span class="tag">&lt;/<span class="name">interface</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;/<span class="name">hal</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">manifest</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<h2 id="RILJ注册回调，通信建立完成"><a href="#RILJ注册回调，通信建立完成" class="headerlink" title="RILJ注册回调，通信建立完成"></a><strong>RILJ注册回调，通信建立完成</strong></h2><p>RILJ获取到RILD的代理对象后，就可以通过远程调用向RILD发送请求了。但在建立最后的通信，还需要做三件事情：</p>
+<ul>
+<li><p>RILJ向RILD注册一个死亡通知: 当RILD异常退出后，通过该接收者来接受死亡消息</p>
+  <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">mRadioProxy.linkToDeath(mRadioProxyDeathReceipent, mRadioProxyCookie.incrementAndGet());</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>RILJ向RILD注册回调，RILD可通过该回调向RILJ发送消息：</p>
+  <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Return&lt;<span class="keyword">void</span>&gt; RadioImpl::setResponseFunctions(</span><br><span class="line">        <span class="keyword">const</span> ::android::sp&lt;IRadioResponse&gt;&amp; radioResponseParam,</span><br><span class="line">        <span class="keyword">const</span> ::android::sp&lt;IRadioIndication&gt;&amp; radioIndicationParam) &#123;</span><br><span class="line">    RLOGD(<span class="string">"setResponseFunctions"</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">pthread_rwlock_t</span> *radioServiceRwlockPtr = radio::getRadioServiceRwlock(mSlotId);</span><br><span class="line">    <span class="keyword">int</span> ret = pthread_rwlock_wrlock(radioServiceRwlockPtr);</span><br><span class="line">    assert(ret == <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    mRadioResponse = radioResponseParam;</span><br><span class="line">    mRadioIndication = radioIndicationParam;</span><br><span class="line"></span><br><span class="line"><span class="comment">//&lt; RNTFIX::</span></span><br><span class="line">    mSecRadioResponse = <span class="literal">NULL</span>;</span><br><span class="line">    mSecRadioIndication = <span class="literal">NULL</span>;</span><br><span class="line"><span class="comment">//&gt; RNTFIX</span></span><br><span class="line"></span><br><span class="line">    mCounterRadio[mSlotId]++;</span><br><span class="line"></span><br><span class="line">    ret = pthread_rwlock_unlock(radioServiceRwlockPtr);</span><br><span class="line">    assert(ret == <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// client is connected. Send initial indications.</span></span><br><span class="line">    android::onNewCommandConnect((RIL_SOCKET_ID) mSlotId);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> Void();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>RILD发送消息告知RILJ通信建立成功：</p>
+  <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">    </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">onNewCommandConnect</span><span class="params">(RIL_SOCKET_ID socket_id)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Inform we are connected and the ril version</span></span><br><span class="line">    <span class="keyword">int</span> rilVer = s_callbacks.version;</span><br><span class="line">    RIL_UNSOL_RESPONSE(RIL_UNSOL_RIL_CONNECTED,</span><br><span class="line">                                    &amp;rilVer, <span class="keyword">sizeof</span>(rilVer), socket_id);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// implicit radio state changed</span></span><br><span class="line">    RIL_UNSOL_RESPONSE(RIL_UNSOL_RESPONSE_RADIO_STATE_CHANGED,</span><br><span class="line">                                    <span class="literal">NULL</span>, <span class="number">0</span>, socket_id);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Send last NITZ time data, in case it was missed</span></span><br><span class="line">    <span class="keyword">if</span> (s_lastNITZTimeData != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        resendLastNITZTimeData(socket_id);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Get version string</span></span><br><span class="line">    <span class="keyword">if</span> (s_callbacks.getVersion != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="keyword">const</span> <span class="keyword">char</span> *version;</span><br><span class="line">        version = s_callbacks.getVersion();</span><br><span class="line">        RLOGI(<span class="string">"RIL Daemon version: %s\n"</span>, version);</span><br><span class="line"></span><br><span class="line">        property_set(PROPERTY_RIL_IMPL, version);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        RLOGI(<span class="string">"RIL Daemon version: unavailable\n"</span>);</span><br><span class="line">        property_set(PROPERTY_RIL_IMPL, <span class="string">"unavailable"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><em>参考资料</em></h2><ul>
+<li><a href="http://sniffer.site/2016/11/29/Android-RILD详解/">http://sniffer.site/2016/11/29/Android-RILD详解/</a> </li>
+<li><a href="http://sniffer.site/2016/11/29/Android-RIL概述/">http://sniffer.site/2016/11/29/Android-RIL概述/</a></li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/RILD/" rel="tag"># RILD</a>
+          
+            <a href="/tags/Binder/" rel="tag"># Binder</a>
+          
+            <a href="/tags/HAL/" rel="tag"># HAL</a>
+          
+            <a href="/tags/RILJ/" rel="tag"># RILJ</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/06/06/深入Android-HAL-binder/" rel="next" title="深入Android HAL binder">
+                <i class="fa fa-chevron-left"></i> 深入Android HAL binder
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/06/22/关于技术发展的一些思考/" rel="prev" title="关于技术发展的一些思考">
+                关于技术发展的一些思考 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#注册RILD服务"><span class="nav-number">1.</span> <span class="nav-text">注册RILD服务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#获取RILD服务"><span class="nav-number">2.</span> <span class="nav-text">获取RILD服务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RILJ注册回调，通信建立完成"><span class="nav-number">3.</span> <span class="nav-text">RILJ注册回调，通信建立完成</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考资料"><span class="nav-number">4.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

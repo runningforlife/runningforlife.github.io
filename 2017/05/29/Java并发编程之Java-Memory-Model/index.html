@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Java,并发编程,Java Memory Model,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="在之前一篇文章里，讲到了利用synchronized关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在">
+<meta name="keywords" content="Java,并发编程,Java Memory Model">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java并发编程之Java Memory Model">
+<meta property="og:url" content="http://sniffer.site/2017/05/29/Java并发编程之Java-Memory-Model/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="在之前一篇文章里，讲到了利用synchronized关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png">
+<meta property="og:updated_time" content="2019-09-30T08:52:08.425Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Java并发编程之Java Memory Model">
+<meta name="twitter:description" content="在之前一篇文章里，讲到了利用synchronized关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在">
+<meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2017/05/29/Java并发编程之Java-Memory-Model/">
+
+
+
+
+
+  <title>Java并发编程之Java Memory Model | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2017/05/29/Java并发编程之Java-Memory-Model/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">Java并发编程之Java Memory Model</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-05-29T11:16:00+08:00">
+                2017-05-29
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index">
+                    <span itemprop="name">Java</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2017/05/29/Java并发编程之Java-Memory-Model/" class="leancloud_visitors" data-flag-title="Java并发编程之Java Memory Model">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>在之前一篇文章里，讲到了利用<code>synchronized</code>关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在多线程情况下，为Java程序提供了一个最少程度的保证：正确同步的情况下，一个线程写共享变量对于其他线程是可见的。Java Memory Model(JMM)抽象了不同计算机平台底层内存读写细节（Register; Cache; Main Memory)，为程序员提供了一个访问内存的统一的模型与视角，从而确保在不同平台上程序能有同样的结果，实现Java“编写一次，可以在任何平台上执行”的目标。</p>
+<a id="more"></a>
+<h2 id="为什么需要JMM"><a href="#为什么需要JMM" class="headerlink" title="为什么需要JMM"></a><strong>为什么需要JMM</strong></h2><p>现代计算机的内存是一个层级的结构(memory hierarchy),最上层是寄存器(register),接下来是缓存(cache),最后才是主内存(main memory),因此一个变量的读总是需要经过cache，如果cache数据无效，才会从main meory中获取;写变量同样如此，先将数据写入对应cache,等到某个时间才将cache中的数据与main memory进行同步(见下图）。这样，在硬件层面就存在一个如何确保各个CPU之间数据可见性的问题。不同的硬件平台可能有不同的memory model来处理CPU之间的数据可见性。最简单的memory model就是一个CPU对内存中某个变量的写操作立即对其他CPU可见，这种强内存模型要求数据之间存在严格的顺序一致性,也被称为sequential consistency。虽然sequential consistency为线程之间的数据同步提供了强有力的保证，但是（1）顺序一致性要求所有的内存操作对所有线程可见；（2）禁止了编译器与CPU对于代码的优化，这无疑会降低系统运行的性能。因此，为在性能与数据可见性之间取得平衡，大部分平台都提供了一个更弱的meomory model,在需要进行数据同步时，通过一个内存屏障(<a href="https://en.wikipedia.org/wiki/Memory_barrier" target="_blank" rel="noopener">Memory  Barrier</a> )来同步CPU缓存与主内存之间的数据。</p>
+<img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png" class="[full-image]" title="Memory Hierarchy">
+<blockquote>
+<p>每个CPU有自己独立的Register,Cache,但是共享Main Memory,各个不同的CPU之间通过总线（bus)来访问内存</p>
+<ul>
+<li><a href="https://csapp.cs.cmu.edu/2e/ch6-preview.pdf" target="_blank" rel="noopener">Memory Hierarchy</a> </li>
+<li><a href="https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html" target="_blank" rel="noopener">https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html</a> </li>
+</ul>
+</blockquote>
+<p>除了上述硬件平台memory model之间的差异，JMM还需要考虑编译器以及CPU执行指令时对代码执行顺序进行重排(reordering)导致的共享数据不一致问题。</p>
+<h3 id="Reordering"><a href="#Reordering" class="headerlink" title="Reordering"></a><strong>Reordering</strong></h3><p>在单线程情况下，Java语言本身要求JVM满足<code>as-if-serial</code>语义（只要在单线程情况下程序的执行结果不被改变，任何其他的重排都是允许的)。但对于多线程问题就复杂起来了。考虑如下两个线程,两个线程共享变量<code>a，b</code>，各自有一个局部变量<code>r1</code>，<code>r2</code>,假定初始状态时<code>a = 0, b = 0</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// Thread A</span></span><br><span class="line"><span class="number">1</span>: r2 = a;</span><br><span class="line"><span class="number">2</span>: b = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Thread B</span></span><br><span class="line"><span class="number">3</span>: r1 = b;</span><br><span class="line"><span class="number">4</span>: a = <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+<p>直觉上来看，<code>r1 = 1</code>,<code>r2 = 2</code>似乎不可能。对线程A或者B来说，执行动作1与3都执行在前，如果1在前，则<code>r2 = a</code>不应该看到动作4执行的结果；如果3在前，同样<code>r1 = b</code>不应该看到2执行的结果。但是，分开来看，只要不影响当前线程的执行结果，编译器是可以对两个线程的指令进行重排的，因此，实际上代码可能按照如下顺序执行：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// Thread A</span></span><br><span class="line">b = <span class="number">1</span>;</span><br><span class="line">r2 = a;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Thread B</span></span><br><span class="line">r1 = b;</span><br><span class="line">a = <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+<p>不难看出，这样就有可能出现<code>r1 = 1</code>,<code>r2 = 2</code>难以预料的结果了。为了解决上述问题（编译器或者CPU优化时导致的指令重排)，Java定义了自己的一个memory model，由JVM来负责处理数据同步的底层实现细节（通过在适当的位置插入内存屏障来实现共享内存的可见性；通过CAS操作来实现原子操作)，开发者只要通过正确的调用<code>synchronized</code>,<code>final</code>,<code>volatile</code>等语言本身提供的同步语义即可实现共享数据的一致性与可见性。</p>
+<h2 id="什么是JMM"><a href="#什么是JMM" class="headerlink" title="什么是JMM"></a><strong>什么是JMM</strong></h2><p>总的说来，JMM定义了线程与主内存之间的一种抽象关系，其定义的规则在于解决多线程情况下可能出现的三个问题：</p>
+<ul>
+<li>Atomicity(原子性）: 那些指令必须是不可分割的(原子操作）；</li>
+<li>Visibility（可见性）： 在什么情况下，一个线程的写操作结果对另一个线程可见；</li>
+<li>Ordering（重排）: 在什么情况下，对任何线程而言，执行操作是可重排的</li>
+</ul>
+<blockquote>
+<p>JMM确保读写内存区域（除了long/double之外）是原子的；volatile long/double读写是原子的;</p>
+</blockquote>
+<p>一个线程执行的动作可被另一个线程检测到或者被直接影响到，则将该动作称为线程之间的动作(inter-thread action)，主要有以下几种：</p>
+<ul>
+<li>Read(non-volatile): 读一个变量；</li>
+<li>Write(non-volatile): 写一个变量；</li>
+<li>同步动作：<ul>
+<li>读取一个volatile变量；</li>
+<li>写一个volatile变量；</li>
+<li>Lock/unlock</li>
+<li>线程的启动与终止</li>
+</ul>
+</li>
+</ul>
+<p>这样，一个线程间的执行动作可由一个由线程(t),执行的动作(k),变量或者monitor(v)以及任意的动作标识符（u）这样一个<code>&lt;t,k,v,u&gt;</code>四元组来确定了。在多线程情况下，最简单的内存模型就是所有动作总的顺序（由单个执行动作组成）跟程序的执行顺序（Program Order)保持一致，且所有的单个动作都具有原子性，操作的结果能够立刻对所有其他线程可见(Sequential Consistency)。这种强一致性虽然能够保证动作的可见性与执行顺序的可预测性，但是由于其禁止了编译器以及CPU指令优化，因此会降低系统的性能。</p>
+<blockquote>
+<p>Sequential Consistency: </p>
+<ul>
+<li><a href="http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf" target="_blank" rel="noopener">http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Sequential_consistency" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Sequential_consistency</a></li>
+</ul>
+</blockquote>
+<p>JMM提供了另一种选择，在不同平台上的执行性能与程序可预测性之间取得了平衡：JMM保证，在正确同步的情况下，JVM必须确保写变量对其他各个线程是可见的。通过对Java中的各种执行动作定义一种偏序关系(partial ordering),JMM确保程序执行结果的一致性。这种偏序关系通常被称为<strong>happens-before</strong>。JMM中主要有如下<strong>happens-before</strong>规则：</p>
+<ul>
+<li>Lock Rule: 在一个monitor上释放锁<strong>happens-before</strong>每一个在该monitor上的锁获取；</li>
+<li>Volatile Rule: 写一个volatile变量<strong>happens-before</strong>每一个volatile变量的读操作；</li>
+<li>Thread Start Rule: 线程的启动<code>start()</code><strong>happens-before</strong>每一个其他该线程的动作；</li>
+<li>Thread Termination Rule: 任何在一个线程上的动作 <strong>happens-before</strong>其他线程得知该线程终止之前的动作 （从<code>Thread.join</code> 成功返回或者  <code>Thread.isAlive</code>返回false);</li>
+<li>All actions in a thread <strong>happens-before</strong> any other thread successfully returns from a <code>join</code> on that thread(与上条类似）；</li>
+<li>Interruption Rule: 一个线程中断另一个线程<strong>happens-before</strong> 被中断线程检测到该中断(either by having InterruptedException thrown or invoking <code>Thread.isInterrupted</code> or <code>Thread.interrupted</code>);</li>
+<li>Initialization Rule: 对象的默认初始化<strong>happens-before</strong>其他任何执行动作（除默认的写动作之外)（the defaul initialization of any object <strong>happens-before</strong> any other actions(other than default-writes) of a program);</li>
+</ul>
+<blockquote>
+<p>什么是Partial Ordering <a href="https://en.wikipedia.org/wiki/Partially_ordered_set" target="_blank" rel="noopener">Partially_ordered_set</a></p>
+</blockquote>
+<p>下面就来看下，<code>volatile</code>以及<code>final</code>在<strong>happens-before</strong>规则下的语义。</p>
+<h2 id="volatile"><a href="#volatile" class="headerlink" title="volatile"></a><strong>volatile</strong></h2><p>关键词<code>volatile</code>在不用同步的情况下，通过内存屏障的方式来禁止变量读写操作的重排序，从而确保一个线程的写操作对其他线程是可见的（volatile变量不会缓存到对其他处理器比可见的register或者cache，因此其他线程的读操作得到的总是其他任何线程最新写的结果）。在JSR133之前，只是不允许volatile变量之间的重排序，但不会禁止volatile变量与普通变量之间的重排序，而新的JSR133模型则严格限制了volatile变量读写与普通变量读写之间的重排序：写一个volatile变量在内存效果上等同于释放monitor锁; 读volatile变量则等同于获取monitor锁。</p>
+<p>volatile只是保证了变量读写的可见性，但并没有确保互斥性。因此，使用volatile变量需要慎重。以下两点可以作为volatile使用的参考：</p>
+<ul>
+<li>将一个类的引用声明为volatile并不能保证该类中非volatile的成员的可见性；</li>
+<li>在单个写线程、多个读线程一个变量时使用volatile；</li>
+</ul>
+<p>示例:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VolatileExample</span></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> x = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">volatile</span> <span class="keyword">boolean</span> v = <span class="keyword">false</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">writer</span><span class="params">()</span></span>&#123;</span><br><span class="line">		x = <span class="number">30</span>;</span><br><span class="line">		v = <span class="keyword">true</span>; <span class="comment">// JMM确保上述普通变量与volatile变量之间的操作不被重排序</span></span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">reader</span><span class="params">()</span></span>&#123;</span><br><span class="line">		<span class="keyword">if</span>(v == <span class="keyword">true</span>)&#123;</span><br><span class="line">			<span class="keyword">int</span> y = <span class="number">2</span>*x; <span class="comment">//  x = 30对其他任何读线程都是可见的</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>| 有关更多volatile变量的使用方法，请参考<a href="https://www.ibm.com/developerworks/java/library/j-jtp06197/index.html" target="_blank" rel="noopener">Managing Volatility</a></p>
+<h2 id="final"><a href="#final" class="headerlink" title="final"></a><strong>final</strong></h2><p>关键词<code>final</code>确保变量是不可变的（尽管该变量所引用的对象可变），一旦一个变量声明为final,并被初始化一次，之后就不会被更改。因此，final变量无需做同步即可在多线程情况下使用：一个在对象构造完成之后，可见该对象的引用的线程保证可以看到该对象的<code>final</code>变量。 </p>
+<p>示例：一个线程调用<code>write()</code>,另一个调用<code>read()</code>,根据Happens-before Rule,由于变量f的写动作总是在对象构造完成之后，因此读线程总是可以看到<code>f.x = 3</code>,而由于<code>f.y</code>并非final变量，因此JMM并不保证读线程可以看到<code>f.y = 4</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">FinalFieldExample</span></span>&#123;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">int</span> x;</span><br><span class="line">    <span class="keyword">int</span> y;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> FinalFiledExample f;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">FinalFieldExample</span><span class="params">()</span></span>&#123;</span><br><span class="line">        x = <span class="number">3</span>;</span><br><span class="line">        y = <span class="number">2</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">write</span><span class="params">()</span></span>&#123;</span><br><span class="line">        f = <span class="keyword">new</span> FinalFieldExample();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">read</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(f != <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="keyword">int</span> i = f.x; <span class="comment">// guaranteed to see 3</span></span><br><span class="line">            <span class="keyword">int</span> j = f.y; <span class="comment">// could see 0</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
+<li><a href="http://www.cs.umd.edu/~pugh/java/memoryModel/" target="_blank" rel="noopener">[JMM refers] http://www.cs.umd.edu/~pugh/java/memoryModel/</a></li>
+<li><a href="https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/" target="_blank" rel="noopener">[Reordering] https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/</a></li>
+<li><a href="https://www.ibm.com/developerworks/library/j-jtp02244/index.html" target="_blank" rel="noopener">[Fixing JMM] https://www.ibm.com/developerworks/library/j-jtp02244/index.html</a></li>
+<li><a href="http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&amp;cm_mc_sid_50200000=1494921172" target="_blank" rel="noopener">[Doug Lee] http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&amp;cm_mc_sid_50200000=1494921172</a></li>
+<li><a href="https://www.ibm.com/developerworks/library/j-jtp03304/" target="_blank" rel="noopener">https://www.ibm.com/developerworks/library/j-jtp03304/</a></li>
+<li><a href="https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html" target="_blank" rel="noopener">https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html</a> </li>
+<li><a href="http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/" target="_blank" rel="noopener">http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/</a></li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Java/" rel="tag"># Java</a>
+          
+            <a href="/tags/并发编程/" rel="tag"># 并发编程</a>
+          
+            <a href="/tags/Java-Memory-Model/" rel="tag"># Java Memory Model</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/05/27/Zygote进程启动过程分析/" rel="next" title="Zygote进程启动过程详解">
+                <i class="fa fa-chevron-left"></i> Zygote进程启动过程详解
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/05/29/近来二三事/" rel="prev" title="近来二三事">
+                近来二三事 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#为什么需要JMM"><span class="nav-number">1.</span> <span class="nav-text">为什么需要JMM</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Reordering"><span class="nav-number">1.1.</span> <span class="nav-text">Reordering</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#什么是JMM"><span class="nav-number">2.</span> <span class="nav-text">什么是JMM</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#volatile"><span class="nav-number">3.</span> <span class="nav-text">volatile</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#final"><span class="nav-number">4.</span> <span class="nav-text">final</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文献"><span class="nav-number">5.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>

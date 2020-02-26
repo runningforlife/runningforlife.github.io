@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="DNS,TCP/IP,网络协议,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="互联网是由一个个电脑节点组成的网络，那么两个节点之间是如何进行数据通信的了？先来看一看一个最简单的通信模型：发送者通过一个媒介想一个接收者发送消息，同时接收者也可以向发送者发送消息。">
+<meta name="keywords" content="DNS,TCP&#x2F;IP,网络协议">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TCP&#x2F;IP网络协议入门">
+<meta property="og:url" content="http://sniffer.site/2017/03/07/TCP-IP网络协议入门/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="互联网是由一个个电脑节点组成的网络，那么两个节点之间是如何进行数据通信的了？先来看一看一个最简单的通信模型：发送者通过一个媒介想一个接收者发送消息，同时接收者也可以向发送者发送消息。">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CommunicationModel.png">
+<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ipclasses.png">
+<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/private-ip-addr.png">
+<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ip_addr_subnetting.png">
+<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Domain-Name-Structure.png">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/iterative_DNS_resolver.png">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/NetworkProtocolLayer.png">
+<meta property="og:updated_time" content="2019-04-10T07:04:16.762Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TCP&#x2F;IP网络协议入门">
+<meta name="twitter:description" content="互联网是由一个个电脑节点组成的网络，那么两个节点之间是如何进行数据通信的了？先来看一看一个最简单的通信模型：发送者通过一个媒介想一个接收者发送消息，同时接收者也可以向发送者发送消息。">
+<meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CommunicationModel.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2017/03/07/TCP-IP网络协议入门/">
+
+
+
+
+
+  <title>TCP/IP网络协议入门 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2017/03/07/TCP-IP网络协议入门/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">TCP/IP网络协议入门</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-03-07T20:52:04+08:00">
+                2017-03-07
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/网络协议/" itemprop="url" rel="index">
+                    <span itemprop="name">网络协议</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2017/03/07/TCP-IP网络协议入门/" class="leancloud_visitors" data-flag-title="TCP/IP网络协议入门">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>互联网是由一个个电脑节点组成的网络，那么两个节点之间是如何进行数据通信的了？先来看一看一个最简单的通信模型：发送者通过一个媒介想一个接收者发送消息，同时接收者也可以向发送者发送消息。</p>
+<a id="more"></a>
+<img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CommunicationModel.png" class="[full image]" title="Communication mode">
+<p>这种通信模型与平时生活中的日常会话很是相似。A想与B交流，首先A与B要讲同样的方言，如果一个人讲湖南方言，而一个人讲粤语，则沟通无法进行, 除非请一个懂两种方言的翻译或者沟通双发统一使用某一种语言。抽象的来看，通信一般涉及到如下几个要素：</p>
+<ul>
+<li>两个需要通信的节点（地址）；</li>
+<li>通信的数据交换协议（协议）;</li>
+<li>节点之间的物理连接（媒介）；</li>
+</ul>
+<p>缺乏任何其中一个要素通信都不会发生。比如，身在天津的小明A要给远在北京的小芳B发送一封信，这虽然是最常见的通信方式，也要具备通信的三个要素才能顺利进行：小明与小芳就是两个通信节点，小明需要知道小芳的地址才能向她写信，而小芳如果要回信，也需要知道小明的地址；语言文字就是通信得以进行的信息交换协议了，国家的邮政系统与信纸就是通信的媒介。</p>
+<p>同样，对于互联网中的任何两个节点，想要进行通信的话，也需要满足这三个要素。互联网的物理媒介可能是普通的网线，可能是电话线，也可能是光纤。在这篇文章里，我们重点关注通信中节点的寻址与数据交换协议TCP/IP协议族。首先，就来看一看，两个节点之间的通信模式有哪些？</p>
+<h2 id="通信模式"><a href="#通信模式" class="headerlink" title="通信模式"></a>通信模式</h2><p>这里所谓的通信模式是指节点通信的通道是怎样的。对于网络中节点之间的通信通道，通常有三种模式，分别是单工(simplex),半双工(half duplex)以及全双工(duplex)。这三种通道之间的区别在于节点之间数据传输的方向与时间：</p>
+<ul>
+<li>单工： 只存在单向通道，始终只能再一个方向上发送数据，常见的比如电视、音频广播电台；</li>
+<li>半双工： 同时存在两个通道，每个通道都可以进行数据传输，但不能同时进行通信；</li>
+<li>全双工： 同时存在两个通道，并且两个通道可同时交换数据，最常见的就是电话系统。</li>
+</ul>
+<p>对于互联网中的通信一般都是全双工的，即可在上行与下行通道同时传输数据。接下来就来看一看，互联网之间的节点是如何进行寻址的，即节点A如何知道节点B的地址？</p>
+<h2 id="寻址"><a href="#寻址" class="headerlink" title="寻址"></a><strong>寻址</strong></h2><p>网络中的一个节点可以由两个地址来唯一的标识： 一个是网络接口卡（网卡）的物理地址(也叫<a href="https://en.wikipedia.org/wiki/MAC_address" target="_blank" rel="noopener">MAC地址</a>)，一个是IP地址。网卡的物理地址通常是由网卡制造商确定的，而IP地址则是IP(Internet Protocol)协议对应的一个地址，是由一个叫做IANA(Internet Assigned Numbers Authority)的机构管理的。对于IPv4来说，IP地址的长度是32位（4个字节），而IPv6的地址则达到了128位（16个字节）。</p>
+<h3 id="IP地址"><a href="#IP地址" class="headerlink" title="IP地址"></a><strong>IP地址</strong></h3><p>在互联网协议发展早期，一般将IP地址划分为两个部分：网络号和主机号。同时，为了区分不同用途的IP地址，IP地址的前3位用来区分IP地址的类，共有五类IP地址：</p>
+<p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ipclasses.png" alt="IP地址的分类"></p>
+<p>由上，A类地址范围为：128.0.0.0 ~ 191.255.255.255；B类地址范围为: 128.0.0.0 ~ 191.255.255.255;C类地址范围为: 192.0.0.0 ~ 223.255.255.255。以此类推。</p>
+<p>如果按照接收端主机来看，可以将IP地址分为三类：单播地址（接收者为单个主机）、广播地址（接收端为给定网络上的所有主机）以及多播地址（接收端为同一组内的所有主机）。如果根据IP地址的用途划分, 有可以分成公有地址与私有地址, 私有地址一般用于局域网的通信, 常见的私有地址范围如下表所示(具体可以参考<a href="https://tools.ietf.org/html/rfc1918" target="_blank" rel="noopener">RFC1918</a>):</p>
+<p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/private-ip-addr.png" alt="私有IP地址"></p>
+<p>对于IPv4主机，由于存在网络号与主机号，因而在寻址与路由时需要作出区分，这就需要用到子网掩码了（subnet mask):通过子网掩码，给定一个IP地址，就可以知道该IP地址的子网号以及主机号了。譬如，在配置网络环境时，就常常会用到子网掩码：</p>
+<p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ip_addr_subnetting.png" alt="Subnet mask"></p>
+<p>举个例子，来看一看子网掩码是如何工作的。我们有一个IP地址： <code>192.168.5.130</code>，同时，我们知道子网掩码为<code>255.255.255.0</code>，转换成对应的二进制：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>二进制</th>
+<th>十进制 </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IP地址</td>
+<td><code>11000000.10101000.00000101.10000010</code></td>
+<td><code>192.168.5.130</code> </td>
+</tr>
+<tr>
+<td>子网掩码</td>
+<td><code>11111111.11111111.11111111.00000000</code></td>
+<td><code>255.255.255.0</code></td>
+</tr>
+<tr>
+<td>子网号</td>
+<td><code>11000000.10101000.00000101.00000000</code></td>
+<td><code>192.168.5.0</code></td>
+</tr>
+<tr>
+<td>主机号</td>
+<td><code>00000000.00000000.00000000.10000010</code></td>
+<td><code>0.0.0.130</code></td>
+</tr>
+</tbody>
+</table>
+<p>就是说，子网号是IP地址二进制与子网掩码二进制位与的结果，而主机号则是IP地址与子网掩码取反后位与的结果。这样就可以通过子网掩码来对子网内的主机进行寻址了。</p>
+<p>在上面讲到了网络节点有物理地址与IP地址，那么，是否可能通过节点的物理地址知道它的IP地址了，或者反过来通过IP地址知道它的物理地址？答案是可以的。在TCP/IP协议族中有一个地址解析协议ARP（Address Resolution Protocol)就是用于将IP地址转化成物理地址的，而逆地址解析协议RARP（Reverse Address Resolution Protocol)则是用于将物理地址转化为IP地址。</p>
+<blockquote>
+<p>如今，RARP协议已经被更为灵活易用的DHCP(Dynamic Host Configuration Protocol)协议替代。对于内网或者区域性的网络，DHCP通过管理IP地址池来实现动态的分配IP地址，每当有节点接入网络时，DHCP就会为其动态的分配一个IP地址。 </p>
+<p>关于DHCP可参考: <a href="https://en.wikipedia.org/wiki/Dynamic_Host_Configuration_Protocol" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Dynamic_Host_Configuration_Protocol</a></p>
+</blockquote>
+<h3 id="域名系统"><a href="#域名系统" class="headerlink" title="域名系统"></a><strong>域名系统</strong></h3><p>如果单纯依靠IP地址来识别网络上的节点的话，对于用户上网来说是很麻烦的事情。访问WEB服务器时，用户需要记忆一大堆IP地址，这无疑是件痛苦的事情。因此，人们想到用域名(Domain Name)来查找网络上的节点，比如，要使用Google搜索，只需要在浏览器中输入<code>www.google.com</code>而不是一串IP地址就可以了。但是实际的网络访问还是需要通过IP地址，这就需要将域名转化成相应的IP地址。这就是域名系统(DNS, Domain Name System)需要做的事情。</p>
+<p>可以把域名系统看做是一个层次化的分布式数据库，通过域名服务器可以查看到对应域名的IP地址。域名有根域名、顶级域名以及二级域名之分,根域名下面分了很多顶级域名，而顶级域名下面则又分成很多二级域名，这样就组成了一个层级的结构：</p>
+<p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Domain-Name-Structure.png" alt="Domain Name"></p>
+<p>比如网络地址<code>www.google.com</code>中</p>
+<ul>
+<li><code>.com</code>就是一个顶级域名；</li>
+<li><code>.google</code>是一个二级域名；</li>
+<li><code>www</code>则表示访问的是一个WEB服务器；</li>
+</ul>
+<p>那么，在通过域名访问网络时，发送节点究竟是如何通过DNS来查找IP地址的了？这里用一个实际的例子来说明域名解析的过程。比如，现在需要访问<code>www.wikipedia.org</code>这个网站，首先会查找根域名服务器，根域名服务器会返回一个顶级域名服务器<code>.org</code>的IP地址；接着，通过该顶级域名服务器IP地址，继续查询,顶级域名服务器则返回一个二级域名<code>.wikipedia</code>的IP地址,这样根据这个IP地址，就可以顺利访问维基百科这个WEB服务了。</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/iterative_DNS_resolver.png" alt="DNS解析过程"></p>
+<blockquote>
+<p>还有一个问题，需要访问网络的节点是如何知道根域名服务器的IP地址的？事实上，这些根域名服务器的IP地址是内置在电脑系统中的，这样通过事先预定的“根提示文件”(root hints file)就可以发起域名解析了。目前，在全球，共有13个根域名服务器，可以在<a href="http://www.iana.org/domains/root/servers" title="IANA" target="_blank" rel="noopener"> IANA </a> 官网中查看这些根域名服务器的具体信息。</p>
+</blockquote>
+<h2 id="协议分层"><a href="#协议分层" class="headerlink" title="协议分层"></a><strong>协议分层</strong></h2><p>TCP/IP协议族是一个不同层次上多个协议的组合，每一个层都负责不一样的通信功能。实际使用的是一个五层的协议族：</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/NetworkProtocolLayer.png" alt="TCP IP 协议族"></p>
+<ol>
+<li>链路层： 也被称为数据链路层或网络接口层，通常包括操作系统中的设备驱动和计算机中对应的网卡。链路层主要处理与物理接口相关的细节，接受来自网络端的数据或者发送数据到上层；</li>
+<li>网络层： 有时也称为互联网层，处理分组在网络中的活动以及主机的寻址与识别，例如分组的选路。网络层协议主要包括了IP协议（网际协议）、ICMP（Internet Control Message Protocol，互联网控制报文协议)以及IGMP(Internet Group Management Protocol,Internet组管理协议）。</li>
+<li>运输层： 为两台主机上的应用程序提供端到端的通信，有两个不相同的传输协议：TCP(Transmission Control Protocol)和UDP(User Datagram Protocol)。TCP为两台主机提供了高可靠性的数据通信，它所做的工作主要有（1）将应用层传过来的数据分成合适的小块发到网络层，确认接收到分组后，设置发送最后确认分组的超时时钟等；UDP则简单的多，它只是把数据报(Datagram)的分组发给另外一台主机，但不能确保数据报能到达另一端。</li>
+<li>应用层处理特定应用程序细节。一般会提供如下几种应用程序:<ul>
+<li>Telnet 远程登录；</li>
+<li>FTP 文件传输协议；</li>
+<li>SMTP 简单邮件传送协议；</li>
+<li>SNMP 简单网络管理系统</li>
+</ul>
+</li>
+</ol>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
+<li><a href="https://en.wikipedia.org/wiki/Internet_protocol_suite" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Internet_protocol_suite</a></li>
+<li><a href="http://www.ipprimer.com/#/overview" target="_blank" rel="noopener">http://www.ipprimer.com/#/overview</a></li>
+<li><a href="http://www.eventhelix.com/RealtimeMantra/Networking/tcp/" target="_blank" rel="noopener">http://www.eventhelix.com/RealtimeMantra/Networking/tcp/</a><br><a href="http://cn.linux.vbird.org/linux_server/0110network_basic.php" target="_blank" rel="noopener">http://cn.linux.vbird.org/linux_server/0110network_basic.php</a> </li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/DNS/" rel="tag"># DNS</a>
+          
+            <a href="/tags/TCP-IP/" rel="tag"># TCP/IP</a>
+          
+            <a href="/tags/网络协议/" rel="tag"># 网络协议</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/03/06/Maven快速入门/" rel="next" title="关于Maven">
+                <i class="fa fa-chevron-left"></i> 关于Maven
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/04/20/Picasso从使用到原理详解/" rel="prev" title="Picasso从使用到原理详解">
+                Picasso从使用到原理详解 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#通信模式"><span class="nav-number">1.</span> <span class="nav-text">通信模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#寻址"><span class="nav-number">2.</span> <span class="nav-text">寻址</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#IP地址"><span class="nav-number">2.1.</span> <span class="nav-text">IP地址</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#域名系统"><span class="nav-number">2.2.</span> <span class="nav-text">域名系统</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#协议分层"><span class="nav-number">3.</span> <span class="nav-text">协议分层</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文献"><span class="nav-number">4.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>
