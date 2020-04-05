@@ -109,19 +109,19 @@
 
 
 
-<meta name="description" content="SSH(Secure SHell)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过非对称公钥算法对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交着的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由. 一台服务器如果有公共域名或者IP地">
+<meta name="description" content="SSH(Secure SHell)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过非对称公钥算法对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交者的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由. 一台服务器如果有公共域名或者IP地">
 <meta name="keywords" content="SSH,远程登录,反向隧道">
 <meta property="og:type" content="article">
 <meta property="og:title" content="利用SSH隧道访问局域网">
 <meta property="og:url" content="http://sniffer.site/2020/02/24/如何利用SSH隧道访问局域网/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="SSH(Secure SHell)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过非对称公钥算法对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交着的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由. 一台服务器如果有公共域名或者IP地">
+<meta property="og:description" content="SSH(Secure SHell)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过非对称公钥算法对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交者的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由. 一台服务器如果有公共域名或者IP地">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ssh_login.png">
-<meta property="og:updated_time" content="2020-03-06T08:50:55.880Z">
+<meta property="og:updated_time" content="2020-03-24T03:41:34.364Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="利用SSH隧道访问局域网">
-<meta name="twitter:description" content="SSH(Secure SHell)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过非对称公钥算法对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交着的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由. 一台服务器如果有公共域名或者IP地">
+<meta name="twitter:description" content="SSH(Secure SHell)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过非对称公钥算法对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交者的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由. 一台服务器如果有公共域名或者IP地">
 <meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ssh_login.png">
 
 
@@ -438,13 +438,16 @@
       
 
       
-        <p>SSH(<a href="https://en.wikipedia.org/wiki/Secure_Shell" target="_blank" rel="noopener">Secure SHell</a>)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过<a href="https://en.wikipedia.org/wiki/Public-key_cryptography" target="_blank" rel="noopener">非对称公钥算法</a>对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交着的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由.</p>
+        <p>SSH(<a href="https://en.wikipedia.org/wiki/Secure_Shell" target="_blank" rel="noopener">Secure SHell</a>)是一种基于加密算法的网络安全协议, 其在TCP/IP协议的基础上通过<a href="https://en.wikipedia.org/wiki/Public-key_cryptography" target="_blank" rel="noopener">非对称公钥算法</a>对用户身份进行验证. SSH在网络中有广泛的应用, 比如平常在远程登录时就会用到SSH, Github的代码仓库提交也会基于SSH协议来验证提交者的合法性, 而对常年生活在局域网内的人来说, SSH更多的用途则是搭建穿越防火墙的VPN实现网络自由.</p>
 <p>一台服务器如果有公共域名或者IP地址, 只需要事先将客户端的公钥放到服务器上就可以正常登录, 但如果服务器本身位于防火墙之外(比如某个端口被禁)或者位于NAT(<a href="https://en.wikipedia.org/wiki/Network_address_translation" target="_blank" rel="noopener">Network Address Translation</a>)网关之后, 这个方法就不起作用了. 用过VPN的同志应该比较清楚, 穿透防火墙或者某个局域网的NAT网关, 一般要用到SSH隧道技术(<a href="https://www.ssh.com/ssh/tunneling" target="_blank" rel="noopener">SSH tunneling</a>);SSH隧道技术也被称为端口转发(port forwarding).简单来说, 建立SSH隧道大致有两个流程:</p>
 <ul>
 <li>由位于局域网的设备A向服务器PC发起SSH连接, 建立一个安全加密的通信通道, 并基于该通道监听某个特定的端口</li>
 <li>接着, 服务器基于已有的加密通道再建立一个SSH通信链路,基于这个通道服务器就可以登录到大屏, 执行交互指令</li>
 </ul>
 <p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ssh_login.png" alt="SSH login"></p>
+<blockquote>
+<p>SSH隧道技术的端口转发具体说有两种, 一种叫本地端口转发(local port forwarding), 就是在客户端做端口转发;一种叫远端端口转发(remote port forwarding), 就是在服务端做端口的数据转发, 这篇文章用到的技术是后一种.</p>
+</blockquote>
 <p>这里就来看看如何通过SSH隧道技术来实现对局域网内某个服务器的登录: 局域网内有一台设备A(服务端), 只有私有IP地址, 通过NAT网关访问外部网络, 设备B(客户端)是外部网络的一个PC, 现在要通过该PC(设备B)正常登录到设备A. </p>
 <h2 id="实现SSH隧道功能"><a href="#实现SSH隧道功能" class="headerlink" title="实现SSH隧道功能"></a><strong>实现SSH隧道功能</strong></h2><p>在开启SSH隧道功能之前, 确保客户端/服务器都正常配置了ssh(SSH的客户端程序)/sshd(SSH守护进程):</p>
 <ul>
@@ -516,6 +519,10 @@
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/04/01/说说Android中的流量统计/" rel="prev" title="Android是如何实现流量统计的?">
+                Android是如何实现流量统计的? <i class="fa fa-chevron-right"></i>
+              </a>
             
           </div>
         </div>
@@ -592,7 +599,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">65</span>
+                <span class="site-state-item-count">67</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -614,7 +621,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">136</span>
+                <span class="site-state-item-count">139</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>
