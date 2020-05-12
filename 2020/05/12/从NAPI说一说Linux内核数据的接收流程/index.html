@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Linux,TCP/IP,NAPI,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="NAPI(New API)是Linux内核针对网络数据传输做出的一个优化措施，其目的是在大量数据传输时， 在收到硬件中断后，通过poll方式将传输过来的数据包统一处理， 通过禁止网络设备中断以减少硬件中断数量((Interrupt Mitigation)，从而实现更高的数据传输。 基于NAPI接口， 一般的网络传输都有如下几个步骤：  网络设备驱动加载与初始化（配置IP等） 数据包从网络侧发送到网">
+<meta name="keywords" content="Linux,TCP&#x2F;IP,NAPI">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从NAPI说一说Linux内核数据的接收流程">
+<meta property="og:url" content="http://sniffer.site/2020/05/12/从NAPI说一说Linux内核数据的接收流程/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="NAPI(New API)是Linux内核针对网络数据传输做出的一个优化措施，其目的是在大量数据传输时， 在收到硬件中断后，通过poll方式将传输过来的数据包统一处理， 通过禁止网络设备中断以减少硬件中断数量((Interrupt Mitigation)，从而实现更高的数据传输。 基于NAPI接口， 一般的网络传输都有如下几个步骤：  网络设备驱动加载与初始化（配置IP等） 数据包从网络侧发送到网">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png">
+<meta property="og:updated_time" content="2020-05-12T10:10:15.377Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="从NAPI说一说Linux内核数据的接收流程">
+<meta name="twitter:description" content="NAPI(New API)是Linux内核针对网络数据传输做出的一个优化措施，其目的是在大量数据传输时， 在收到硬件中断后，通过poll方式将传输过来的数据包统一处理， 通过禁止网络设备中断以减少硬件中断数量((Interrupt Mitigation)，从而实现更高的数据传输。 基于NAPI接口， 一般的网络传输都有如下几个步骤：  网络设备驱动加载与初始化（配置IP等） 数据包从网络侧发送到网">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2020/05/12/从NAPI说一说Linux内核数据的接收流程/">
+
+
+
+
+
+  <title>从NAPI说一说Linux内核数据的接收流程 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2020/05/12/从NAPI说一说Linux内核数据的接收流程/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">从NAPI说一说Linux内核数据的接收流程</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-12T18:01:22+08:00">
+                2020-05-12
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/网络协议/" itemprop="url" rel="index">
+                    <span itemprop="name">网络协议</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2020/05/12/从NAPI说一说Linux内核数据的接收流程/" class="leancloud_visitors" data-flag-title="从NAPI说一说Linux内核数据的接收流程">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><a href="https://en.wikipedia.org/wiki/New_API" target="_blank" rel="noopener">NAPI(New API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在大量数据传输时， 在收到硬件中断后，通过poll方式将传输过来的数据包统一处理， 通过禁止网络设备中断以减少硬件中断数量((Interrupt Mitigation)，从而实现更高的数据传输。</p>
+<p>基于NAPI接口， 一般的网络传输都有如下几个步骤：</p>
+<ul>
+<li>网络设备驱动加载与初始化（配置IP等）</li>
+<li>数据包从网络侧发送到网卡(Network Interface Controller, NIC)</li>
+<li>通过<a href="https://en.wikipedia.org/wiki/Direct_memory_access" target="_blank" rel="noopener">DMA(Direct Memory Access)</a>，将数据从网卡拷贝到内存的环形缓冲区(ring buffer)</li>
+<li>NIC产生硬件中断告知内核有新的数据包达到了</li>
+<li>网卡驱动收到中断后调用NAPI接口开启poll线程（如果当前没有正在执行的线程）(常规数据传输直接处理NIC的中断时中间一般通过调用<code>netif_rx</code>来发起数据接收）</li>
+<li><code>ksoftirqd</code>（内核启动时每个CPU上都会启动这样一个线程）线程负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
+<li>通过DMA传输到内存中的数据包，最终通过<code>sk_buff</code>的形式传递给上层网络协议栈（TCP/IP层)</li>
+<li>如果支持数据包转发(packet steering)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行分发</li>
+<li>网络协议栈处理数据包，并将其发送到对应的<code>socket</code>接收缓冲区</li>
+</ul>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png" alt="网络数据接收流程"></p>
+<p>下面就结合具体的代码来看看数据是如何一步步接收的（以intel的千兆以太网卡为例<code>kernel/drivers/net/intel/e1000</code>）。</p>
+<h2 id="驱动加载与设备初始化"><a href="#驱动加载与设备初始化" class="headerlink" title="驱动加载与设备初始化"></a><strong>驱动加载与设备初始化</strong></h2><p>看<code>e1000_main.c</code>代码，驱动的初始化首先要做的是注册一个<code>pci</code>设备驱动到内核，这样设备枚举的时候会匹配到该网卡</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">int</span> __<span class="function">init <span class="title">e1000_init_module</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> ret;</span><br><span class="line">	pr_info(<span class="string">"%s - version %s\n"</span>, e1000_driver_string, e1000_driver_version);</span><br><span class="line"></span><br><span class="line">	pr_info(<span class="string">"%s\n"</span>, e1000_copyright);</span><br><span class="line"></span><br><span class="line">	ret = pci_register_driver(&amp;e1000_driver);</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">module_init(e1000_init_module);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">pci_driver</span> <span class="title">e1000_driver</span> = &#123;</span></span><br><span class="line">	.name     = e1000_driver_name,</span><br><span class="line">	.id_table = e1000_pci_tbl,</span><br><span class="line">	.probe    = e1000_probe,</span><br><span class="line">	.remove   = e1000_remove,</span><br><span class="line">#ifdef CONFIG_PM</span><br><span class="line">	<span class="comment">/* Power Management Hooks */</span></span><br><span class="line">	.suspend  = e1000_suspend,</span><br><span class="line">	.resume   = e1000_resume,</span><br><span class="line">#endif</span><br><span class="line">	.shutdown = e1000_shutdown,</span><br><span class="line">	.err_handler = &amp;e1000_err_handler</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>匹配到网卡后， pci总线会调用驱动的<code>probe</code>函数， 大致会做如下几个事情：</p>
+<ul>
+<li>调用<code>alloc_etherdev</code> 分配一个网络设备对象，并注册到系统中</li>
+<li>通过<code>netif_napi_add</code>添加NAPI的poll接口</li>
+<li>设置网卡寄存器IO映射内存区域</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">e1000_probe</span><span class="params">(struct pci_dev *pdev, <span class="keyword">const</span> struct pci_device_id *ent)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"> 	....</span><br><span class="line">	err = pci_request_selected_regions(pdev, bars, e1000_driver_name);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_pci_reg;</span><br><span class="line"></span><br><span class="line">	pci_set_master(pdev);</span><br><span class="line">	err = pci_save_state(pdev);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_alloc_etherdev;</span><br><span class="line"></span><br><span class="line">	err = -ENOMEM;</span><br><span class="line">	<span class="comment">// 分配以太网网络对象</span></span><br><span class="line">	netdev = alloc_etherdev(<span class="keyword">sizeof</span>(struct e1000_adapter));</span><br><span class="line">	<span class="keyword">if</span> (!netdev)</span><br><span class="line">		<span class="keyword">goto</span> err_alloc_etherdev;</span><br><span class="line"></span><br><span class="line">	SET_NETDEV_DEV(netdev, &amp;pdev-&gt;dev);</span><br><span class="line"></span><br><span class="line">	pci_set_drvdata(pdev, netdev);</span><br><span class="line">	adapter = netdev_priv(netdev);</span><br><span class="line">	adapter-&gt;netdev = netdev;</span><br><span class="line">	adapter-&gt;pdev = pdev;</span><br><span class="line">	adapter-&gt;msg_enable = netif_msg_init(debug, DEFAULT_MSG_ENABLE);</span><br><span class="line">	adapter-&gt;bars = bars;</span><br><span class="line">	adapter-&gt;need_ioport = need_ioport;</span><br><span class="line"></span><br><span class="line">	hw = &amp;adapter-&gt;hw;</span><br><span class="line">	hw-&gt;back = adapter;</span><br><span class="line"></span><br><span class="line">	err = -EIO;</span><br><span class="line">	<span class="comment">// 映射寄存器IO区域</span></span><br><span class="line">	hw-&gt;hw_addr = pci_ioremap_bar(pdev, BAR_0);</span><br><span class="line">	<span class="keyword">if</span> (!hw-&gt;hw_addr)</span><br><span class="line">		<span class="keyword">goto</span> err_ioremap;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (adapter-&gt;need_ioport) &#123;</span><br><span class="line">		<span class="keyword">for</span> (i = BAR_1; i &lt;= BAR_5; i++) &#123;</span><br><span class="line">			<span class="keyword">if</span> (pci_resource_len(pdev, i) == <span class="number">0</span>)</span><br><span class="line">				<span class="keyword">continue</span>;</span><br><span class="line">			<span class="keyword">if</span> (pci_resource_flags(pdev, i) &amp; IORESOURCE_IO) &#123;</span><br><span class="line">				hw-&gt;io_base = pci_resource_start(pdev, i);</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* make ready for any if (hw-&gt;...) below */</span></span><br><span class="line">	err = e1000_init_hw_struct(adapter, hw);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_sw_init;	</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">// 设置网络设备对象的操作接口</span></span><br><span class="line">	netdev-&gt;netdev_ops = &amp;e1000_netdev_ops;</span><br><span class="line">	e1000_set_ethtool_ops(netdev);</span><br><span class="line">	netdev-&gt;watchdog_timeo = <span class="number">5</span> * HZ;</span><br><span class="line">	<span class="comment">// 添加napi的poll接口</span></span><br><span class="line">	netif_napi_add(netdev, &amp;adapter-&gt;napi, e1000_clean, <span class="number">64</span>);</span><br><span class="line"></span><br><span class="line">	<span class="built_in">strncpy</span>(netdev-&gt;name, pci_name(pdev), <span class="keyword">sizeof</span>(netdev-&gt;name) - <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">	adapter-&gt;bd_number = cards_found;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* setup the private structure */</span></span><br><span class="line"></span><br><span class="line">	err = e1000_sw_init(adapter);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_sw_init;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!is_valid_ether_addr(netdev-&gt;dev_addr))</span><br><span class="line">		e_err(probe, <span class="string">"Invalid MAC Address\n"</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	INIT_DELAYED_WORK(&amp;adapter-&gt;watchdog_task, e1000_watchdog);</span><br><span class="line">	INIT_DELAYED_WORK(&amp;adapter-&gt;fifo_stall_task,</span><br><span class="line">			  e1000_82547_tx_fifo_stall_task);</span><br><span class="line">	INIT_DELAYED_WORK(&amp;adapter-&gt;phy_info_task, e1000_update_phy_info_task);</span><br><span class="line">	INIT_WORK(&amp;adapter-&gt;reset_task, e1000_reset_task);</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* initialize the wol settings based on the eeprom settings */</span></span><br><span class="line">	adapter-&gt;wol = adapter-&gt;eeprom_wol;</span><br><span class="line">	device_set_wakeup_enable(&amp;adapter-&gt;pdev-&gt;dev, adapter-&gt;wol);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Auto detect PHY address */</span></span><br><span class="line">	<span class="keyword">if</span> (hw-&gt;mac_type == e1000_ce4100) &#123;</span><br><span class="line">		<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">32</span>; i++) &#123;</span><br><span class="line">			hw-&gt;phy_addr = i;</span><br><span class="line">			e1000_read_phy_reg(hw, PHY_ID2, &amp;tmp);</span><br><span class="line">			<span class="keyword">if</span> (tmp == <span class="number">0</span> || tmp == <span class="number">0xFF</span>) &#123;</span><br><span class="line">				<span class="keyword">if</span> (i == <span class="number">31</span>)</span><br><span class="line">					<span class="keyword">goto</span> err_eeprom;</span><br><span class="line">				<span class="keyword">continue</span>;</span><br><span class="line">			&#125; <span class="keyword">else</span></span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* reset the hardware with the new settings */</span></span><br><span class="line">	e1000_reset(adapter);</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 设置网卡名字，注册网络设备对象</span></span><br><span class="line">	<span class="built_in">strcpy</span>(netdev-&gt;name, <span class="string">"eth%d"</span>);</span><br><span class="line">	err = register_netdev(netdev);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_register;</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">/* carrier off reporting is important to ethtool even BEFORE open */</span></span><br><span class="line">	netif_carrier_off(netdev);</span><br><span class="line"></span><br><span class="line">	e_info(probe, <span class="string">"Intel(R) PRO/1000 Network Connection\n"</span>);</span><br><span class="line"></span><br><span class="line">	cards_found++;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>到这一步网卡还不是可用状态，需要通过手动<code>ifconfig eth0 up/ifconfig eth0 &lt;ip&gt;</code>， 设置网卡为<code>UP</code>时，会调用驱动的<code>ndo_open</code>函数：</p>
+<ul>
+<li>请求硬件中断，并使能该中断</li>
+<li><code>napi_enable</code>开启napi</li>
+<li>启动网络的发送队列，允许发送数据</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">e1000_open</span><span class="params">(struct net_device *netdev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_adapter</span> *<span class="title">adapter</span> = <span class="title">netdev_priv</span>(<span class="title">netdev</span>);</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_hw</span> *<span class="title">hw</span> = &amp;<span class="title">adapter</span>-&gt;<span class="title">hw</span>;</span></span><br><span class="line">	<span class="keyword">int</span> err;</span><br><span class="line"></span><br><span class="line">	netif_carrier_off(netdev);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* allocate transmit descriptors */</span></span><br><span class="line">	err = e1000_setup_all_tx_resources(adapter);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* allocate receive descriptors */</span></span><br><span class="line">	err = e1000_setup_all_rx_resources(adapter);</span><br><span class="line"></span><br><span class="line">	e1000_power_up_phy(adapter);</span><br><span class="line">	</span><br><span class="line">	...</span><br><span class="line">	err = e1000_request_irq(adapter);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* From here on the code is the same as e1000_up() */</span></span><br><span class="line">	clear_bit(__E1000_DOWN, &amp;adapter-&gt;flags);</span><br><span class="line"></span><br><span class="line">	napi_enable(&amp;adapter-&gt;napi);</span><br><span class="line"></span><br><span class="line">	e1000_irq_enable(adapter);</span><br><span class="line"></span><br><span class="line">	netif_start_queue(netdev);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* fire a link status change interrupt to start the watchdog */</span></span><br><span class="line">	ew32(ICS, E1000_ICS_LSC);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> E1000_SUCCESS;</span><br><span class="line">	</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>到此时网卡正常工作， 再来看看数据接收的具体流程。</p>
+<h2 id="网卡数据接收"><a href="#网卡数据接收" class="headerlink" title="网卡数据接收"></a><strong>网卡数据接收</strong></h2><p>网卡数据的接收大概有三个步骤：</p>
+<ul>
+<li>网卡发送中断给驱动</li>
+<li>驱动处理函数处理中断，并启动一个<code>napi</code>处理任务</li>
+<li>发送接收数据的软中断<code>NET_RX_SOFTIRQ</code></li>
+<li>内核线程处理网络软中断，将数据包发送给上层协议栈</li>
+</ul>
+<h3 id="处理网卡中断"><a href="#处理网卡中断" class="headerlink" title="处理网卡中断"></a><strong>处理网卡中断</strong></h3><p>在网卡驱动初始化的过程，我们看到驱动会向内核请求中断, 并注册一个中断处理函数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">e1000_request_irq</span><span class="params">(struct e1000_adapter *adapter)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">netdev</span> = <span class="title">adapter</span>-&gt;<span class="title">netdev</span>;</span></span><br><span class="line">	<span class="keyword">irq_handler_t</span> handler = e1000_intr;</span><br><span class="line">	<span class="keyword">int</span> irq_flags = IRQF_SHARED;</span><br><span class="line"></span><br><span class="line">	err = request_irq(adapter-&gt;pdev-&gt;irq, handler, irq_flags, netdev-&gt;name,</span><br><span class="line">		          netdev);</span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当网卡产生数据中断后，调用中断处理函数： 对于napi来说，首先要禁止当前网卡的中断，如果当前没有在运行的napi任务，则调度一个新的napi任务<code>__napi_schedule</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> irqreturn_t <span class="title">e1000_intr</span><span class="params">(<span class="keyword">int</span> irq, <span class="keyword">void</span> *data)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* disable interrupts, without the synchronize_irq bit */</span></span><br><span class="line">	ew32(IMC, ~<span class="number">0</span>);</span><br><span class="line">	E1000_WRITE_FLUSH();</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (likely(napi_schedule_prep(&amp;adapter-&gt;napi))) &#123;</span><br><span class="line">		adapter-&gt;total_tx_bytes = <span class="number">0</span>;</span><br><span class="line">		adapter-&gt;total_tx_packets = <span class="number">0</span>;</span><br><span class="line">		adapter-&gt;total_rx_bytes = <span class="number">0</span>;</span><br><span class="line">		adapter-&gt;total_rx_packets = <span class="number">0</span>;</span><br><span class="line">		__napi_schedule(&amp;adapter-&gt;napi);</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">/* this really should not happen! if it does it is basically a</span></span><br><span class="line"><span class="comment">		 * bug, but not a hard error, so enable ints and continue</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (!test_bit(__E1000_DOWN, &amp;adapter-&gt;flags))</span><br><span class="line">			e1000_irq_enable(adapter);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> IRQ_HANDLED;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="启动napi任务，发送软中断"><a href="#启动napi任务，发送软中断" class="headerlink" title="启动napi任务，发送软中断"></a><strong>启动napi任务，发送软中断</strong></h3><p><code>__napi_schedule</code>在<code>/kernel/net/core/dev.c</code>中，其实际做了两件事：</p>
+<ul>
+<li>将<code>napi_struct</code>添加到中断处理CPU的<code>softnet_data</code>对应的poll列表中</li>
+<li>发出一个<code>NET_RX_SOFTIRQ</code>的软中断，让内核线程<code>ksoftirqd</code>来处理对应的该<code>softirq</code>软中断</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">void</span> __napi_schedule(struct napi_struct *n)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> flags;</span><br><span class="line"></span><br><span class="line">	local_irq_save(flags);</span><br><span class="line">	____napi_schedule(this_cpu_ptr(&amp;softnet_data), n);</span><br><span class="line">	local_irq_restore(flags);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">void</span> ____napi_schedule(struct softnet_data *sd,</span><br><span class="line">				     struct napi_struct *napi)</span><br><span class="line">&#123;</span><br><span class="line">	list_add_tail(&amp;napi-&gt;poll_list, &amp;sd-&gt;poll_list);</span><br><span class="line">	__raise_softirq_irqoff(NET_RX_SOFTIRQ);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>__raise_softirq_irqoff</code>函数在<code>/kernel/softirq.c</code>中定义，其实际做的事情就是将当前CPU对应的<code>softirq</code>状态标记为待运行状态：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">void</span> __raise_softirq_irqoff(<span class="keyword">unsigned</span> <span class="keyword">int</span> nr)</span><br><span class="line">&#123;</span><br><span class="line">	trace_softirq_raise(nr);</span><br><span class="line">	or_softirq_pending(<span class="number">1U</span>L &lt;&lt; nr);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="处理网络软中断"><a href="#处理网络软中断" class="headerlink" title="处理网络软中断"></a><strong>处理网络软中断</strong></h3><p>内核在初始化的时候，每个CPU上都会启动一个专门的<code>ksoftirqd%d</code>（<code>%d</code>对应CPU的ID）内核线程用于处理CPU上的软中断（代码同样在<code>softirq.c</code>)中：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">smp_hotplug_thread</span> <span class="title">softirq_threads</span> = &#123;</span></span><br><span class="line">	.store			= &amp;ksoftirqd,</span><br><span class="line">	.thread_should_run	= ksoftirqd_should_run,</span><br><span class="line">	.thread_fn		= run_ksoftirqd,</span><br><span class="line">	.thread_comm		= <span class="string">"ksoftirqd/%u"</span>,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> __<span class="function">init <span class="keyword">int</span> <span class="title">spawn_ksoftirqd</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	register_cpu_notifier(&amp;cpu_nfb);</span><br><span class="line"></span><br><span class="line">	BUG_ON(smpboot_register_percpu_thread(&amp;softirq_threads));</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line">early_initcall(spawn_ksoftirqd);</span><br></pre></td></tr></table></figure>
+<p>每个内核线程<code>ksoftirqd</code>实际一直执行的是<code>run_ksoftirqd</code>函数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">run_ksoftirqd</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">int</span> cpu)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	local_irq_disable();</span><br><span class="line">	<span class="keyword">if</span> (local_softirq_pending()) &#123;</span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * We can safely run softirq on inline stack, as we are not deep</span></span><br><span class="line"><span class="comment">		 * in the task stack here.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		__do_softirq();</span><br><span class="line">		local_irq_enable();</span><br><span class="line">		cond_resched_rcu_qs();</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	local_irq_enable();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>函数<code>__do_softirq</code>检查当前CPU所有待处理的软中断，并调用对应的处理函数<code>softirq_action</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">asmlinkage __visible <span class="keyword">void</span> __softirq_entry __do_softirq(<span class="keyword">void</span>)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">while</span> ((softirq_bit = ffs(pending))) &#123;</span><br><span class="line">		<span class="keyword">unsigned</span> <span class="keyword">int</span> vec_nr;</span><br><span class="line">		<span class="keyword">int</span> prev_count;</span><br><span class="line"></span><br><span class="line">		h += softirq_bit - <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">		vec_nr = h - softirq_vec;</span><br><span class="line">		...</span><br><span class="line">		h-&gt;action(h);</span><br><span class="line">		...</span><br><span class="line">		h++;</span><br><span class="line">		pending &gt;&gt;= softirq_bit;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>而<code>softirq_action</code>实际是在网络模块初始化的时候注册的(查看<code>/kernel/net/dev.c</code>)中的函数<code>net_dev_init</code>，通过调用<code>open_softirq</code>告知内核启动网络数据传输的两个软中断：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">int</span> __<span class="function">init <span class="title">net_dev_init</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">if</span> (register_pernet_subsys(&amp;netdev_net_ops))</span><br><span class="line">		<span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 *	Initialise the packet receive queues.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line"></span><br><span class="line">	for_each_possible_cpu(i) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">softnet_data</span> *<span class="title">sd</span> = &amp;<span class="title">per_cpu</span>(<span class="title">softnet_data</span>, <span class="title">i</span>);</span></span><br><span class="line"></span><br><span class="line">		skb_queue_head_init(&amp;sd-&gt;input_pkt_queue);</span><br><span class="line">		skb_queue_head_init(&amp;sd-&gt;process_queue);</span><br><span class="line">		INIT_LIST_HEAD(&amp;sd-&gt;poll_list);</span><br><span class="line">		sd-&gt;output_queue_tailp = &amp;sd-&gt;output_queue;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_RPS</span></span><br><span class="line">		sd-&gt;csd.func = rps_trigger_softirq;</span><br><span class="line">		sd-&gt;csd.info = sd;</span><br><span class="line">		sd-&gt;cpu = i;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">		sd-&gt;backlog.poll = process_backlog;</span><br><span class="line">		sd-&gt;backlog.weight = weight_p;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	open_softirq(NET_TX_SOFTIRQ, net_tx_action);</span><br><span class="line">	open_softirq(NET_RX_SOFTIRQ, net_rx_action);</span><br><span class="line"></span><br><span class="line">	hotcpu_notifier(dev_cpu_callback, <span class="number">0</span>);</span><br><span class="line">	dst_subsys_init();</span><br><span class="line">	rc = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>也就说<code>h-&gt;action</code> 调用的实际是<code>net_rx_action</code>函数： 不断的调用<code>napi_poll</code>获取CPU上的数据包，直到到达单个CPU处理的上限或者所有需要poll的列表完成处理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">net_rx_action</span><span class="params">(struct softirq_action *h)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">napi_struct</span> *<span class="title">n</span>;</span></span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (list_empty(&amp;<span class="built_in">list</span>)) &#123;</span><br><span class="line">			<span class="keyword">if</span> (!sd_has_rps_ipi_waiting(sd) &amp;&amp; list_empty(&amp;repoll))</span><br><span class="line">				<span class="keyword">return</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		n = list_first_entry(&amp;<span class="built_in">list</span>, struct napi_struct, poll_list);</span><br><span class="line">		budget -= napi_poll(n, &amp;repoll);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* If softirq window is exhausted then punt.</span></span><br><span class="line"><span class="comment">		 * Allow this to run for 2 jiffies since which will allow</span></span><br><span class="line"><span class="comment">		 * an average latency of 1.5/HZ.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (unlikely(budget &lt;= <span class="number">0</span> ||</span><br><span class="line">			     time_after_eq(jiffies, time_limit))) &#123;</span><br><span class="line">			sd-&gt;time_squeeze++;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	local_irq_disable();</span><br><span class="line"></span><br><span class="line">	list_splice_tail_init(&amp;sd-&gt;poll_list, &amp;<span class="built_in">list</span>);</span><br><span class="line">	list_splice_tail(&amp;repoll, &amp;<span class="built_in">list</span>);</span><br><span class="line">	list_splice(&amp;<span class="built_in">list</span>, &amp;sd-&gt;poll_list);</span><br><span class="line">	<span class="keyword">if</span> (!list_empty(&amp;sd-&gt;poll_list))</span><br><span class="line">		__raise_softirq_irqoff(NET_RX_SOFTIRQ);</span><br><span class="line"></span><br><span class="line">	net_rps_action_and_irq_enable(sd);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>而<code>napi_poll</code>则调用最初网卡驱动注册的poll函数<code>e1000_clean</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">napi_poll</span><span class="params">(struct napi_struct *n, struct list_head *repoll)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">void</span> *have;</span><br><span class="line">	<span class="keyword">int</span> work, weight;</span><br><span class="line"></span><br><span class="line">	list_del_init(&amp;n-&gt;poll_list);</span><br><span class="line"></span><br><span class="line">	have = netpoll_poll_lock(n);</span><br><span class="line"></span><br><span class="line">	weight = n-&gt;weight;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* This NAPI_STATE_SCHED test is for avoiding a race</span></span><br><span class="line"><span class="comment">	 * with netpoll's poll_napi().  Only the entity which</span></span><br><span class="line"><span class="comment">	 * obtains the lock and sees NAPI_STATE_SCHED set will</span></span><br><span class="line"><span class="comment">	 * actually make the -&gt;poll() call.  Therefore we avoid</span></span><br><span class="line"><span class="comment">	 * accidentally calling -&gt;poll() when NAPI is not scheduled.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	work = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">if</span> (test_bit(NAPI_STATE_SCHED, &amp;n-&gt;state)) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">softnet_data</span> *<span class="title">sd</span> = <span class="title">this_cpu_ptr</span>(&amp;<span class="title">softnet_data</span>);</span></span><br><span class="line"></span><br><span class="line">		sd-&gt;current_napi = n;</span><br><span class="line">		work = n-&gt;poll(n, weight);</span><br><span class="line">		trace_napi_poll(n);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> work;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>函数<code>e1000_clean</code>会将当前CPU中接收到的数据包放到<code>skb_buff</code>列表当中，并将数据发送给上层协议栈。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">e1000_clean</span><span class="params">(struct napi_struct *napi, <span class="keyword">int</span> budget)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_adapter</span> *<span class="title">adapter</span> = <span class="title">container_of</span>(<span class="title">napi</span>, <span class="title">struct</span> <span class="title">e1000_adapter</span>,</span></span><br><span class="line"><span class="class">						     <span class="title">napi</span>);</span></span><br><span class="line">	<span class="keyword">int</span> tx_clean_complete = <span class="number">0</span>, work_done = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	tx_clean_complete = e1000_clean_tx_irq(adapter, &amp;adapter-&gt;tx_ring[<span class="number">0</span>]);</span><br><span class="line"></span><br><span class="line">	adapter-&gt;clean_rx(adapter, &amp;adapter-&gt;rx_ring[<span class="number">0</span>], &amp;work_done, budget);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!tx_clean_complete)</span><br><span class="line">		work_done = budget;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* If budget not fully consumed, exit the polling mode */</span></span><br><span class="line">	<span class="keyword">if</span> (work_done &lt; budget) &#123;</span><br><span class="line">		<span class="keyword">if</span> (likely(adapter-&gt;itr_setting &amp; <span class="number">3</span>))</span><br><span class="line">			e1000_set_itr(adapter);</span><br><span class="line">		napi_complete_done(napi, work_done);</span><br><span class="line">		<span class="keyword">if</span> (!test_bit(__E1000_DOWN, &amp;adapter-&gt;flags))</span><br><span class="line">			e1000_irq_enable(adapter);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> work_done;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="将skb-buff-发送给协议栈"><a href="#将skb-buff-发送给协议栈" class="headerlink" title="将skb_buff 发送给协议栈"></a><strong>将<code>skb_buff</code> 发送给协议栈</strong></h3><p><code>e1000_clean_rx_irq</code>不断的从网卡对应的内存环形缓冲区中获取网络数据包，并将数据包以<code>sk_buff</code>的形式传给协议栈进行处理</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">bool</span> <span class="title">e1000_clean_rx_irq</span><span class="params">(struct e1000_adapter *adapter,</span></span></span><br><span class="line"><span class="function"><span class="params">			       struct e1000_rx_ring *rx_ring,</span></span></span><br><span class="line"><span class="function"><span class="params">			       <span class="keyword">int</span> *work_done, <span class="keyword">int</span> work_to_do)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">netdev</span> = <span class="title">adapter</span>-&gt;<span class="title">netdev</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pci_dev</span> *<span class="title">pdev</span> = <span class="title">adapter</span>-&gt;<span class="title">pdev</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_rx_desc</span> *<span class="title">rx_desc</span>, *<span class="title">next_rxd</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_rx_buffer</span> *<span class="title">buffer_info</span>, *<span class="title">next_buffer</span>;</span></span><br><span class="line">	u32 length;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> i;</span><br><span class="line">	<span class="keyword">int</span> cleaned_count = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">bool</span> cleaned = <span class="literal">false</span>;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> total_rx_bytes=<span class="number">0</span>, total_rx_packets=<span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	i = rx_ring-&gt;next_to_clean;</span><br><span class="line">	rx_desc = E1000_RX_DESC(*rx_ring, i);</span><br><span class="line">	buffer_info = &amp;rx_ring-&gt;buffer_info[i];</span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span> (rx_desc-&gt;status &amp; E1000_RXD_STAT_DD) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">skb</span>;</span></span><br><span class="line">		u8 *data;</span><br><span class="line">		u8 status;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (*work_done &gt;= work_to_do)</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		(*work_done)++;</span><br><span class="line">		dma_rmb(); <span class="comment">/* read descriptor and rx_buffer_info after status DD */</span></span><br><span class="line"></span><br><span class="line">		status = rx_desc-&gt;status;</span><br><span class="line">		length = le16_to_cpu(rx_desc-&gt;length);</span><br><span class="line"></span><br><span class="line">		data = buffer_info-&gt;rxbuf.data;</span><br><span class="line">		prefetch(data);</span><br><span class="line">		skb = e1000_copybreak(adapter, buffer_info, length, data);</span><br><span class="line">		<span class="keyword">if</span> (!skb) &#123;</span><br><span class="line">			<span class="keyword">unsigned</span> <span class="keyword">int</span> frag_len = e1000_frag_len(adapter);</span><br><span class="line"></span><br><span class="line">			skb = build_skb(data - E1000_HEADROOM, frag_len);</span><br><span class="line">			<span class="keyword">if</span> (!skb) &#123;</span><br><span class="line">				adapter-&gt;alloc_rx_buff_failed++;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			skb_reserve(skb, E1000_HEADROOM);</span><br><span class="line">			dma_unmap_single(&amp;pdev-&gt;dev, buffer_info-&gt;dma,</span><br><span class="line">					 adapter-&gt;rx_buffer_len,</span><br><span class="line">					 DMA_FROM_DEVICE);</span><br><span class="line">			buffer_info-&gt;dma = <span class="number">0</span>;</span><br><span class="line">			buffer_info-&gt;rxbuf.data = <span class="literal">NULL</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (++i == rx_ring-&gt;count) i = <span class="number">0</span>;</span><br><span class="line">		next_rxd = E1000_RX_DESC(*rx_ring, i);</span><br><span class="line">		prefetch(next_rxd);</span><br><span class="line"></span><br><span class="line">		next_buffer = &amp;rx_ring-&gt;buffer_info[i];</span><br><span class="line"></span><br><span class="line">		cleaned = <span class="literal">true</span>;</span><br><span class="line">		cleaned_count++;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* !EOP means multiple descriptors were used to store a single</span></span><br><span class="line"><span class="comment">		 * packet, if thats the case we need to toss it.  In fact, we</span></span><br><span class="line"><span class="comment">		 * to toss every packet with the EOP bit clear and the next</span></span><br><span class="line"><span class="comment">		 * frame that _does_ have the EOP bit set, as it is by</span></span><br><span class="line"><span class="comment">		 * definition only a frame fragment</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (unlikely(!(status &amp; E1000_RXD_STAT_EOP)))</span><br><span class="line">			adapter-&gt;discarding = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (adapter-&gt;discarding) &#123;</span><br><span class="line">			<span class="comment">/* All receives must fit into a single buffer */</span></span><br><span class="line">			netdev_dbg(netdev, <span class="string">"Receive packet consumed multiple buffers\n"</span>);</span><br><span class="line">			dev_kfree_skb(skb);</span><br><span class="line">			<span class="keyword">if</span> (status &amp; E1000_RXD_STAT_EOP)</span><br><span class="line">				adapter-&gt;discarding = <span class="literal">false</span>;</span><br><span class="line">			<span class="keyword">goto</span> next_desc;</span><br><span class="line">		&#125;</span><br><span class="line">		....</span><br><span class="line"></span><br><span class="line">process_skb:</span><br><span class="line">		total_rx_bytes += (length - <span class="number">4</span>); <span class="comment">/* don't count FCS */</span></span><br><span class="line">		total_rx_packets++;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (likely(!(netdev-&gt;features &amp; NETIF_F_RXFCS)))</span><br><span class="line">			<span class="comment">/* adjust length to remove Ethernet CRC, this must be</span></span><br><span class="line"><span class="comment">			 * done after the TBI_ACCEPT workaround above</span></span><br><span class="line"><span class="comment">			 */</span></span><br><span class="line">			length -= <span class="number">4</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (buffer_info-&gt;rxbuf.data == <span class="literal">NULL</span>)</span><br><span class="line">			skb_put(skb, length);</span><br><span class="line">		<span class="keyword">else</span> <span class="comment">/* copybreak skb */</span></span><br><span class="line">			skb_trim(skb, length);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* Receive Checksum Offload */</span></span><br><span class="line">		e1000_rx_checksum(adapter,</span><br><span class="line">				  (u32)(status) |</span><br><span class="line">				  ((u32)(rx_desc-&gt;errors) &lt;&lt; <span class="number">24</span>),</span><br><span class="line">				  le16_to_cpu(rx_desc-&gt;csum), skb);</span><br><span class="line"></span><br><span class="line">		e1000_receive_skb(adapter, status, rx_desc-&gt;special, skb);</span><br><span class="line"></span><br><span class="line">next_desc:</span><br><span class="line">		rx_desc-&gt;status = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* return some buffers to hardware, one at a time is too slow */</span></span><br><span class="line">		<span class="keyword">if</span> (unlikely(cleaned_count &gt;= E1000_RX_BUFFER_WRITE)) &#123;</span><br><span class="line">			adapter-&gt;alloc_rx_buf(adapter, rx_ring, cleaned_count);</span><br><span class="line">			cleaned_count = <span class="number">0</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* use prefetched values */</span></span><br><span class="line">		rx_desc = next_rxd;</span><br><span class="line">		buffer_info = next_buffer;</span><br><span class="line">	&#125;</span><br><span class="line">	rx_ring-&gt;next_to_clean = i;</span><br><span class="line"></span><br><span class="line">	cleaned_count = E1000_DESC_UNUSED(rx_ring);</span><br><span class="line">	<span class="keyword">if</span> (cleaned_count)</span><br><span class="line">		adapter-&gt;alloc_rx_buf(adapter, rx_ring, cleaned_count);</span><br><span class="line"></span><br><span class="line">	adapter-&gt;total_rx_packets += total_rx_packets;</span><br><span class="line">	adapter-&gt;total_rx_bytes += total_rx_bytes;</span><br><span class="line">	netdev-&gt;stats.rx_bytes += total_rx_bytes;</span><br><span class="line">	netdev-&gt;stats.rx_packets += total_rx_packets;</span><br><span class="line">	<span class="keyword">return</span> cleaned;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>e1000_receive_skb</code>实际调用<code>napi_gro_receive</code>将数据发送出去：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">e1000_receive_skb</span><span class="params">(struct e1000_adapter *adapter, u8 status,</span></span></span><br><span class="line"><span class="function"><span class="params">			      __le16 vlan, struct sk_buff *skb)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	skb-&gt;protocol = eth_type_trans(skb, adapter-&gt;netdev);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (status &amp; E1000_RXD_STAT_VP) &#123;</span><br><span class="line">		u16 vid = le16_to_cpu(vlan) &amp; E1000_RXD_SPC_VLAN_MASK;</span><br><span class="line"></span><br><span class="line">		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);</span><br><span class="line">	&#125;</span><br><span class="line">	napi_gro_receive(&amp;adapter-&gt;napi, skb);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>函数<code>napi_gro_receive</code>首先会尝试通过<code>GRO</code>（<code>Generic Receive Offload</code>)的方式将数据发送出去，如果网卡本身不支持<code>GRO</code>则会直接将数据报传送给上层协议栈（简单来说GRO就是将数据包累积到一定数量后再传给上层，这样一次性的处理多个数据包从而提升效率，可以参考<a href="https://lwn.net/Articles/358910/)：" target="_blank" rel="noopener">https://lwn.net/Articles/358910/)：</a></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// kernel/net/dev.c</span></span><br><span class="line"><span class="keyword">gro_result_t</span> napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)</span><br><span class="line">&#123;</span><br><span class="line">	trace_napi_gro_receive_entry(skb);</span><br><span class="line"></span><br><span class="line">	skb_gro_reset_offset(skb);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> napi_skb_finish(dev_gro_receive(napi, skb), skb);</span><br><span class="line">&#125;</span><br><span class="line">EXPORT_SYMBOL(napi_gro_receive);</span><br></pre></td></tr></table></figure>
+<p>Intel这个网卡没有开启<code>GRO</code>，所以实际<code>dev_gro_receive</code>直接返回了<code>GRO_NORMAL</code>，这样就通过<code>netif_receive_skb_internal</code>处理数据包：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> gro_result_t <span class="title">napi_skb_finish</span><span class="params">(<span class="keyword">gro_result_t</span> ret, struct sk_buff *skb)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">switch</span> (ret) &#123;</span><br><span class="line">	<span class="keyword">case</span> GRO_NORMAL:</span><br><span class="line">		<span class="keyword">if</span> (netif_receive_skb_internal(skb))</span><br><span class="line">			ret = GRO_DROP;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">case</span> GRO_DROP:</span><br><span class="line">		kfree_skb(skb);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">case</span> GRO_MERGED_FREE:</span><br><span class="line">		<span class="keyword">if</span> (NAPI_GRO_CB(skb)-&gt;<span class="built_in">free</span> == NAPI_GRO_FREE_STOLEN_HEAD)</span><br><span class="line">			napi_skb_free_stolen_head(skb);</span><br><span class="line">		<span class="keyword">else</span></span><br><span class="line">			__kfree_skb(skb);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">case</span> GRO_HELD:</span><br><span class="line">	<span class="keyword">case</span> GRO_MERGED:</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>对于多核系统来说，一般数据传输处理的CPU跟中断处理的CPU是一致的，后来随着网卡速度的提升，如果把网卡的数据都放到一个CPU处理的话，会导致CPU负载过大进而导致数据传输的延迟，因此有人提出了RPS(<a href="https://lwn.net/Articles/362339/" target="_blank" rel="noopener">Receive packet steering</a>, 就是将数据包的处理任务均衡的分配到各个CPU；要支持该特性，需要打开配置<code>CONFIG_RPS</code>， 同时在内核的配置中<code>/sys/class/net/ethx/queues/rx-0/rps_cpus</code>中将需要处理数据包的CPU设置为<code>1</code>， 这样在处理数据的时候就会将数据包先放到各个CPU的数据队列中进行处理。</p>
+<p>这里假定该网卡没有配置RPS，接着会调用<code>__netif_receive_skb</code>处理网络数据。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">netif_receive_skb_internal</span><span class="params">(struct sk_buff *skb)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> ret;</span><br><span class="line"></span><br><span class="line">	net_timestamp_check(netdev_tstamp_prequeue, skb);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (skb_defer_rx_timestamp(skb))</span><br><span class="line">		<span class="keyword">return</span> NET_RX_SUCCESS;</span><br><span class="line"></span><br><span class="line">	rcu_read_lock();</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_RPS</span></span><br><span class="line">	<span class="keyword">if</span> (static_key_false(&amp;rps_needed)) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">rps_dev_flow</span> <span class="title">voidflow</span>, *<span class="title">rflow</span> = &amp;<span class="title">voidflow</span>;</span></span><br><span class="line">		<span class="keyword">int</span> cpu = get_rps_cpu(skb-&gt;dev, skb, &amp;rflow);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (cpu &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">			ret = enqueue_to_backlog(skb, cpu, &amp;rflow-&gt;last_qtail);</span><br><span class="line">			rcu_read_unlock();</span><br><span class="line">			<span class="keyword">return</span> ret;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">	ret = __netif_receive_skb(skb);</span><br><span class="line">	rcu_read_unlock();</span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>__netif_receive_skb</code>实际调用<code>__netif_receive_skb_core</code>处理数据：<code>__netif_receive_skb_core</code>调用内核初始化时注册的协议类型，并调用其回调函数，由相应的协议来处理该数据包</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">int</span> __netif_receive_skb(struct sk_buff *skb)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">int</span> ret;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (sk_memalloc_socks() &amp;&amp; skb_pfmemalloc(skb)) &#123;</span><br><span class="line">		<span class="keyword">unsigned</span> <span class="keyword">long</span> pflags = current-&gt;flags;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * PFMEMALLOC skbs are special, they should</span></span><br><span class="line"><span class="comment">		 * - be delivered to SOCK_MEMALLOC sockets only</span></span><br><span class="line"><span class="comment">		 * - stay away from userspace</span></span><br><span class="line"><span class="comment">		 * - have bounded memory usage</span></span><br><span class="line"><span class="comment">		 *</span></span><br><span class="line"><span class="comment">		 * Use PF_MEMALLOC as this saves us from propagating the allocation</span></span><br><span class="line"><span class="comment">		 * context down to all allocation sites.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		current-&gt;flags |= PF_MEMALLOC;</span><br><span class="line">		ret = __netif_receive_skb_core(skb, <span class="literal">true</span>);</span><br><span class="line">		tsk_restore_flags(current, pflags, PF_MEMALLOC);</span><br><span class="line">	&#125; <span class="keyword">else</span></span><br><span class="line">		ret = __netif_receive_skb_core(skb, <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">int</span> __netif_receive_skb_core(struct sk_buff *skb, <span class="keyword">bool</span> pfmemalloc)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">packet_type</span> *<span class="title">ptype</span>, *<span class="title">pt_prev</span>;</span></span><br><span class="line">	<span class="keyword">rx_handler_func_t</span> *rx_handler;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">orig_dev</span>;</span></span><br><span class="line">	<span class="keyword">bool</span> deliver_exact = <span class="literal">false</span>;</span><br><span class="line">	<span class="keyword">int</span> ret = NET_RX_DROP;</span><br><span class="line">	__be16 type;</span><br><span class="line"></span><br><span class="line">	net_timestamp_check(!netdev_tstamp_prequeue, skb);</span><br><span class="line"></span><br><span class="line">	trace_netif_receive_skb(skb);</span><br><span class="line"></span><br><span class="line">	orig_dev = skb-&gt;dev;</span><br><span class="line"></span><br><span class="line">	skb_reset_network_header(skb);</span><br><span class="line">	<span class="keyword">if</span> (!skb_transport_header_was_set(skb))</span><br><span class="line">		skb_reset_transport_header(skb);</span><br><span class="line">	skb_reset_mac_len(skb);</span><br><span class="line"></span><br><span class="line">	pt_prev = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">another_round:</span><br><span class="line">	skb-&gt;skb_iif = skb-&gt;dev-&gt;ifindex;</span><br><span class="line"></span><br><span class="line">	__this_cpu_inc(softnet_data.processed);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (skb-&gt;protocol == cpu_to_be16(ETH_P_8021Q) ||</span><br><span class="line">	    skb-&gt;protocol == cpu_to_be16(ETH_P_8021AD)) &#123;</span><br><span class="line">		skb = skb_vlan_untag(skb);</span><br><span class="line">		<span class="keyword">if</span> (unlikely(!skb))</span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">// 遍历已注册的协议，并调用其回调函数</span></span><br><span class="line">	list_for_each_entry_rcu(ptype, &amp;ptype_all, <span class="built_in">list</span>) &#123;</span><br><span class="line">		<span class="keyword">if</span> (pt_prev)</span><br><span class="line">			ret = deliver_skb(skb, pt_prev, orig_dev);</span><br><span class="line">		pt_prev = ptype;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	list_for_each_entry_rcu(ptype, &amp;skb-&gt;dev-&gt;ptype_all, <span class="built_in">list</span>) &#123;</span><br><span class="line">		<span class="keyword">if</span> (pt_prev)</span><br><span class="line">			ret = deliver_skb(skb, pt_prev, orig_dev);</span><br><span class="line">		pt_prev = ptype;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">skip_taps:</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> CONFIG_NET_INGRESS</span></span><br><span class="line">	<span class="keyword">if</span> (static_key_false(&amp;ingress_needed)) &#123;</span><br><span class="line">		skb = handle_ing(skb, &amp;pt_prev, &amp;ret, orig_dev);</span><br><span class="line">		<span class="keyword">if</span> (!skb)</span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (nf_ingress(skb, &amp;pt_prev, &amp;ret, orig_dev) &lt; <span class="number">0</span>)</span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"> ... </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>回调协议包<code>struct packet_type</code>注册的回调函数，把<code>sk_buff</code>传给该协议层处理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">int</span> <span class="title">deliver_skb</span><span class="params">(struct sk_buff *skb,</span></span></span><br><span class="line"><span class="function"><span class="params">			      struct packet_type *pt_prev,</span></span></span><br><span class="line"><span class="function"><span class="params">			      struct net_device *orig_dev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">	atomic_inc(&amp;skb-&gt;users);</span><br><span class="line">	<span class="keyword">return</span> pt_prev-&gt;func(skb, skb-&gt;dev, pt_prev, orig_dev);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>所有这些<code>struct packet_type</code>实际都是在内核初始化的时候通过<code>dev_add_pack</code>注册的，有兴趣的可以跟踪下对应的代码逻辑。</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
+<li><a href="https://lwn.net/Articles/30107/" target="_blank" rel="noopener">Driver porting: Network drivers</a></li>
+<li><a href="https://blog.packagecloud.io/eng/2016/06/22/monitoring-tuning-linux-networking-stack-receiving-data/#overview" target="_blank" rel="noopener">https://blog.packagecloud.io/eng/2016/06/22/monitoring-tuning-linux-networking-stack-receiving-data/#overview</a></li>
+<li><a href="https://lwn.net/Articles/358910/" target="_blank" rel="noopener">Generic Receive Offload</a></li>
+<li><a href="https://lwn.net/Articles/362339/" target="_blank" rel="noopener">RPS</a></li>
+<li><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/performance_tuning_guide/network-rps" target="_blank" rel="noopener">Redhat RPS</a></li>
+<li><a href="https://blog.csdn.net/lucien_cc/article/details/11731463" target="_blank" rel="noopener">https://blog.csdn.net/lucien_cc/article/details/11731463</a></li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/TCP-IP/" rel="tag"># TCP/IP</a>
+          
+            <a href="/tags/NAPI/" rel="tag"># NAPI</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/04/04/说说这次新冠传染病想到的事情/" rel="next" title="由新冠病毒想到的一些事情">
+                <i class="fa fa-chevron-left"></i> 由新冠病毒想到的一些事情
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">68</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">140</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#驱动加载与设备初始化"><span class="nav-number">1.</span> <span class="nav-text">驱动加载与设备初始化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#网卡数据接收"><span class="nav-number">2.</span> <span class="nav-text">网卡数据接收</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#处理网卡中断"><span class="nav-number">2.1.</span> <span class="nav-text">处理网卡中断</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#启动napi任务，发送软中断"><span class="nav-number">2.2.</span> <span class="nav-text">启动napi任务，发送软中断</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#处理网络软中断"><span class="nav-number">2.3.</span> <span class="nav-text">处理网络软中断</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#将skb-buff-发送给协议栈"><span class="nav-number">2.4.</span> <span class="nav-text">将skb_buff 发送给协议栈</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文献"><span class="nav-number">3.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>
