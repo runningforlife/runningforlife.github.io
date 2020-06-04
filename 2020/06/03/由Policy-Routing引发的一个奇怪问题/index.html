@@ -118,7 +118,7 @@
 <meta property="og:description" content="最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯, 不具备上外网的能力;一个用于外网通讯, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过与内网的其他设备上的服务建立TCP链接, 但">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/android_ip_rules_list.png">
-<meta property="og:updated_time" content="2020-06-04T11:56:12.095Z">
+<meta property="og:updated_time" content="2020-06-04T12:16:49.761Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="由Policy Routing引发的一个奇怪问题">
 <meta name="twitter:description" content="最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯, 不具备上外网的能力;一个用于外网通讯, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过与内网的其他设备上的服务建立TCP链接, 但">
@@ -458,7 +458,7 @@
 <p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/android_ip_rules_list.png" alt="Android Ip Rule list examples"></p>
 <p>这里, <code>eth0</code>就是用来作内网通讯用的网口, 而<code>usb0</code>是用来连接外网的网口, 当前系统默认的默认网络&lt;具有默认路由&gt;即<code>usb0</code>. Android的Netd(负责网络管理的native进程, 可以参考早前的文章了解更多信息<a href="http://sniffer.site/2018/12/18/Android-netd%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Android Netd详解</a>)会把每个正常工作的网口都建立一个相应的路由表, 路由表的ID就是对应网络的<code>netID</code>&lt;每个网络在创建后都会分配一个唯一的ID&gt;, 例如通过输入<code>ip route show table usb0</code>查看路由表<code>usb0</code>实际是这样的:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">default</span> via <span class="number">192.168</span><span class="number">.225</span><span class="number">.1</span> dev usb0 proto <span class="keyword">static</span> </span><br><span class="line"><span class="number">192.168</span><span class="number">.225</span><span class="number">.0</span>/<span class="number">24</span> dev usb0 proto <span class="keyword">static</span> scope link</span><br></pre></td></tr></table></figure>
-<p>这张路由表包含了两个路由规则: 前一个是默认路由, 用于匹配外网数据的路由；后一个是用于该网卡局域网内IP地址的路由.上图中我们看到的这个RPDB实际是能正常工作的, 就是说通过<code>eth0</code>可以建立TCP连接, ping网络也正常, 后面在分析问题时会再贴出有问题的RPDB.</p>
+<p>这张路由表包含了两个路由规则: 前一个是默认路由, 用于匹配外网数据(非<code>192.168.225.*</code>IP段的都会匹配该路由)的路由；后一个是用于该网卡局域网内IP地址的路由.上图中我们看到的这个RPDB实际是能正常工作的, 就是说通过<code>eth0</code>可以建立TCP连接, ping网络也正常, 后面在分析问题时会再贴出有问题的RPDB.</p>
 <h2 id="网络ping通但无法建立TCP的问题"><a href="#网络ping通但无法建立TCP的问题" class="headerlink" title="网络ping通但无法建立TCP的问题"></a><strong>网络ping通但无法建立TCP的问题</strong></h2><p>出问题时的路由表<code>eth0</code>只有一个路由规则:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="number">172.20</span><span class="number">.1</span><span class="number">.0</span>/<span class="number">24</span> dev eth0 proto <span class="keyword">static</span> scope link</span><br></pre></td></tr></table></figure>
 <p>相应的RPDB大致如下, 这里要说明的是<code>21300:    from all lookup main</code>这个查找<code>main</code>路由表的规则是需要自己添加的, Android原生代码已经把<code>main</code>表的查找规则剔除了, 对于同时有对个网卡共存的情况, <code>main</code>表是必须的, 否则基于<code>eth0</code>网口的局域网就无法正常ping通.</p>
