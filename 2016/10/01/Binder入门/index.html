@@ -109,22 +109,22 @@
 
 
 
-<meta name="description" content="背景如今的操作系统都支持多进程并行执行。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？。Linux已有好几种IPC机制：">
+<meta name="description" content="背景如今的操作系统都支持多进程并发执行， 系统一般都存在多种不同的服务运行在多个进程当中。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？ Linux已有好几种IPC机制：">
 <meta name="keywords" content="Android,Binder,IPC">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Android Binder入门">
 <meta property="og:url" content="http://sniffer.site/2016/10/01/Binder入门/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="背景如今的操作系统都支持多进程并行执行。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？。Linux已有好几种IPC机制：">
+<meta property="og:description" content="背景如今的操作系统都支持多进程并发执行， 系统一般都存在多种不同的服务运行在多个进程当中。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？ Linux已有好几种IPC机制：">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_component_system.png">
 <meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android_Binder_terminology.png">
 <meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Binder_Achitecture.png">
 <meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Binder%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B.png">
-<meta property="og:updated_time" content="2019-04-23T03:43:43.368Z">
+<meta property="og:updated_time" content="2020-05-22T08:59:11.912Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Android Binder入门">
-<meta name="twitter:description" content="背景如今的操作系统都支持多进程并行执行。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？。Linux已有好几种IPC机制：">
+<meta name="twitter:description" content="背景如今的操作系统都支持多进程并发执行， 系统一般都存在多种不同的服务运行在多个进程当中。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？ Linux已有好几种IPC机制：">
 <meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_component_system.png">
 
 
@@ -441,7 +441,7 @@
       
 
       
-        <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a><strong>背景</strong></h1><p>如今的操作系统都支持多进程并行执行。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？。Linux已有好几种IPC机制：</p>
+        <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a><strong>背景</strong></h1><p>如今的操作系统都支持多进程并发执行， 系统一般都存在多种不同的服务运行在多个进程当中。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？ Linux已有好几种IPC机制：</p>
 <a id="more"></a>
 <ul>
 <li>Signals: 最早的IPC方式，一个进程通过发送信号给另一个有相同UID/GID的进程或者在同一进程组的进程</li>
@@ -450,11 +450,12 @@
 <li>Message queues: 一个进程将消息写入消息队列，另一个进程从改队列中读取消息</li>
 <li>Semaphores: 信号量是一个可以被多个进程读写的共有变量</li>
 <li>Shared Memeory: 一个系统的内存区域，通过将其映射到两个不同进程的虚拟地址空间，因此每个进程都可以访问该地址空间</li>
+<li>D-Bus(<a href="https://en.wikipedia.org/wiki/D-Bus" target="_blank" rel="noopener">Desktop Bus</a>): 用于桌面组件与服务通讯的协议</li>
 </ul>
-<p>对于Android而言，除了上述几种IPC方式之外，其最重要的IPC方式是binder。在了解Binder 的具体机制之前，先来看看Android系统组件。我们都知道，Android有Activity, Service, Content Provider BroadCast Receiver四大组件。使用这四种组件都需要在应用的manifest文件<code>AndroidManifest.xml</code>中进行配置声明。</p>
+<p>对于Android而言，除了上述几种IPC方式之外，其最重要的IPC方式是binder。在了解Binder 的具体机制之前，先来看看Android系统组件。我们都知道，Android有Activity&lt;直接与用户交互的UI&gt;, Service&lt;负责执行特定的任务，不与用户交互&gt;, Content Provider&lt;负责提供数据访问服务&gt;， BroadCast Receiver&lt;广播接收&gt;四大组件。使用这四种组件都需要在应用的manifest文件<code>AndroidManifest.xml</code>中进行配置声明。</p>
 <p><code>Activity</code>是一个应用的UI界面，它主要负责前台与用户进行交互；<code>Service</code>一般用于执行后台长时间的任务； <code>Content Provider</code> 用于保存用户需要长久保存的数据，它为本地或者远端的数据提供了一个统一的操作接口； <code>Broadcaset Receiver</code>用于接收系统级别的消息，告知应用系统的状态与事件，如短息、来电以及低电量。</p>
 <img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_component_system.png" class="[full-image]" title="Android Component System">
-<p>那么，如何让不同进程中的组件进行数据与消息的交换了？Android提供了<code>Intents</code>用于组件的通信。一个 Intent由<code>URI</code>和一个action组成，URI用于定位目标组件，而action则用于标识执行的操作。事实上，Intent本质是基于Binder架构来进行消息的传递的。</p>
+<p>那么，如何让不同进程中的组件进行数据与消息的交换了？Android提供了<code>Intents</code>用于组件的通信。一个 Intent由<code>URI</code>和一个action组成，URI用于定位目标组件，而action则用于标识执行的操作。事实上，Intent本质是基于Binder这一基础设施来进行消息传递的。</p>
 <h1 id="Binder-术语"><a href="#Binder-术语" class="headerlink" title="Binder 术语"></a><strong>Binder 术语</strong></h1><p>与很多RPC(Remote Procedure Call)l类似, Android Binder IPC也是基于C/S(Client/Server)的架构方式, 其主要有如下几个组成部分:</p>
 <ul>
 <li>客户端(Binder Client): 需要使用某个服务的应用或者进程通过AIDL接口发起远程调用, 调用服务端的接口</li>
@@ -465,14 +466,14 @@
 <img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android_Binder_terminology.png" class="[full-image]" title="Binder术语图">
 <p>这里罗列了与Binder相关的一些术语:</p>
 <ul>
-<li><strong>Binder Driver</strong>：用于跨进程通信的Kernel 层驱动</li>
+<li><strong>Binder Driver</strong>：用于跨进程通信的Kernel 层驱动，对用户空间提供一个<code>/dev/binder</code>的设备节点</li>
 <li><strong>Binder protocol</strong>： 用于与Binder 驱动交互的数据交换协议(ioctl-based)</li>
-<li><strong>IBinder interface</strong>： 每个 Binder对象都需要实现的 接口</li>
+<li><strong>IBinder interface</strong>： 每个Binder对象都需要实现的接口</li>
 <li><strong>Binder Token</strong> : 用于标识Binder对象的32bit的整数</li>
 <li><strong>AIDL</strong> : Android Interface Definition Language, 用于描述在IBinder接口上的操作</li>
 <li><strong>Proxy</strong>: Android为每一个AIDL接口创建的代理对象，用于客户端调用服务对应的接口（An implementation of the AIDL interface that un/marshals and maps methods calls to transactions submitted via a wrapped IBinder reference to the Binder object）</li>
-<li><strong>Stub</strong>: 每个AIDL接口对应的存根对象，用于服务端接受来自客户端的请求，将其转化为对应的函数调用（ A partial implementation of the AIDL interface that maps transactions to Binder service method calls while un/marshals data）</li>
-<li><strong>Context Manager</strong>: 即 ServiceManager, 特殊的Binder对象，注册时的句柄值为0，用于其他Binder 对象的注册与查找（name -&gt; handle mapping)</li>
+<li><strong>Stub</strong>: 每个AIDL接口对应的存根对象，用于服务端接受来自客户端的请求，将其转化为对应的函数调用（A partial implementation of the AIDL interface that maps transactions to Binder service method calls while un/marshals data</li>
+<li><strong>Context Manager</strong>: 即ServiceManager, 特殊的Binder对象，注册时的句柄值为0，用于其他Binder服务对象的注册与查找</li>
 </ul>
 <h1 id="什么是Binder"><a href="#什么是Binder" class="headerlink" title="什么是Binder"></a><strong>什么是Binder</strong></h1><p>Binder起源于由Dianne Hackborn 主导的<a href="https://en.wikipedia.org/wiki/OpenBinder" target="_blank" rel="noopener">OpenBinder</a> ，OpenBinder“是一个系统层的组件架构，在OS系统服务之上提供一个高层次、丰富的抽象接口”，Android Binder在OpenBinder的基础上做了修改，但其基本的思想仍然保持一致。</p>
 <p>相比上述如信号、socket等传统IPC方式，Binder有哪些不一样的特点？</p>
@@ -480,6 +481,7 @@
 <li>Binder是一个实现了IPC机制的内核驱动</li>
 <li>Binder提供了轻量级的 RPC（Remote Procedure Communication) 机制</li>
 <li>每一个进程都有一个线程池来处理Binder请求</li>
+<li>通过在服务端与设备文件<code>/dev/binder</code>进行内存共享的方式减少数据拷贝&lt;只需要一次数据拷贝&gt;</li>
 </ul>
 <h1 id="为什么需要Binder"><a href="#为什么需要Binder" class="headerlink" title="为什么需要Binder"></a>为什么需要Binder</h1><p>考虑到安全(security)、稳定性（stability）以及内存管理等因素，Android 应用程序和系统服务运行在不同的进程中，因而需要通信与交换数据，即通常IPC方法需要解决的问题。</p>
 <ul>
@@ -527,7 +529,7 @@
 <h2 id="中间件层Binder通信"><a href="#中间件层Binder通信" class="headerlink" title="中间件层Binder通信"></a><strong>中间件层Binder通信</strong></h2><p>中间件层的编程语言主要是C++，其作用是：</p>
 <ul>
 <li>管理用于处理Binder请求的线程池</li>
-<li>对相关数据进行 marshalling/unmarshalling</li>
+<li>对相关数据进行序列化与反序列化(marshalling/unmarshalling)</li>
 <li>与Binder内核驱动进行交互</li>
 </ul>
 <p>通过 <code>/android/frameworks/native/include/binder/IServiceManager.h</code> 中定义的接口：</p>
@@ -546,7 +548,7 @@
 <li><code>BINDER_SET_CONEXT_MGR</code> 设置 Context(Service) manager</li>
 </ul>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BINDER_WRITE_READ _IOWR(<span class="meta-string">'b'</span>, 1, struct binder_write_read)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BINDER_SET_IDLE_TIMEOUT _IOW(<span class="meta-string">'b'</span>, 3, __s64)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BINDER_SET_MAX_THREADS _IOW(<span class="meta-string">'b'</span>, 5, __u32)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BINDER_SET_IDLE_PRIORITY _IOW(<span class="meta-string">'b'</span>, 6, __s32)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BINDER_SET_CONTEXT_MGR _IOW(<span class="meta-string">'b'</span>, 7, __s32)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BINDER_THREAD_EXIT _IOW(<span class="meta-string">'b'</span>, 8, __s32)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BINDER_VERSION _IOWR(<span class="meta-string">'b'</span>, 9, struct binder_version)</span></span><br></pre></td></tr></table></figure>
-<h1 id="Binder-Client与Server-通信流程"><a href="#Binder-Client与Server-通信流程" class="headerlink" title="Binder Client与Server 通信流程"></a>Binder Client与Server 通信流程</h1><p>这里，再来回顾下，Android中基于 Binder 架构，Client与Server之间的通信流程。<br>(图片来自 《deep dive into Android Binder Framework》</p>
+<h1 id="Binder-Client与Server-通信流程"><a href="#Binder-Client与Server-通信流程" class="headerlink" title="Binder Client与Server 通信流程"></a>Binder Client与Server 通信流程</h1><p>这里，再来回顾下，Android中基于Binder架构，Client与Server之间的通信流程。<br>(图片来自 《deep dive into Android Binder Framework》</p>
 <img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Binder%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B.png" class="[full-image]" title="Binder communication process">
 <h1 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h1><ul>
 <li><a href="http://blog.csdn.net/universus/article/details/6211589" target="_blank" rel="noopener">Android Binder 设计与实现</a></li>
@@ -676,7 +678,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">68</span>
+                <span class="site-state-item-count">70</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -687,7 +689,7 @@
             
             <div class="site-state-item site-state-categories">
               <a href="/categories/index.html">
-                <span class="site-state-item-count">24</span>
+                <span class="site-state-item-count">25</span>
                 <span class="site-state-item-name">分类</span>
               </a>
             </div>
@@ -698,7 +700,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">140</span>
+                <span class="site-state-item-count">147</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>

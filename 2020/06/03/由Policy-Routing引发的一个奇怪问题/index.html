@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+  
+  
+    
+    
+  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
+  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
+
+
+  <meta name="keywords" content="Policy Routing,策略路由,网络管理,Netd,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
+
+
+
+
+
+
+<meta name="description" content="最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯, 不具备上外网的能力;一个用于外网通讯, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过与内网的其他设备上的服务建立TCP链接, 但">
+<meta name="keywords" content="Policy Routing,策略路由,网络管理,Netd">
+<meta property="og:type" content="article">
+<meta property="og:title" content="由Policy Routing引发的一个奇怪问题">
+<meta property="og:url" content="http://sniffer.site/2020/06/03/由Policy-Routing引发的一个奇怪问题/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯, 不具备上外网的能力;一个用于外网通讯, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过与内网的其他设备上的服务建立TCP链接, 但">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/android_ip_rules_list.png">
+<meta property="og:updated_time" content="2020-06-04T11:56:12.095Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="由Policy Routing引发的一个奇怪问题">
+<meta name="twitter:description" content="最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯, 不具备上外网的能力;一个用于外网通讯, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过与内网的其他设备上的服务建立TCP链接, 但">
+<meta name="twitter:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/android_ip_rules_list.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":true,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '1POSCBVZ02',
+      apiKey: 'bf09f0197d475fa69488099407011316',
+      indexName: 'getstarted_actors',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://sniffer.site/2020/06/03/由Policy-Routing引发的一个奇怪问题/">
+
+
+
+
+
+  <title>由Policy Routing引发的一个奇怪问题 | JasonWang's Blog</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-right page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">JasonWang's Blog</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  
+  <div class="algolia-popup popup search-popup">
+    <div class="algolia-search">
+      <div class="algolia-search-input-icon">
+        <i class="fa fa-search"></i>
+      </div>
+      <div class="algolia-search-input" id="algolia-search-input"></div>
+    </div>
+
+    <div class="algolia-results">
+      <div id="algolia-stats"></div>
+      <div id="algolia-hits"></div>
+      <div id="algolia-pagination" class="algolia-pagination"></div>
+    </div>
+
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+  </div>
+
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2020/06/03/由Policy-Routing引发的一个奇怪问题/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Jason">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">由Policy Routing引发的一个奇怪问题</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-06-03T14:05:32+08:00">
+                2020-06-03
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android/" itemprop="url" rel="index">
+                    <span itemprop="name">Android</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+             <span id="/2020/06/03/由Policy-Routing引发的一个奇怪问题/" class="leancloud_visitors" data-flag-title="由Policy Routing引发的一个奇怪问题">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数 </span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯<eth0>, 不具备上外网的能力;一个用于外网通讯<eth1>, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过<eth0>与内网的其他设备上的服务建立TCP链接, 但是网络却一直可以ping通; 而另外的一个开发板上却不存在这个问题. </eth0></eth1></eth0></p>
+<p>开始我有点不相信竟然会有这样的问题, 但事实摆在面前, 我也不好抵赖, 于是自己找来一个板子, 看了下, 才逐渐找到答案. 问题的根源在于Android配置的策略路由<policy routing>规则隐含了一个针对系统默认网络的<code>fwmark</code>规则, 要解决问题, 只要我们将包含了<eth0>内网路由表的路由规则的优先级提升到高于Android隐含的这条规则即可. 虽然找到了解决方案, 但是还是决定花点时间把整个事情的来龙去脉都理清楚. </eth0></policy></p>
+<p>大致分如下几个部分来讲一讲这个问题:</p>
+<ul>
+<li>介绍下什么是Policy Routing&lt;策略路由&gt;</li>
+<li>分析具体的问题, 并给出方案</li>
+<li>从源代码角度来分析下, 为何TCP无法建立, 但ping却可以</li>
+</ul>
+<h2 id="什么是Policy-Routing"><a href="#什么是Policy-Routing" class="headerlink" title="什么是Policy Routing"></a><strong>什么是Policy Routing</strong></h2><p>我们都知道, 传统的Linux路由都是基于目标IP地址来进行路由设置, 策略路由不同的是, 在原有路由表的基础上, 添加一系列具有优先级的规则, 这些规则可以根据数据包的入口&lt;本地或者lo&gt;, 出口, TOS&lt;<code>Type Of Service</code>&gt;, fwmark标签值, 协议以及端口号等来进行路由表的选择, 所有这些策略规则都放在一个称为<code>routing policy database</code><rpdb>的数据库中. 一般, 一条策略路由规则都由<code>selector</code>(选择器)以及<code>action predicate</code>(需要执行的动作)两部分组成; 通过<code>ip rule</code>指令, 我们可以修改/删除系统中的策略路由规则. 例如, 在Ubuntu系统中, 输入<code>ip rule list</code>, 大致是这样的:</rpdb></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="number">0</span>:	from all lookup local </span><br><span class="line"><span class="number">32766</span>:	from all lookup main </span><br><span class="line"><span class="number">32767</span>:	from all lookup <span class="keyword">default</span></span><br></pre></td></tr></table></figure>
+<p>这些策略路由规则都是内核初始化时默认生成的, 按照规则的优先级大小排列, 数字越小, 优先级越高:</p>
+<ul>
+<li>优先级<code>0</code>: 会匹配任何数据包, 执行的动作是在<code>local</code>路由表<id 255>查找路由</id></li>
+<li>优先级<code>32766</code>: 匹配任何数据包, 执行的动作是在<code>main</code>路由表<id 254>中查找路由</id></li>
+<li>优先级<code>32767</code>: 匹配任何数据包, 执行的动作是在<code>default</code>路由表<id 253>中查找路由</id></li>
+</ul>
+<p>通过<code>man ip rule</code>我们可以查看到更多关于RP规则的信息. 而对于Android来说, 由于需要同时管理多个网络, 并根据网络权限/用户UID等来设置防火墙, 策略路由的规则就复杂了很多, 例如在我的开发板上输入<code>adb shell ip rule list</code>可以看到这么一大串的规则列表:</p>
+<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/android_ip_rules_list.png" alt="Android Ip Rule list examples"></p>
+<p>这里, <code>eth0</code>就是用来作内网通讯用的网口, 而<code>usb0</code>是用来连接外网的网口, 当前系统默认的默认网络&lt;具有默认路由&gt;即<code>usb0</code>. Android的Netd(负责网络管理的native进程, 可以参考早前的文章了解更多信息<a href="http://sniffer.site/2018/12/18/Android-netd%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Android Netd详解</a>)会把每个正常工作的网口都建立一个相应的路由表, 路由表的ID就是对应网络的<code>netID</code>&lt;每个网络在创建后都会分配一个唯一的ID&gt;, 例如通过输入<code>ip route show table usb0</code>查看路由表<code>usb0</code>实际是这样的:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">default</span> via <span class="number">192.168</span><span class="number">.225</span><span class="number">.1</span> dev usb0 proto <span class="keyword">static</span> </span><br><span class="line"><span class="number">192.168</span><span class="number">.225</span><span class="number">.0</span>/<span class="number">24</span> dev usb0 proto <span class="keyword">static</span> scope link</span><br></pre></td></tr></table></figure>
+<p>这张路由表包含了两个路由规则: 前一个是默认路由, 用于匹配外网数据的路由；后一个是用于该网卡局域网内IP地址的路由.上图中我们看到的这个RPDB实际是能正常工作的, 就是说通过<code>eth0</code>可以建立TCP连接, ping网络也正常, 后面在分析问题时会再贴出有问题的RPDB.</p>
+<h2 id="网络ping通但无法建立TCP的问题"><a href="#网络ping通但无法建立TCP的问题" class="headerlink" title="网络ping通但无法建立TCP的问题"></a><strong>网络ping通但无法建立TCP的问题</strong></h2><p>出问题时的路由表<code>eth0</code>只有一个路由规则:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="number">172.20</span><span class="number">.1</span><span class="number">.0</span>/<span class="number">24</span> dev eth0 proto <span class="keyword">static</span> scope link</span><br></pre></td></tr></table></figure>
+<p>相应的RPDB大致如下, 这里要说明的是<code>21300:    from all lookup main</code>这个查找<code>main</code>路由表的规则是需要自己添加的, Android原生代码已经把<code>main</code>表的查找规则剔除了, 对于同时有对个网卡共存的情况, <code>main</code>表是必须的, 否则基于<code>eth0</code>网口的局域网就无法正常ping通.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="number">0</span>:	from all lookup local </span><br><span class="line"><span class="number">10000</span>:	from all fwmark <span class="number">0xc0000</span>/<span class="number">0xd0000</span> lookup legacy_system </span><br><span class="line"><span class="number">10500</span>:	from all iif lo oif dummy0 uidrange <span class="number">0</span><span class="number">-0</span> lookup dummy0 </span><br><span class="line"><span class="number">10500</span>:	from all iif lo oif eth0 uidrange <span class="number">0</span><span class="number">-0</span> lookup eth0 </span><br><span class="line"><span class="number">10500</span>:	from all iif lo oif usb0 uidrange <span class="number">0</span><span class="number">-0</span> lookup usb0 </span><br><span class="line"><span class="number">13000</span>:	from all fwmark <span class="number">0x10063</span>/<span class="number">0x1ffff</span> iif lo lookup local_network </span><br><span class="line"><span class="number">13000</span>:	from all fwmark <span class="number">0x10064</span>/<span class="number">0x1ffff</span> iif lo lookup eth0 </span><br><span class="line"><span class="number">13000</span>:	from all fwmark <span class="number">0x10065</span>/<span class="number">0x1ffff</span> iif lo lookup usb0 </span><br><span class="line"><span class="number">14000</span>:	from all iif lo oif dummy0 lookup dummy0 </span><br><span class="line"><span class="number">14000</span>:	from all iif lo oif eth0 lookup eth0 </span><br><span class="line"><span class="number">14000</span>:	from all iif lo oif usb0 lookup usb0 </span><br><span class="line"><span class="number">15000</span>:	from all fwmark <span class="number">0x0</span>/<span class="number">0x10000</span> lookup legacy_system </span><br><span class="line"><span class="number">16000</span>:	from all fwmark <span class="number">0x0</span>/<span class="number">0x10000</span> lookup legacy_network </span><br><span class="line"><span class="number">17000</span>:	from all fwmark <span class="number">0x0</span>/<span class="number">0x10000</span> lookup local_network </span><br><span class="line"><span class="number">19000</span>:	from all fwmark <span class="number">0x64</span>/<span class="number">0x1ffff</span> iif lo lookup eth0 </span><br><span class="line"><span class="number">19000</span>:	from all fwmark <span class="number">0x65</span>/<span class="number">0x1ffff</span> iif lo lookup usb0 </span><br><span class="line"><span class="number">21300</span>:	from all lookup main </span><br><span class="line"><span class="number">22000</span>:	from all fwmark <span class="number">0x0</span>/<span class="number">0xffff</span> iif lo lookup usb0 </span><br><span class="line"><span class="number">32000</span>:	from all unreachable</span><br></pre></td></tr></table></figure>
+<p>基于上述RPDB规则, 尝试测试内网某个设备的连通性: <code>ping 172.20.1.55</code>有看到回应, 但是如果通过ssh指令<code>ssh -vvv root@172.20.1.55</code>尝试登录到对端, 就会提示<code>No Route to Host</code>, 其他上层TCP连接也没法正常建立成功. 细心的同学可能已经发现, 在之前讲到的那个正常RPDB与这里的异常的RPDB唯一的区别就是在与<code>main</code>路由表查找规则的优先级, 一个是<code>21300</code>, 一个<code>18300</code>, 那么为什么优先级的差异会导致不一样的结果?</p>
+<p>对于一般的TCP连接, 并不会指定连接的网口(通过<code>setsocktopt</code>的<code>SO_BINDTODEVICE</code>选项指定), 所以可以判定那些指定了<code>oif</code>(数据包出口)的<code>ip rule</code>规则应该不会导致问题的发生, 这里我们可以通过<code>ip rule add pref &lt;pref_no&gt; lookup main</code>调整这个规则的优先级, 通过二分查找测试几次就知道了. 在另外一方面, 测试的同学反馈, 如果没有接<code>usb0</code>这个网络设备, 问题就不会存在. 这样这个问题就更清晰了: 跟<code>usb0</code>路由表相关的几条规则是问题的关键. 排除掉指定了<code>oif</code>相关的规则, 只剩下两条:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="number">13000</span>:	from all fwmark <span class="number">0x10065</span>/<span class="number">0x1ffff</span> iif lo lookup usb0 </span><br><span class="line"><span class="number">19000</span>:	from all fwmark <span class="number">0x65</span>/<span class="number">0x1ffff</span> iif lo lookup usb0</span><br></pre></td></tr></table></figure>
+<p>删除掉原有的规则<code>ip rule del pref 21300 lookup main</code>, 然后添加一个优先级高于第一条<code>13000</code>的规则<code>ip rule add pref 12800 lookup main</code>, 试验下发现TCP可以正常建立连接, 问题不存在;再次实验, 先删除<code>main</code>路由表对应的规则, 添加一条<code>ip rule add pref 18300 lookup main</code>的规则, 也可以正常建立TCP连接. 于是, 我们可以断定, 优先级为<code>19000</code>这条规则是罪魁祸首.解决问题的方案就是把原来的<code>main</code>查找的优先级高于<code>19000</code>即可.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">ip rule add pref <span class="number">18300</span> lookup main</span><br></pre></td></tr></table></figure>
+<p>问题是解决了, 可以为什么会这样了? 这条包含了<code>fwmark</code>的规则为何会让TCP连接没法正常建立而ping又可以了? 还是要<code>read the fucking source code</code>才能找到根本原因了.</p>
+<h2 id="看看该死的源代码"><a href="#看看该死的源代码" class="headerlink" title="看看该死的源代码"></a><strong>看看该死的源代码</strong></h2><p>对于Android来说, 无论是Java的网络请求, 还是native的最终都会通过<code>libc</code>的封装的系统调用来完成. 因此, 第一步就来看看<code>libc</code>中对常用socket API的实现逻辑. 对应的源码位于<code>/bionic/libc</code>. 我们知道, 对于TCP客户端来说, 一般先调用<code>socket</code>创建套接字获取到文件描述符后, 会直接调用<code>connect</code>尝试连接到服务端, 由于创建socket不涉及到路由, 因此就来看看<code>connect</code>的具体调用逻辑. 找到<code>connect.cpp</code>, 代码很简单, 只有一行:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">connect</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">const</span> sockaddr* addr, <span class="keyword">socklen_t</span> addrlen)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> __netdClientDispatch.connect(sockfd, addr, addrlen);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>该函数直接是调用了<code>__netdClientDispatch</code>对应的实现, 从函数名字来看, 实际应该是把请求转发给<code>Netd</code>, 不妨接续看代码:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// private/NetdClientDispatch.h</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">NetdClientDispatch</span> &#123;</span></span><br><span class="line">    <span class="keyword">int</span> (*accept4)(<span class="keyword">int</span>, struct sockaddr*, <span class="keyword">socklen_t</span>*, <span class="keyword">int</span>);</span><br><span class="line">    <span class="keyword">int</span> (*connect)(<span class="keyword">int</span>, <span class="keyword">const</span> struct sockaddr*, <span class="keyword">socklen_t</span>);</span><br><span class="line">    <span class="keyword">int</span> (*socket)(<span class="keyword">int</span>, <span class="keyword">int</span>, <span class="keyword">int</span>);</span><br><span class="line">    <span class="keyword">unsigned</span> (*netIdForResolv)(<span class="keyword">unsigned</span>);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// NetdClientDispatch.cpp</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> __i386__</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> __socketcall __attribute__((__cdecl__))</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">else</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> __socketcall</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> __socketcall <span class="keyword">int</span> __accept4(<span class="keyword">int</span>, sockaddr*, <span class="keyword">socklen_t</span>*, <span class="keyword">int</span>);</span><br><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> __socketcall <span class="keyword">int</span> __connect(<span class="keyword">int</span>, <span class="keyword">const</span> sockaddr*, <span class="keyword">socklen_t</span>);</span><br><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> __socketcall <span class="keyword">int</span> __socket(<span class="keyword">int</span>, <span class="keyword">int</span>, <span class="keyword">int</span>);</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">unsigned</span> <span class="title">fallBackNetIdForResolv</span><span class="params">(<span class="keyword">unsigned</span> netId)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> netId;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// This structure is modified only at startup (when libc.so is loaded) and never</span></span><br><span class="line"><span class="comment">// afterwards, so it's okay that it's read later at runtime without a lock.</span></span><br><span class="line">__LIBC_HIDDEN__ NetdClientDispatch __netdClientDispatch __attribute__((aligned(<span class="number">32</span>))) = &#123;</span><br><span class="line">    __accept4,</span><br><span class="line">    __connect,</span><br><span class="line">    __socket,</span><br><span class="line">    fallBackNetIdForResolv,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p><code>__netdClientDispatch</code>实际是封装了几个外部函数而已, 那么<code>__socket/__connect</code>/<code>__accept4</code>这几个函数又在哪里实现的了? 搜索下<code>libc</code>下面的代码, 发现原来在<code>libc</code>初始化的时候, 会加载一个<code>libnetd_client.so</code>的库函数, 然后把相应的实现加载过来:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// NetdClient.cpp</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> FunctionType&gt;</span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">netdClientInitFunction</span><span class="params">(<span class="keyword">void</span>* handle, <span class="keyword">const</span> <span class="keyword">char</span>* symbol, FunctionType* function)</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">typedef</span> <span class="title">void</span> <span class="params">(*InitFunctionType)</span><span class="params">(FunctionType*)</span></span>;</span><br><span class="line">    InitFunctionType initFunction = <span class="keyword">reinterpret_cast</span>&lt;InitFunctionType&gt;(dlsym(handle, symbol));</span><br><span class="line">    <span class="keyword">if</span> (initFunction != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        initFunction(function);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">netdClientInitImpl</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">void</span>* netdClientHandle = dlopen(<span class="string">"libnetd_client.so"</span>, RTLD_NOW);</span><br><span class="line">    <span class="keyword">if</span> (netdClientHandle == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="comment">// If the library is not available, it's not an error. We'll just use</span></span><br><span class="line">        <span class="comment">// default implementations of functions that it would've overridden.</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    netdClientInitFunction(netdClientHandle, <span class="string">"netdClientInitAccept4"</span>,</span><br><span class="line">                          &amp;__netdClientDispatch.accept4);</span><br><span class="line">    netdClientInitFunction(netdClientHandle, <span class="string">"netdClientInitConnect"</span>,</span><br><span class="line">                          &amp;__netdClientDispatch.connect);</span><br><span class="line">    netdClientInitFunction(netdClientHandle, <span class="string">"netdClientInitNetIdForResolv"</span>,</span><br><span class="line">                          &amp;__netdClientDispatch.netIdForResolv);</span><br><span class="line">    netdClientInitFunction(netdClientHandle, <span class="string">"netdClientInitSocket"</span>, &amp;__netdClientDispatch.socket);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">pthread_once_t</span> netdClientInitOnce = PTHREAD_ONCE_INIT;</span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> __<span class="function">LIBC_HIDDEN__ <span class="keyword">void</span> <span class="title">netdClientInit</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (pthread_once(&amp;netdClientInitOnce, netdClientInitImpl)) &#123;</span><br><span class="line">        async_safe_format_log(ANDROID_LOG_ERROR, <span class="string">"netdClient"</span>, <span class="string">"Failed to initialize netd_client"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>有兴趣的可以看看<code>libc</code>具体的初始化流程. 这里, 我们直接跳到<code>libnetd_client.so</code>这个库去看看<code>netdClientInitConnect</code>的实现. 共享库<code>libnetd_client.so</code>的代码位于<code>/system/netd/client</code>目录, 其中有个文件<code>NetdClient.cpp</code>即实现了该函数:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// NetdClient.cpp</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">netdClientConnect</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">const</span> sockaddr* addr, <span class="keyword">socklen_t</span> addrlen)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">bool</span> shouldSetFwmark = (sockfd &gt;= <span class="number">0</span>) &amp;&amp; addr</span><br><span class="line">            &amp;&amp; FwmarkClient::shouldSetFwmark(addr-&gt;sa_family);</span><br><span class="line">    <span class="keyword">if</span> (shouldSetFwmark) &#123;</span><br><span class="line">        FwmarkCommand command = &#123;FwmarkCommand::ON_CONNECT, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>&#125;;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">int</span> error = FwmarkClient().send(&amp;command, sockfd, <span class="literal">nullptr</span>)) &#123;</span><br><span class="line">            errno = -error;</span><br><span class="line">            <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// Latency measurement does not include time of sending commands to Fwmark</span></span><br><span class="line">    Stopwatch s;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">int</span> ret = libcConnect(sockfd, addr, addrlen);</span><br><span class="line">    <span class="comment">// Save errno so it isn't clobbered by sending ON_CONNECT_COMPLETE</span></span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">int</span> connectErrno = errno;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">unsigned</span> latencyMs = lround(s.timeTaken());</span><br><span class="line">    <span class="comment">// Send an ON_CONNECT_COMPLETE command that includes sockaddr and connect latency for reporting</span></span><br><span class="line">    <span class="keyword">if</span> (shouldSetFwmark &amp;&amp; FwmarkClient::shouldReportConnectComplete(addr-&gt;sa_family)) &#123;</span><br><span class="line">        <span class="function">FwmarkConnectInfo <span class="title">connectInfo</span><span class="params">(ret == <span class="number">0</span> ? <span class="number">0</span> : connectErrno, latencyMs, addr)</span></span>;</span><br><span class="line">        <span class="comment">// <span class="doctag">TODO:</span> get the netId from the socket mark once we have continuous benchmark runs</span></span><br><span class="line">        FwmarkCommand command = &#123;FwmarkCommand::ON_CONNECT_COMPLETE, <span class="comment">/* netId (ignored) */</span> <span class="number">0</span>,</span><br><span class="line">                                <span class="comment">/* uid (filled in by the server) */</span> <span class="number">0</span>, <span class="number">0</span>&#125;;</span><br><span class="line">        <span class="comment">// Ignore return value since it's only used for logging</span></span><br><span class="line">        FwmarkClient().send(&amp;command, sockfd, &amp;connectInfo);</span><br><span class="line">    &#125;</span><br><span class="line">    errno = connectErrno;</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>看到这里的<code>Fwmark</code>等字样, 似乎有点眼熟了, 这个函数的逻辑是, 首先要判断一个socket链接是否要打上防火墙标签(Firewall Mark)<code>shouldSetFwmark</code>, 实际上对于TCP的socket来说, 该函数都返回<code>True</code>, 接着会将对应的socketFd通过一个本地<code>fwmarkd</code>这个socket发送给<code>FwmarkServer</code>, 由其负责将socket打上防火墙标签:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">int</span> FwmarkServer::processClient(SocketClient* client, <span class="keyword">int</span>* socketFd) &#123;</span><br><span class="line">    FwmarkCommand command;</span><br><span class="line">    FwmarkConnectInfo connectInfo;</span><br><span class="line"></span><br><span class="line">    iovec iov[<span class="number">2</span>] = &#123;</span><br><span class="line">        &#123; &amp;command, <span class="keyword">sizeof</span>(command) &#125;,</span><br><span class="line">        &#123; &amp;connectInfo, <span class="keyword">sizeof</span>(connectInfo) &#125;,</span><br><span class="line">    &#125;;</span><br><span class="line">    msghdr message;</span><br><span class="line">    <span class="built_in">memset</span>(&amp;message, <span class="number">0</span>, <span class="keyword">sizeof</span>(message));</span><br><span class="line">    message.msg_iov = iov;</span><br><span class="line">    message.msg_iovlen = ARRAY_SIZE(iov);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">union</span> &#123;</span><br><span class="line">        cmsghdr cmh;</span><br><span class="line">        <span class="keyword">char</span> cmsg[CMSG_SPACE(<span class="keyword">sizeof</span>(*socketFd))];</span><br><span class="line">    &#125; cmsgu;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">memset</span>(cmsgu.cmsg, <span class="number">0</span>, <span class="keyword">sizeof</span>(cmsgu.cmsg));</span><br><span class="line">    message.msg_control = cmsgu.cmsg;</span><br><span class="line">    message.msg_controllen = <span class="keyword">sizeof</span>(cmsgu.cmsg);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> messageLength = TEMP_FAILURE_RETRY(recvmsg(client-&gt;getSocket(), &amp;message, MSG_CMSG_CLOEXEC));</span><br><span class="line">    <span class="keyword">if</span> (messageLength &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> -errno;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!((command.cmdId != FwmarkCommand::ON_CONNECT_COMPLETE &amp;&amp; messageLength == <span class="keyword">sizeof</span>(command))</span><br><span class="line">            || (command.cmdId == FwmarkCommand::ON_CONNECT_COMPLETE</span><br><span class="line">            &amp;&amp; messageLength == <span class="keyword">sizeof</span>(command) + <span class="keyword">sizeof</span>(connectInfo)))) &#123;</span><br><span class="line">        <span class="keyword">return</span> -EBADMSG;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查当前用户是否有网络访问权限</span></span><br><span class="line">    Permission permission = mNetworkController-&gt;getPermissionForUser(client-&gt;getUid());</span><br><span class="line">    ...</span><br><span class="line">    Fwmark fwmark;</span><br><span class="line">    <span class="keyword">socklen_t</span> fwmarkLen = <span class="keyword">sizeof</span>(fwmark.intValue);</span><br><span class="line">    <span class="comment">// 获取当前socket上的fwmark</span></span><br><span class="line">    <span class="keyword">if</span> (getsockopt(*socketFd, SOL_SOCKET, SO_MARK, &amp;fwmark.intValue, &amp;fwmarkLen) == <span class="number">-1</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> -errno;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">switch</span> (command.cmdId) &#123;</span><br><span class="line">        <span class="keyword">case</span> FwmarkCommand::ON_ACCEPT: &#123;</span><br><span class="line">            <span class="comment">// Called after a socket accept(). The kernel would've marked the NetId and necessary</span></span><br><span class="line">            <span class="comment">// permissions bits, so we just add the rest of the user's permissions here.</span></span><br><span class="line">            permission = <span class="keyword">static_cast</span>&lt;Permission&gt;(permission | fwmark.permission);</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">case</span> FwmarkCommand::ON_CONNECT: &#123;</span><br><span class="line">            <span class="comment">// Called before a socket connect() happens. Set an appropriate NetId into the fwmark so</span></span><br><span class="line">            <span class="comment">// that the socket routes consistently over that network. Do this even if the socket</span></span><br><span class="line">            <span class="comment">// already has a NetId, so that calling connect() multiple times still works.</span></span><br><span class="line">            <span class="comment">//</span></span><br><span class="line">            <span class="comment">// But if the explicit bit was set, the existing NetId was explicitly preferred (and not</span></span><br><span class="line">            <span class="comment">// a case of connect() being called multiple times). Don't reset the NetId in that case.</span></span><br><span class="line">            ....</span><br><span class="line">            <span class="comment">// 这里explicitlySelected为false, 因此实际会选择默认网络的netId</span></span><br><span class="line">            <span class="keyword">if</span> (!fwmark.explicitlySelected) &#123;</span><br><span class="line">                <span class="keyword">if</span> (!fwmark.protectedFromVpn) &#123;</span><br><span class="line">                    fwmark.netId = mNetworkController-&gt;getNetworkForConnect(client-&gt;getUid());</span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!mNetworkController-&gt;isVirtualNetwork(fwmark.netId)) &#123;</span><br><span class="line">                    fwmark.netId = mNetworkController-&gt;getDefaultNetwork();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        ....</span><br><span class="line"></span><br><span class="line">    fwmark.permission = permission;</span><br><span class="line">    <span class="comment">// 将该socket打上防火墙的标签, 这个实际就是用来给内核选择路由时用的</span></span><br><span class="line">    <span class="keyword">if</span> (setsockopt(*socketFd, SOL_SOCKET, SO_MARK, &amp;fwmark.intValue,</span><br><span class="line">                  <span class="keyword">sizeof</span>(fwmark.intValue)) == <span class="number">-1</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> -errno;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>到这一步, 我们大概知道, <code>fwmark</code>实际是一个32位的整型数值, 其中网络的<code>netId</code>占了低16位, 网络权限<code>permission</code>占了2位, 这样系统所有的TCP连接都会被打上<code>fwmark</code>. 那么, 内核的RPDB规则又何时被添加过去的了? 我们再来看看<code>Netd</code>的代码.</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">union</span> Fwmark &#123;</span><br><span class="line">    <span class="keyword">uint32_t</span> intValue;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">        <span class="keyword">unsigned</span> netId          : <span class="number">16</span>;</span><br><span class="line">        <span class="keyword">bool</span> explicitlySelected :  <span class="number">1</span>;</span><br><span class="line">        <span class="keyword">bool</span> protectedFromVpn   :  <span class="number">1</span>;</span><br><span class="line">        Permission permission   :  <span class="number">2</span>;</span><br><span class="line">        <span class="keyword">bool</span> uidBillingDone     :  <span class="number">1</span>;</span><br><span class="line">    &#125;;</span><br><span class="line">    constexpr Fwmark() : intValue(0) &#123;&#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>Android对网络路由相关的管理与控制逻辑都放在<code>/system/netd/server/RouteController.cpp</code>中, 找到对应开始引起问题的那个RP规则, 其优先级为<code>19000</code>, 这正好是<code>RULE_PRIORITY_IMPLICIT_NETWORK</code>这个值.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">19000:	from all fwmark 0x65/0x1ffff iif lo lookup usb0</span><br></pre></td></tr></table></figure>
+<p>搜索这个关键字, 可以看到Netd会在创建无需任何权限的<code>PhysicalNetwork</code>对象时, 会根据网络的netId时生成一条隐性的策略路由规则<code>modifyImplicitNetworkRule</code>: </p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">WARN_UNUSED_RESULT <span class="keyword">int</span> RouteController::modifyPhysicalNetwork(<span class="keyword">unsigned</span> netId, <span class="keyword">const</span> <span class="keyword">char</span>* interface,</span><br><span class="line">                                                              Permission permission, <span class="keyword">bool</span> add) &#123;</span><br><span class="line">  <span class="comment">//if network id has register interface, other interface route add to the table with interface registered by netid</span></span><br><span class="line">  ....</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">int</span> ret = modifyIncomingPacketMark(netId, interface, permission, add)) &#123;</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">int</span> ret = modifyExplicitNetworkRule(netId, table, permission, INVALID_UID, INVALID_UID,</span><br><span class="line">                                            add)) &#123;</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">int</span> ret = modifyOutputInterfaceRules(interface, table, permission, INVALID_UID, INVALID_UID,</span><br><span class="line">                                            add)) &#123;</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Only set implicit rules for networks that don't require permissions.</span></span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="comment">// This is so that if the default network ceases to be the default network and then switches</span></span><br><span class="line">    <span class="comment">// from requiring no permissions to requiring permissions, we ensure that apps only use the</span></span><br><span class="line">    <span class="comment">// network if they explicitly select it. This is consistent with destroySocketsLackingPermission</span></span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">if</span> (permission == PERMISSION_NONE) &#123;</span><br><span class="line">        <span class="keyword">return</span> modifyImplicitNetworkRule(netId, table, add);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个函数会设置一个值为默认网络<code>netId</code>的<code>fwmark</code>, 也就是我们最开始看到的那条优先级为<code>19000</code>的规则, 并通过类型为<code>NETLINK_ROUTE</code>的netlink向内核配置该规则, 内核就会根据这条规则来匹配上对应的TCP包, 因而就会出现我们最开始的那个问题:使用TCP连接会提示<code>No Route to Host</code>, 那为何ping不存在这个问题了? </p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">WARN_UNUSED_RESULT <span class="keyword">int</span> <span class="title">modifyImplicitNetworkRule</span><span class="params">(<span class="keyword">unsigned</span> netId, <span class="keyword">uint32_t</span> table, <span class="keyword">bool</span> add)</span> </span>&#123;</span><br><span class="line">    Fwmark fwmark;</span><br><span class="line">    Fwmark mask;</span><br><span class="line"></span><br><span class="line">    fwmark.netId = netId;</span><br><span class="line">    mask.netId = FWMARK_NET_ID_MASK;</span><br><span class="line"></span><br><span class="line">    fwmark.explicitlySelected = <span class="literal">false</span>;</span><br><span class="line">    mask.explicitlySelected = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    fwmark.permission = PERMISSION_NONE;</span><br><span class="line">    mask.permission = PERMISSION_NONE;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> modifyIpRule(add ? RTM_NEWRULE : RTM_DELRULE, RULE_PRIORITY_IMPLICIT_NETWORK, table,</span><br><span class="line">                        fwmark.intValue, mask.intValue, IIF_LOOPBACK, OIF_NONE, INVALID_UID,</span><br><span class="line">                        INVALID_UID);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们都知道ping一般是基于<code>IPPROTO_ICMP</code>协议, 实际发送ping的<code>ECHO_REQUEST</code>时, 只需要创建一个<code>socket</code>接口, 然后直接通过<code>sendto</code>发送对应的数据报文就好了;从刚开始的代码知道, libc会把socket相关的请求转发给Netd, 我们直接看Netd中<code>NetdClient.cpp</code>的建立socket相关的代码:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="built_in">std</span>::<span class="function"><span class="keyword">atomic_uint</span> <span class="title">netIdForProcess</span><span class="params">(NETID_UNSET)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">netdClientSocket</span><span class="params">(<span class="keyword">int</span> domain, <span class="keyword">int</span> type, <span class="keyword">int</span> protocol)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">int</span> socketFd = libcSocket(domain, type, protocol);</span><br><span class="line">    <span class="keyword">if</span> (socketFd == <span class="number">-1</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">unsigned</span> netId = netIdForProcess;</span><br><span class="line">    <span class="keyword">if</span> (netId != NETID_UNSET &amp;&amp; FwmarkClient::shouldSetFwmark(domain)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">int</span> error = setNetworkForSocket(netId, socketFd)) &#123;</span><br><span class="line">            <span class="keyword">return</span> closeFdAndSetErrno(socketFd, error);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> socketFd;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个函数首先会调用libc创建socket, ping的时候并没有调用<code>setNetworkForProcess</code>指定网络netId, 因此实际路由时会跳过<code>19000</code>这条规则, 使用的是后面<code>21300</code>这个main路由规则来进行路由选择. 至此问题的谜团也算揭开了.</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li><a href="http://linux-ip.net/html/routing-tables.html#list-routing-route-types" target="_blank" rel="noopener">http://linux-ip.net/html/routing-tables.html#list-routing-route-types</a></li>
+<li><a href="https://www.man7.org/linux/man-pages/man8/ip-rule.8.html" target="_blank" rel="noopener">https://www.man7.org/linux/man-pages/man8/ip-rule.8.html</a></li>
+<li><a href="https://www.drdobbs.com/policy-routing-in-linux/199100936" target="_blank" rel="noopener">https://www.drdobbs.com/policy-routing-in-linux/199100936</a></li>
+</ul>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Policy-Routing/" rel="tag"># Policy Routing</a>
+          
+            <a href="/tags/策略路由/" rel="tag"># 策略路由</a>
+          
+            <a href="/tags/网络管理/" rel="tag"># 网络管理</a>
+          
+            <a href="/tags/Netd/" rel="tag"># Netd</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/05/27/软件开发与BUG的那些事儿/" rel="next" title="软件开发与BUG的那些事儿">
+                <i class="fa fa-chevron-left"></i> 软件开发与BUG的那些事儿
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
+          <p class="site-author-name" itemprop="name">Jason</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">70</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">25</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">147</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                    
+                      GitHub
+                    
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
+                  
+                    <i class="fa fa-fw fa-weibo"></i>
+                  
+                    
+                      微博
+                    
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+          <div class="links-of-blogroll motion-element links-of-blogroll-block">
+            <div class="links-of-blogroll-title">
+              <i class="fa  fa-fw fa-globe"></i>
+              链接
+            </div>
+            <ul class="links-of-blogroll-list">
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
+                </li>
+              
+                <li class="links-of-blogroll-item">
+                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
+                </li>
+              
+            </ul>
+          </div>
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#什么是Policy-Routing"><span class="nav-number">1.</span> <span class="nav-text">什么是Policy Routing</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#网络ping通但无法建立TCP的问题"><span class="nav-number">2.</span> <span class="nav-text">网络ping通但无法建立TCP的问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#看看该死的源代码"><span class="nav-number">3.</span> <span class="nav-text">看看该死的源代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考资料"><span class="nav-number">4.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+<div class="hosted-pages">
+  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv">
+      
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+      
+    </span>
+  
+</div>
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+          <span id="scrollpercent"><span>0</span>%</span>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    <script type="text/javascript">
+      (function(d, s) {
+        var j, e = d.getElementsByTagName(s)[0];
+        if (typeof LivereTower === 'function') { return; }
+        j = d.createElement(s);
+        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
+        j.async = true;
+        e.parentNode.insertBefore(j, e);
+      })(document, 'script');
+    </script>
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+  
+  
+  
+  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
+
+  
+  
+  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
+  
+
+  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+
+
+  
+
+  
+  
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        tex2jax: {
+          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+          processEscapes: true,
+          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+        }
+      });
+    </script>
+
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for (i=0; i < all.length; i += 1) {
+          all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+      });
+    </script>
+    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  
+
+
+  
+
+  
+
+</body>
+</html>
