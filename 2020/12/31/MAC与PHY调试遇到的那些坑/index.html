@@ -109,20 +109,20 @@
 
 
 
-<meta name="description" content="这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间也比预想的慢了进一个星期。">
+<meta name="description" content="这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间比预想的慢了近一个星期。">
 <meta name="keywords" content="MAC,PHY,车载以太网">
 <meta property="og:type" content="article">
 <meta property="og:title" content="MAC与PHY调试遇到的那些坑">
 <meta property="og:url" content="http://sniffer.site/2020/12/31/MAC与PHY调试遇到的那些坑/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间也比预想的慢了进一个星期。">
+<meta property="og:description" content="这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间比预想的慢了近一个星期。">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ethernet_model.jpg">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mdio-clause22.png">
-<meta property="og:updated_time" content="2021-01-26T08:24:04.924Z">
+<meta property="og:updated_time" content="2021-02-10T03:08:09.039Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MAC与PHY调试遇到的那些坑">
-<meta name="twitter:description" content="这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间也比预想的慢了进一个星期。">
+<meta name="twitter:description" content="这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间比预想的慢了近一个星期。">
 <meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ethernet_model.jpg">
 
 
@@ -439,7 +439,7 @@
       
 
       
-        <p>这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间也比预想的慢了进一个星期。<a id="more"></a>不过，往后看，这种直接与硬件打交道的经验也很能锻炼人，在一定程度改善了我对系统的认知与理解。这篇文章重点在梳理下车在以太网MAC/PHY遇到的一些问题，以及Linux下MAC/PHY驱动的一些基本流程。</p>
+        <p>这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC/PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间比预想的慢了近一个星期。<a id="more"></a>不过，往后看，这种直接与硬件打交道的经验很能锻炼人，在一定程度改善了我对系统的认知与理解。这篇文章重点在梳理总结下车在以太网MAC/PHY遇到的一些问题，以及Linux下MAC/PHY驱动的一些基本流程。</p>
 <p>大致分为如下几个部分：</p>
 <ul>
 <li>MAC/PHY的基础知识</li>
@@ -505,6 +505,9 @@
 <li>MAC集成到SoC上，PHY采用外接芯片的形式</li>
 <li>MAC/PHY集成在一个芯片上，然后通过PCI总线接入到系统</li>
 </ul>
+<blockquote>
+<p>现在也开始采用另外一种连接方式: MAC集成到SoC上, 与一个Switch的MAC端口直连(不再有PHY设备了), 即MAC直连, 这种只需要在MAC驱动添加一个虚拟的FIXED PHY, EMAC就可以正常工作, 可以参考<a href="https://patchwork.kernel.org/project/linux-arm-kernel/patch/1373902450-11857-2-git-send-email-thomas.petazzoni@free-electrons.com/" target="_blank" rel="noopener">FIXED PHY driver</a>；或者Linux源代码&lt;drivers/of/of_mdio.c&gt;</p>
+</blockquote>
 <p>对现如今集成度越来越高的系统来说，很多SoC都会采用将MAC集成到系统，采用EMAC(Embedded  MAC)的形式，这样简化了硬件与软件的设计，对于开发人员来说最主要的工作就是PHY驱动以及相关协议的适配了。由于之前对MAC/PHY驱动的工作接触不多，这次是第一次完全从零开发以太网驱动，遇到了不少坑，总结下主要有如下几点：</p>
 <ul>
 <li>MAC/PHY之间的通讯实际上都是标准的MDIO/MII接口，相对而言都比较成熟了，驱动适配首先还是要确保使用的接口，比如是RGMII还是GMII，两者要一致; 另外速率要保持一致，比如MAC配置成100Mbps，同样PHY要对应是100Mbps，否则以太网可能没法工作</li>
