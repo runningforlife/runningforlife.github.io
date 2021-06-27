@@ -91,7 +91,7 @@
 <link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
 
 
-  <meta name="keywords" content="Linux,SMMU,内核崩溃,">
+  <meta name="keywords" content="Kernel,Linux,SMMU,MMU,">
 
 
 
@@ -109,20 +109,20 @@
 
 
 
-<meta name="description" content="最近碰到一个以太网iperf测试时, SMMU访问异常导致内核崩溃的问题. 原本只是内部测试发现, 后面在车上也概率性的出现. 问题发生的概率还不小. 问题很严重, 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题的案例. 首先来看下问题的背景. 问题背景问题发生在利用iperf做网络性能测">
-<meta name="keywords" content="Linux,SMMU,内核崩溃">
+<meta name="description" content="最近碰到棘手的问题: 以太网进行iperf测试时, 发生了SMMU (System Memory Management Unit)访问异常导致内核崩溃. 原本只是内部测试发现, 后面在试验车上也概率性的出现. 问题发生的概率还不小. 很严重. 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题">
+<meta name="keywords" content="Kernel,Linux,SMMU,MMU">
 <meta property="og:type" content="article">
-<meta property="og:title" content="一个SMMU内存访问异常问题">
+<meta property="og:title" content="一个SMMU内存访问异常的问题">
 <meta property="og:url" content="http://sniffer.site/2021/06/22/一个SMMU内存访问异常问题/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="最近碰到一个以太网iperf测试时, SMMU访问异常导致内核崩溃的问题. 原本只是内部测试发现, 后面在车上也概率性的出现. 问题发生的概率还不小. 问题很严重, 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题的案例. 首先来看下问题的背景. 问题背景问题发生在利用iperf做网络性能测">
+<meta property="og:description" content="最近碰到棘手的问题: 以太网进行iperf测试时, 发生了SMMU (System Memory Management Unit)访问异常导致内核崩溃. 原本只是内部测试发现, 后面在试验车上也概率性的出现. 问题发生的概率还不小. 很严重. 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/arm_smmu_diagram.png">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/arm_SMMU_architecture.png">
-<meta property="og:updated_time" content="2021-06-24T08:01:52.677Z">
+<meta property="og:updated_time" content="2021-06-25T10:36:28.599Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="一个SMMU内存访问异常问题">
-<meta name="twitter:description" content="最近碰到一个以太网iperf测试时, SMMU访问异常导致内核崩溃的问题. 原本只是内部测试发现, 后面在车上也概率性的出现. 问题发生的概率还不小. 问题很严重, 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题的案例. 首先来看下问题的背景. 问题背景问题发生在利用iperf做网络性能测">
+<meta name="twitter:title" content="一个SMMU内存访问异常的问题">
+<meta name="twitter:description" content="最近碰到棘手的问题: 以太网进行iperf测试时, 发生了SMMU (System Memory Management Unit)访问异常导致内核崩溃. 原本只是内部测试发现, 后面在试验车上也概率性的出现. 问题发生的概率还不小. 很严重. 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题">
 <meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/arm_smmu_diagram.png">
 
 
@@ -158,7 +158,7 @@
 
 
 
-  <title>一个SMMU内存访问异常问题 | JasonWang's Blog</title>
+  <title>一个SMMU内存访问异常的问题 | JasonWang's Blog</title>
   
 
 
@@ -356,7 +356,7 @@
 
         
         
-          <h2 class="post-title" itemprop="name headline">一个SMMU内存访问异常问题</h2>
+          <h2 class="post-title" itemprop="name headline">一个SMMU内存访问异常的问题</h2>
         
 
         <div class="post-meta">
@@ -408,7 +408,7 @@
 
           
           
-             <span id="/2021/06/22/一个SMMU内存访问异常问题/" class="leancloud_visitors" data-flag-title="一个SMMU内存访问异常问题">
+             <span id="/2021/06/22/一个SMMU内存访问异常问题/" class="leancloud_visitors" data-flag-title="一个SMMU内存访问异常的问题">
                <span class="post-meta-divider">|</span>
                <span class="post-meta-item-icon">
                  <i class="fa fa-eye"></i>
@@ -439,17 +439,17 @@
       
 
       
-        <p>最近碰到一个以太网iperf测试时, SMMU访问异常导致内核崩溃的问题. 原本只是内部测试发现, 后面在车上也概率性的出现. 问题发生的概率还不小. 问题很严重, 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题的案例.</p>
-<p>首先来看下问题的背景.</p>
+        <p>最近碰到棘手的问题: 以太网进行iperf测试时, 发生了SMMU (System Memory Management Unit)访问异常导致内核崩溃. 原本只是内部测试发现, 后面在试验车上也概率性的出现. 问题发生的概率还不小. 很严重. 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题的案例.</p>
+<p>首先来看看问题的发生的背景.</p>
 <h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a><strong>问题背景</strong></h2><p>问题发生在利用<code>iperf</code>做网络性能测试的时候, 测试系统(采用高通8155平台, 内置一个EMAC芯片, 最高支持1Gbps速率)作为客户端:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">iperf -c <span class="number">172.20</span><span class="number">.2</span><span class="number">.33</span> -p <span class="number">8989</span> -f m -R</span><br></pre></td></tr></table></figure>
 <p>这里加<code>-R</code>参数表示客户端作为数据接收方(奇怪的是, 测试不加<code>-R</code>参数就不会有问题, 这也说明只有在接收数据的过程才会出现问题), 而服务端是发送方:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">iperf -s -p <span class="number">8989</span> -f m</span><br></pre></td></tr></table></figure>
-<p>测试几十个小时就很快出现了, 看到问题的堆栈如下. 前面的日志是SMMU相关的寄存器状态打印, 后面是内核调用堆栈.</p>
+<p>这么测试几十个小时就很快出现了, 抓取到的问题堆栈如下. 前面的日志是SMMU相关的寄存器状态打印, 后面是内核调用堆栈.</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">[<span class="number">53480.526297</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: FAR    = <span class="number">0x00000000a2a2a000</span></span><br><span class="line">[<span class="number">53480.533192</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: PAR    = <span class="number">0x0000000000000000</span></span><br><span class="line">[<span class="number">53480.540466</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: FSR    = <span class="number">0x40000402</span> [TF W SS ]</span><br><span class="line">[<span class="number">53480.547750</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: TTBR0  = <span class="number">0x000f00035bbaa000</span></span><br><span class="line">[<span class="number">53480.554990</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: TTBR1  = <span class="number">0x000f000000000000</span></span><br><span class="line">[<span class="number">53480.562192</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: SCTLR  = <span class="number">0x00c000e7</span> ACTLR  = <span class="number">0x00000000</span></span><br><span class="line">[<span class="number">53480.570572</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: CBAR  = <span class="number">0x0001f300</span></span><br><span class="line">[<span class="number">53480.576741</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: MAIR0   = <span class="number">0xf404ff44</span> MAIR1   = <span class="number">0x00000000</span></span><br><span class="line">[<span class="number">53480.585071</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: Unhandled context fault: iova=<span class="number">0xa2a2a000</span>, cb=<span class="number">14</span>, fsr=<span class="number">0x40000402</span>, fsynr0=<span class="number">0x7e0013</span>, fsynr1=<span class="number">0x0</span></span><br><span class="line">[<span class="number">53480.597668</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: soft iova-to-phys=<span class="number">0x0000000000000000</span></span><br><span class="line">[<span class="number">53480.605440</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: SOFTWARE TABLE WALK FAILED! Looks like <span class="number">15000000.</span>apps-smmu accessed an unmapped address!</span><br><span class="line">[<span class="number">53480.617935</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: hard iova-to-phys (ATOS) failed</span><br><span class="line">[<span class="number">53480.625147</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: SID=<span class="number">0x3c0</span></span><br><span class="line">[<span class="number">53480.630332</span>] arm-smmu <span class="number">15000000.</span>apps-smmu: Unhandled arm-smmu context fault!</span><br><span class="line">[<span class="number">53480.638310</span>] ------------[ cut here ]------------</span><br><span class="line">[<span class="number">53480.638324</span>] kernel BUG at /home/jenkins/.jenkins/workspace/SourceCode/kernel/msm<span class="number">-4.14</span>/drivers/iommu/arm-smmu.c:<span class="number">1762</span>!</span><br><span class="line">[<span class="number">53480.649128</span>] [KERN Warning] ERROR/WARN forces debug_lock off!</span><br><span class="line">[<span class="number">53480.649135</span>] [KERN Warning] check backtrace:</span><br><span class="line">[<span class="number">53480.649151</span>] CPU: <span class="number">0</span> PID: <span class="number">319</span> Comm: irq/<span class="number">386</span>-arm-smm Tainted: G S         O    <span class="number">4.14</span><span class="number">.170</span>+ #<span class="number">2</span></span><br><span class="line">[<span class="number">53480.649160</span>] Hardware name: Qualcomm Technologies, Inc. SA8155P v2 PM8150 ADP-STAR model-D55 (DT)</span><br><span class="line">[<span class="number">53480.649171</span>] Call trace:</span><br><span class="line">[<span class="number">53480.649215</span>]  dump_backtrace+<span class="number">0x0</span>/<span class="number">0x1f4</span></span><br><span class="line">[<span class="number">53480.649226</span>]  show_stack+<span class="number">0x20</span>/<span class="number">0x2c</span></span><br><span class="line">[<span class="number">53480.649241</span>]  dump_stack+<span class="number">0xe4</span>/<span class="number">0x134</span></span><br><span class="line">[<span class="number">53480.649255</span>]  debug_locks_off+<span class="number">0x54</span>/<span class="number">0x88</span></span><br><span class="line">[<span class="number">53480.649268</span>]  oops_enter+<span class="number">0x14</span>/<span class="number">0x20</span></span><br><span class="line">[<span class="number">53480.649275</span>]  die+<span class="number">0x38</span>/<span class="number">0x16c</span></span><br><span class="line">[<span class="number">53480.649284</span>]  bug_handler+<span class="number">0x50</span>/<span class="number">0x88</span></span><br><span class="line">[<span class="number">53480.649293</span>]  brk_handler+<span class="number">0x6c</span>/<span class="number">0xb4</span></span><br><span class="line">[<span class="number">53480.649301</span>]  do_debug_exception+<span class="number">0x7c</span>/<span class="number">0x114</span></span><br><span class="line">[<span class="number">53480.649309</span>]  el1_dbg+<span class="number">0x18</span>/<span class="number">0x74</span></span><br><span class="line">[<span class="number">53480.649321</span>]  arm_smmu_context_fault+<span class="number">0x8e0</span>/<span class="number">0x944</span></span><br><span class="line">[<span class="number">53480.649332</span>]  irq_thread_fn+<span class="number">0x2c</span>/<span class="number">0x70</span></span><br><span class="line">[<span class="number">53480.649340</span>]  irq_thread+<span class="number">0xc0</span>/<span class="number">0x144</span></span><br><span class="line">[<span class="number">53480.649350</span>]  kthread+<span class="number">0x128</span>/<span class="number">0x138</span></span><br><span class="line">[<span class="number">53480.649357</span>]  ret_from_fork+<span class="number">0x10</span>/<span class="number">0x18</span></span><br><span class="line">[<span class="number">53480.649367</span>] Internal error: Oops - BUG: <span class="number">0</span> [#<span class="number">1</span>] PREEMPT SMP</span><br></pre></td></tr></table></figure>
-<p>从堆栈来看大致知道这是由于SMMU单元监测到非法的地址访问后, 引起的内核崩溃. 那么, 为何有这个错误了? 这个错误又是哪个模块导致的? 是在什么情况下引起的SMMU内存错误了?  这不得不从SMMU本身说起.</p>
-<h2 id="什么是SMMU"><a href="#什么是SMMU" class="headerlink" title="什么是SMMU"></a><strong>什么是SMMU</strong></h2><p>简单来说, SMMU(System Memory Management Unit)是ARM为外设访问系统RAM提供了一种类似于MMU的虚拟内存访问机制, 外设可以通过DMA直接访问RAM, 而无需CPU的干预. 如此, 外设可以通过一个虚拟的地址即可访问物理地址(可以不连续), 做到了不同外设之间IO地址空间的彼此独立. 同时为因此, SMMU也通常被称为IOMMU(Input/Output MMU).</p>
-<p>下图是从ARM SMMU Spec手册里的一张SMMU简图. 对于支持DMA的设备来说, 直接通过SMMU可以访问对应的RAM地址而不用CPU介入.</p>
+<p>从堆栈来看大致可以了解到, 这是由于SMMU监测到某个模块非法的访问DMA地址后, 引起了内核崩溃. 那么, 为何有这个错误SMMU访问错误? 这个错误又是哪个模块导致的? 是在什么情况下引起的SMMU内存错误了?  这不得不从SMMU本身说起.</p>
+<h2 id="什么是SMMU"><a href="#什么是SMMU" class="headerlink" title="什么是SMMU"></a><strong>什么是SMMU</strong></h2><p>简单来说, SMMU(System Memory Management Unit)是ARM为外设访问系统RAM提供了一种类似于MMU的虚拟内存访问机制, 外设可以通过DMA直接访问RAM, 而无需CPU的干预. 如此, 外设可以通过一个虚拟的地址即可访问物理地址(可以不连续), 做到了不同外设之间IO地址空间的彼此独立与隔离. 因此, SMMU也通常被称为IOMMU(Input/Output MMU).</p>
+<p>下图是从ARM SMMU Spec手册里的一张SMMU简图: SMMU为设备与RAM之间构建了一个设备虚拟地址(IOVA)与物理地址之间的映射关系, 每次执行DMA数据传输的时候, 都要通过SMMU将IOVA地址翻译成对应的物理地址.</p>
 <p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/arm_smmu_diagram.png" alt="ARM SMMU Diagram"></p>
 <p>那么对于设备驱动来说, 如何使用SMMU了? 不妨来看下SMMU相关的API. </p>
 <ul>
@@ -458,7 +458,7 @@
 <li><code>dma_map_single/dma_unmap_single</code>: 分配/去除某个DMA地址, 这种方式是异步的, 常用于一次性传输的场景(传输完成后DMA的映射即解除了) </li>
 <li><code>dma_alloc_coherent/dma_free_coherent</code>: 一致性(consistent), 同步(synchronous)的DMA内存分配方法, 确保CPU与设备的数据始终是同步的, 一般用于需要常驻内存的一些数据</li>
 </ul>
-<p>有关IOMMU相关的流程可以参考内核代码:</p>
+<p>这里不对IOMMU的代码做深入分析了. 有关IOMMU相关的流程可以参考内核代码:</p>
 <ul>
 <li><code>kernel/drivers/iommu</code>: SMMU驱动, 用于配置SMMU, 为设备驱动提供接口</li>
 <li><code>kernel/arch/arm64/mm</code>: 与平台相关的SMMU的页表分配的实现</li>
@@ -480,18 +480,17 @@
 <p>查看内核的DTS配置, <code>iommus</code>这个对应了设备节点SMMU的配置;可以看到发生问题的设备正是以太网:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">emac_emb_smmu: emac_emb_smmu &#123;</span><br><span class="line">	compatible = <span class="string">"qcom,emac-smmu-embedded"</span>;</span><br><span class="line">	iommus = &lt;&amp;apps_smmu <span class="number">0x3C0</span> <span class="number">0x0</span>&gt;;</span><br><span class="line">	qcom,iova-mapping = &lt;<span class="number">0x80000000</span> <span class="number">0x40000000</span>&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>理清楚这些SMMU的日志只是第一步, 但是对于为何会发生SMMU访问异常还是毫无头绪. 这个只能通过阅读驱动源代码弄清楚以太网网卡数据的接收流程才能一步步揭开迷雾了. </p>
-<p>对于目前的以太网网卡来说, 一般采用ring buffer(环形缓冲区)的形式来接收数据; 驱动在初始化的时候为网卡的ring buffer预分配部分DMA内存, 用于接收数据. 总体来收, 网卡的数据接收流程有如下三个步骤:</p>
+<p>对于目前的以太网网卡来说, 一般采用ring buffer(环形缓冲区)的形式来接收数据; 驱动在初始化的时候为网卡的ring buffer预分配DMA内存, 用于接收数据. 总体来收, 网卡的数据接收流程有如下三个步骤:</p>
 <p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/arm_SMMU_architecture.png" alt="EMAC DMA Process"></p>
 <ul>
-<li>网卡需要传数据时, 获取到当前的缓冲区对应的DMA内存地址后, 通过SMMU向对应的RAM地址传输数据</li>
+<li>网卡需要传数据时, 获取到当前的缓冲区对应的DMA内存地址(IOVA)后, 通过SMMU向对应的RAM地址传输数据</li>
 <li>发送完成后, 通过中断告知驱动有数据需要接收</li>
 <li>CPU接收到中断后, 驱动会把DMA的映射解除, 数据交由CPU处理; 接着驱动把对应的数据发送到协议栈继续处理</li>
 </ul>
 <p>那么, 问题来了, SMMU是何时收到DMA访问异常错误的了? 是在第三个步骤, 驱动解除DMA地址映射后, 有地方再次尝试使用该DMA地址导致的吗? 从驱动的逻辑来看, 每次传送完成, DMA地址与RAM地址解除映射后, 没有地方会再次尝试获取该DMA地址了(对应buffer的DMA地址已经置空). 退一步说, 如果是驱动使用的时候发生的问题, 那么异常的堆栈应该会打印出来, 但是现在只有SMMU相关的日志.</p>
 <p>所以, 问题的源头只能是在网卡通过SMMU往对应的DMA地址发送数据的时候, 就是说如果网卡给DMA传输数据的大小超过了预分配的buffer的大小的话, SMMU会发现对应的DMA地址没有映射到物理地址, 从而报错. 解决问题的办法也很简单, 只需要把buffer大小由原来的1538修改为2048(2kb)就可以了:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">-<span class="meta">#<span class="meta-keyword">define</span> DWC_ETH_QOS_ETH_FRAME_LEN (ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN + PADDING_ISSUE)</span></span><br><span class="line">+<span class="meta">#<span class="meta-keyword">define</span> DWC_ETH_QOS_ETH_FRAME_LEN (1&lt;&lt;11)</span></span><br></pre></td></tr></table></figure>
-<p>修改后再次验证, 问题不再出现. 但这里有个问题, DMA的buffer大小为何设置成2kb而不是其他如4kb了?  这个实际跟以太网网卡(EMAC)本身的设计有关, 一般以太网的一帧数据是一个MTU(一般是1500, 如果有VLAN数据, 则会多4个字节), 但为何网卡传输的一帧数据会超过设定的MTU大小, 这个目前咨询了供应商仍然没有得到答案.</p>
-<p>期待有机会了解下EMAC的设计原理, 可以解答这个疑惑.</p>
+<p>修改后再次验证, 问题不再出现. 但这里有个问题, DMA的buffer大小为何设置成2kb而不是其他如4kb了?  这个实际跟以太网网卡(EMAC)本身的设计有关, 一般以太网的一帧数据是一个MTU(一般是1500, 如果有VLAN数据, 则会多4个字节), 但为何网卡传输的一帧数据会超过设定的MTU大小, 这个目前咨询了供应商仍然没有得到答案(供应商怀疑是发送端给到的一帧数据超过了最大的MTU 1538, 这个结论仍然值得怀疑).</p>
 <h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
 <li><a href="https://developer.arm.com/documentation/ihi0070/latest" target="_blank" rel="noopener">ARM SMMU spec</a></li>
 <li><a href="https://www.kernel.org/doc/Documentation/DMA-API-HOWTO.txt" target="_blank" rel="noopener">https://www.kernel.org/doc/Documentation/DMA-API-HOWTO.txt</a></li>
@@ -515,11 +514,13 @@
       
         <div class="post-tags">
           
+            <a href="/tags/Kernel/" rel="tag"># Kernel</a>
+          
             <a href="/tags/Linux/" rel="tag"># Linux</a>
           
             <a href="/tags/SMMU/" rel="tag"># SMMU</a>
           
-            <a href="/tags/内核崩溃/" rel="tag"># 内核崩溃</a>
+            <a href="/tags/MMU/" rel="tag"># MMU</a>
           
         </div>
       
