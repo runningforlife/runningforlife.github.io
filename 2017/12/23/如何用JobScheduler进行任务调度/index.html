@@ -1,464 +1,318 @@
 <!DOCTYPE html>
-
-
-
-  
-
-
-<html class="theme-next pisces use-motion" lang="zh-Hans">
-<head><meta name="generator" content="Hexo 3.8.0">
+<html lang="zh-CN">
+<head>
   <meta charset="UTF-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width">
 <meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
 
 
 
-  
-  
-    
-    
-  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
-  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.3/css/all.min.css" integrity="sha256-2H3fkXt6FEmrReK448mDVGKb3WW2ZZw35gI7vqHOE4Y=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
 
-
-
-
-
-
-
-<meta http-equiv="Cache-Control" content="no-transform">
-<meta http-equiv="Cache-Control" content="no-siteapp">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
-
-
-
-
-  
-  
-  
-  
-
-  
-    
-    
-  
-
-  
-    
-      
-    
-
-    
-  
-
-  
-
-  
-
-  
-
-  
-    
-    
-    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
-  
-
-
-
-
-
-
-<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
-
-<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
-
-
-  <meta name="keywords" content="JobScheduler,AlarmManager,定时任务,">
-
-
-
-
-
-  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
-
-
-
-
-  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
-
-
-
-
-
-
-<meta name="description" content="Android从5.0开始添加了一个任何调度服务JobSchedulerService,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于JobScheduler通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析JobScheduler">
-<meta name="keywords" content="JobScheduler,AlarmManager,定时任务">
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+<meta name="description" content="Android从5.0开始添加了一个任何调度服务JobSchedulerService,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于JobScheduler通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析JobScheduler。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="如何用JobScheduler进行任务调度">
-<meta property="og:url" content="http://sniffer.site/2017/12/23/如何用JobScheduler进行任务调度/index.html">
+<meta property="og:url" content="http://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="Android从5.0开始添加了一个任何调度服务JobSchedulerService,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于JobScheduler通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析JobScheduler">
-<meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2019-10-26T11:31:20.631Z">
+<meta property="og:description" content="Android从5.0开始添加了一个任何调度服务JobSchedulerService,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于JobScheduler通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析JobScheduler。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-12-23T07:24:07.000Z">
+<meta property="article:modified_time" content="2021-08-11T06:59:38.482Z">
+<meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="JobScheduler">
+<meta property="article:tag" content="AlarmManager">
+<meta property="article:tag" content="定时任务">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="如何用JobScheduler进行任务调度">
-<meta name="twitter:description" content="Android从5.0开始添加了一个任何调度服务JobSchedulerService,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于JobScheduler通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析JobScheduler">
+
+
+<link rel="canonical" href="http://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">
 
 
 
-<script type="text/javascript" id="hexo.configurations">
-  var NexT = window.NexT || {};
-  var CONFIG = {
-    root: '/',
-    scheme: 'Pisces',
-    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":true,"onmobile":false},
-    fancybox: true,
-    tabs: true,
-    motion: true,
-    duoshuo: {
-      userId: '0',
-      author: '博主'
-    },
-    algolia: {
-      applicationID: '1POSCBVZ02',
-      apiKey: 'bf09f0197d475fa69488099407011316',
-      indexName: 'getstarted_actors',
-      hits: {"per_page":10},
-      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
-    }
-  };
-</script>
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"http://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/","path":"2017/12/23/如何用JobScheduler进行任务调度/","title":"如何用JobScheduler进行任务调度"}</script>
 
-
-
-  <link rel="canonical" href="http://sniffer.site/2017/12/23/如何用JobScheduler进行任务调度/">
-
-
-
-
-
-  <title>如何用JobScheduler进行任务调度 | JasonWang's Blog</title>
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>如何用JobScheduler进行任务调度 | JasonWang's Blog</title>
   
 
 
 
 
-
-
-
-
-
-
-
-
-
-
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
 </head>
 
-<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
 
-  
-  
-    
-  
-
-  <div class="container sidebar-position-right page-post-detail ">
-    <div class="headband"></div>
-
-    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-wrapper">
-  <div class="site-meta ">
-    
-
-    <div class="custom-logo-site-title">
-      <a href="/" class="brand" rel="start">
-        <span class="logo-line-before"><i></i></span>
-        <span class="site-title">JasonWang's Blog</span>
-        <span class="logo-line-after"><i></i></span>
-      </a>
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
     </div>
-      
-        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
-      
   </div>
 
-  <div class="site-nav-toggle">
-    <button>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-    </button>
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">JasonWang's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
   </div>
 </div>
 
+
+
 <nav class="site-nav">
-  
-
-  
-    <ul id="menu" class="menu">
-      
-        
-        <li class="menu-item menu-item-home">
-          <a href="/" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
-            
-            首页
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-archives">
-          <a href="/archives" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
-            
-            归档
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-tags">
-          <a href="/tags" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
-            
-            标签
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-categories">
-          <a href="/categories" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
-            
-            分类
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-about">
-          <a href="/about" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
-            
-            关于
-          </a>
-        </li>
-      
-
-      
-        <li class="menu-item menu-item-search">
-          
-            <a href="javascript:;" class="popup-trigger">
-          
-            
-              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
-            
-            搜索
-          </a>
-        </li>
-      
-    </ul>
-  
-
-  
-    <div class="site-search">
-      
-  
-  <div class="algolia-popup popup search-popup">
-    <div class="algolia-search">
-      <div class="algolia-search-input-icon">
-        <i class="fa fa-search"></i>
-      </div>
-      <div class="algolia-search-input" id="algolia-search-input"></div>
-    </div>
-
-    <div class="algolia-results">
-      <div id="algolia-stats"></div>
-      <div id="algolia-hits"></div>
-      <div id="algolia-pagination" class="algolia-pagination"></div>
-    </div>
-
-    <span class="popup-btn-close">
-      <i class="fa fa-times-circle"></i>
-    </span>
-  </div>
-
-
-
-
-    </div>
-  
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
 </nav>
 
 
 
- </div>
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container"></div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container">
+  <div class="algolia-stats"><hr></div>
+  <div class="algolia-hits"></div>
+  <div class="algolia-pagination"></div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8JobScheduler"><span class="nav-number">1.</span> <span class="nav-text">如何使用JobScheduler</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JobScheduler%E7%9A%84%E5%8E%9F%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">JobScheduler的原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#JobSchedulerService%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">2.1.</span> <span class="nav-text">JobSchedulerService初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%A5%E4%BD%9C%E8%B0%83%E5%BA%A6"><span class="nav-number">2.2.</span> <span class="nav-text">工作调度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">3.</span> <span class="nav-text">**参考文献 **</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-overview">
+            <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Jason Wang"
+      src="/images/gallaxy.jpg">
+  <p class="site-author-name" itemprop="name">Jason Wang</p>
+  <div class="site-description" itemprop="description">关于编程,生活,工作</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">81</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">172</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/runningforlife" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;runningforlife" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="http://weibo.com/u/2573460570" title="微博 → http:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;2573460570" rel="noopener" target="_blank">微博</a>
+      </span>
+  </div>
+
+
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
     </header>
 
-    <main id="main" class="main">
-      <div class="main-inner">
-        <div class="content-wrap">
-          <div id="content" class="content">
-            
-
-  <div id="posts" class="posts-expand">
     
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/runningforlife" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
 
   
 
-  
+
+<div class="post-block">
   
   
 
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2017/12/23/如何用JobScheduler进行任务调度/">
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Jason">
-      <meta itemprop="description" content>
       <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+      <meta itemprop="description" content="关于编程,生活,工作">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="JasonWang's Blog">
     </span>
-
-    
       <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          如何用JobScheduler进行任务调度
+        </h1>
 
-        
-        
-          <h2 class="post-title" itemprop="name headline">如何用JobScheduler进行任务调度</h2>
-        
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
 
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-12-23T15:24:07+08:00">
-                2017-12-23
-              </time>
-            
+      <time title="创建时间：2017-12-23 15:24:07" itemprop="dateCreated datePublished" datetime="2017-12-23T15:24:07+08:00">2017-12-23</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2021-08-11 14:59:38" itemprop="dateModified" datetime="2021-08-11T14:59:38+08:00">2021-08-11</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Android/" itemprop="url" rel="index"><span itemprop="name">Android</span></a>
+        </span>
+    </span>
 
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Android/" itemprop="url" rel="index">
-                    <span itemprop="name">Android</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-             <span id="/2017/12/23/如何用JobScheduler进行任务调度/" class="leancloud_visitors" data-flag-title="如何用JobScheduler进行任务调度">
-               <span class="post-meta-divider">|</span>
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               
-                 <span class="post-meta-item-text">阅读次数 </span>
-               
-                 <span class="leancloud-visitors-count"></span>
-             </span>
-          
-
-          
-
-          
-
-          
+  
+    <span id="/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/" class="post-meta-item leancloud_visitors" data-flag-title="如何用JobScheduler进行任务调度" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
 
         </div>
       </header>
-    
 
     
     
     
     <div class="post-body" itemprop="articleBody">
+        <p>Android从5.0开始添加了一个任何调度服务<code>JobSchedulerService</code>,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于<code>JobScheduler</code>通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析<code>JobScheduler</code>。</p>
+<span id="more"></span>
 
-      
-      
-
-      
-        <p>Android从5.0开始添加了一个任何调度服务<code>JobSchedulerService</code>,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于<code>JobScheduler</code>通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析<code>JobScheduler</code><a id="more"></a>。</p>
 <h2 id="如何使用JobScheduler"><a href="#如何使用JobScheduler" class="headerlink" title="如何使用JobScheduler"></a><strong>如何使用JobScheduler</strong></h2><p>这里假定我们有一个定时任务，需要每隔一段时间就同步本地与服务器的数据。通过<code>JobScheduelr</code>发起任务调度，第一步是要创建一个<code>JobService</code>用于处理定时同步服务器的任务请求：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * data sync job service</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DataSyncJobService</span> <span class="keyword">extends</span> <span class="title">JobService</span>  </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TAG = <span class="string">"DataSyncJobService"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">onStartJob</span><span class="params">(JobParameters jobParameters)</span> </span>&#123;</span><br><span class="line">	Log.v(TAG,<span class="string">"onStartJob()"</span>);</span><br><span class="line">	startSyncData();</span><br><span class="line">	<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">onStopJob</span><span class="params">(JobParameters jobParameters)</span> </span>&#123;</span><br><span class="line">	Log.v(TAG,<span class="string">"onStopJob()"</span>);</span><br><span class="line">	showMessage(getString(R.string.stop_job_scheduler));</span><br><span class="line">	<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">startSyncData</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">new</span> Thread(<span class="keyword">new</span> Runnable() &#123;</span><br><span class="line">	    <span class="meta">@Override</span></span><br><span class="line">	    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	        <span class="keyword">try</span> &#123;</span><br><span class="line">	            Thread.sleep(<span class="number">10000</span>);</span><br><span class="line">	        &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">	            e.printStackTrace();</span><br><span class="line">	        &#125;</span><br><span class="line">	        <span class="comment">// data sync done</span></span><br><span class="line">	        showMessage(getString(R.string.data_sync_complete));</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;).start();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">showMessage</span><span class="params">(String message)</span> </span>&#123;</span><br><span class="line">	Intent intent = <span class="keyword">new</span> Intent(getBaseContext(), MessageActivity.class);</span><br><span class="line">	intent.putExtra(<span class="string">"message"</span> , message);</span><br><span class="line">	intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);</span><br><span class="line">	startActivity(intent);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * data sync job service</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">DataSyncJobService</span> <span class="keyword">extends</span> <span class="title">JobService</span>  </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String TAG = <span class="string">&quot;DataSyncJobService&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">onStartJob</span><span class="params">(JobParameters jobParameters)</span> </span>&#123;</span><br><span class="line">	Log.v(TAG,<span class="string">&quot;onStartJob()&quot;</span>);</span><br><span class="line">	startSyncData();</span><br><span class="line">	<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">onStopJob</span><span class="params">(JobParameters jobParameters)</span> </span>&#123;</span><br><span class="line">	Log.v(TAG,<span class="string">&quot;onStopJob()&quot;</span>);</span><br><span class="line">	showMessage(getString(R.string.stop_job_scheduler));</span><br><span class="line">	<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">startSyncData</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">new</span> Thread(<span class="keyword">new</span> Runnable() &#123;</span><br><span class="line">	    <span class="meta">@Override</span></span><br><span class="line">	    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	        <span class="keyword">try</span> &#123;</span><br><span class="line">	            Thread.sleep(<span class="number">10000</span>);</span><br><span class="line">	        &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">	            e.printStackTrace();</span><br><span class="line">	        &#125;</span><br><span class="line">	        <span class="comment">// data sync done</span></span><br><span class="line">	        showMessage(getString(R.string.data_sync_complete));</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;).start();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">showMessage</span><span class="params">(String message)</span> </span>&#123;</span><br><span class="line">	Intent intent = <span class="keyword">new</span> Intent(getBaseContext(), MessageActivity.class);</span><br><span class="line">	intent.putExtra(<span class="string">&quot;message&quot;</span> , message);</span><br><span class="line">	intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);</span><br><span class="line">	startActivity(intent);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>同时需要在<code>AndroidManifest.xml</code>中声明该<code>servce</code>， 并且该<code>service</code>必须添加一个权限<code>android:permission=&quot;android.permission.BIND_JOB_SERVICE</code>， 这样当定时时间到后，系统会主动绑定该服务，从而发起任务调度：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">&lt;service android:name=<span class="string">".DataSyncJobService"</span></span><br><span class="line">    android:permission=<span class="string">"android.permission.BIND_JOB_SERVICE"</span>/&gt;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">&lt;service android:name=<span class="string">&quot;.DataSyncJobService&quot;</span></span><br><span class="line">    android:permission=<span class="string">&quot;android.permission.BIND_JOB_SERVICE&quot;</span>/&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>建立了任务处理的<code>service</code>之后，就可以通过<code>JobScheduler</code>来发起任务调度的请求了， Android提供了如下几个接口供用户调度任务：</p>
 <ul>
 <li><code>int schedule(in JobInfo job)</code> ： 发起一个任务<code>job</code>，如成功则返回1,失败则返回0;</li>
 <li><code>enqueue(JobInfo job, JobWorkItem worker)</code>： 与<code>schedule</code>类似，但允许将一个新的任务放入<code>job</code>的队列；</li>
 <li><code>void cancel(int jobId)</code> ： 取消一个任务；</li>
 <li><code>void cancelAll()</code>： 取消所有任务；</li>
-<li><code>List&lt;JobInfo&gt; getAllPendingJobs()</code>：获取当前未处理的任务列表；</li>
-<li><code>JobInfo getPendingJob(int jobId)</code>： 根据<code>jobId</code>来获取对应未处理任务的信息；</li>
+<li><code> List&lt;JobInfo&gt; getAllPendingJobs()</code>：获取当前未处理的任务列表；</li>
+<li><code> JobInfo getPendingJob(int jobId)</code>： 根据<code>jobId</code>来获取对应未处理任务的信息；</li>
 </ul>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">JobScheduler</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> RESULT_FAILURE = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> RESULT_SUCCESS = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">int</span> <span class="title">schedule</span><span class="params">(JobInfo var1)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">int</span> <span class="title">enqueue</span><span class="params">(JobInfo job, JobWorkItem worker)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">cancel</span><span class="params">(<span class="keyword">int</span> jobId)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">cancelAll</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> List&lt;JobInfo&gt; <span class="title">getAllPendingJobs</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> JobInfo <span class="title">getPendingJob</span><span class="params">(<span class="keyword">int</span> jobId)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">JobScheduler</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> RESULT_FAILURE = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> RESULT_SUCCESS = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">int</span> <span class="title">schedule</span><span class="params">(JobInfo var1)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">int</span> <span class="title">enqueue</span><span class="params">(JobInfo job, JobWorkItem worker)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">cancel</span><span class="params">(<span class="keyword">int</span> jobId)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title">cancelAll</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> List&lt;JobInfo&gt; <span class="title">getAllPendingJobs</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> JobInfo <span class="title">getPendingJob</span><span class="params">(<span class="keyword">int</span> jobId)</span></span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p><code>JobScheduler</code>无法实例化，只能通过<code>getSystemService</code>接口来获取实例，在下面这个函数中， 首先构建一个任务用于定时同步服务器数据：</p>
 <ul>
 <li><code>setPeriordic</code>： 设置定时任务的时间间隔，如果没有设置则不是一个定时任务；</li>
-<li><code>setPersisted</code>： 持久化任务数据，下次开机时该任务会自动启动，如果设置了该选项，则需要在<code>AndroidManifest.xml</code>中添加一个用户权限声明：<br>  <code>&lt;uses-permission android:name=&quot;android.permission.RECEIVE_BOOT_COMPLETED&quot;/&gt;</code>，这样任务在开机启动后，立刻启动任务调度；</li>
+<li><code>setPersisted</code>： 持久化任务数据，下次开机时该任务会自动启动，如果设置了该选项，则需要在<code>AndroidManifest.xml</code>中添加一个用户权限声明：<br>  <code> &lt;uses-permission android:name=&quot;android.permission.RECEIVE_BOOT_COMPLETED&quot;/&gt;</code>，这样任务在开机启动后，立刻启动任务调度；</li>
 <li><code>setRequiredNetworkType</code>： 是否需要设置调度所需要的网络模式，比如可以设置是否在收费或者漫游情况下发起任务调度；</li>
 </ul>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">startDataSyncJobScheduler</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	ComponentName jobService = <span class="keyword">new</span> ComponentName(<span class="keyword">this</span>, DataSyncJobService.class);</span><br><span class="line">	JobInfo.Builder builder = <span class="keyword">new</span> JobInfo.Builder(DATA_SYNC_JOB_ID, jobService);</span><br><span class="line">	builder.setPeriodic(DATA_SYNC_INTERVAL)</span><br><span class="line">		.setPersisted(<span class="keyword">true</span>)</span><br><span class="line">		.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY);</span><br><span class="line"></span><br><span class="line">	JobScheduler js = (JobScheduler)getSystemService(JOB_SCHEDULER_SERVICE);</span><br><span class="line">	js.schedule(builder.build());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>这样系统就会定时向<code>DataSyncJobService</code>发起任务请求，这里需要注意的是，当Android系统进入低电量的睡眠模式时，<code>JobScheuduler</code>是不允许执行的，详细可以参考<a href="https://developer.android.com/training/monitoring-device-state/doze-standby.html" target="_blank" rel="noopener">休眠与待机</a> 。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">startDataSyncJobScheduler</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	ComponentName jobService = <span class="keyword">new</span> ComponentName(<span class="keyword">this</span>, DataSyncJobService.class);</span><br><span class="line">	JobInfo.Builder builder = <span class="keyword">new</span> JobInfo.Builder(DATA_SYNC_JOB_ID, jobService);</span><br><span class="line">	builder.setPeriodic(DATA_SYNC_INTERVAL)</span><br><span class="line">		.setPersisted(<span class="keyword">true</span>)</span><br><span class="line">		.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY);</span><br><span class="line"></span><br><span class="line">	JobScheduler js = (JobScheduler)getSystemService(JOB_SCHEDULER_SERVICE);</span><br><span class="line">	js.schedule(builder.build());</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这样系统就会定时向<code>DataSyncJobService</code>发起任务请求，这里需要注意的是，当Android系统进入低电量的睡眠模式时，<code>JobScheuduler</code>是不允许执行的，详细可以参考<a target="_blank" rel="noopener" href="https://developer.android.com/training/monitoring-device-state/doze-standby.html">休眠与待机</a> 。</p>
 <h2 id="JobScheduler的原理"><a href="#JobScheduler的原理" class="headerlink" title="JobScheduler的原理"></a><strong>JobScheduler的原理</strong></h2><h3 id="JobSchedulerService初始化"><a href="#JobSchedulerService初始化" class="headerlink" title="JobSchedulerService初始化"></a>JobSchedulerService初始化</h3><p><code>JobSchedulerService</code>属于系统服务，因此在手机启动时，<code>SystemServer</code>进程会主动加载该服务。创建时，<code>JobSchedulerService</code>会依次初始化:</p>
 <ul>
 <li><code>JobHandler</code>： 用于处理请求的<code>Handler</code>;</li>
@@ -466,9 +320,11 @@
 <li><code>JobStore</code>: 持久化客户端请求数据</li>
 <li><code>StateController</code>: 监听系统状态，以此触发任务调度</li>
 </ul>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">JobSchedulerService</span><span class="params">(Context context)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">super</span>(context);</span><br><span class="line">    mHandler = <span class="keyword">new</span> JobHandler(context.getMainLooper());</span><br><span class="line">    mConstants = <span class="keyword">new</span> Constants(mHandler);</span><br><span class="line">    mJobSchedulerStub = <span class="keyword">new</span> JobSchedulerStub();</span><br><span class="line">    mJobs = JobStore.initAndGet(<span class="keyword">this</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Create the controllers.</span></span><br><span class="line">    mControllers = <span class="keyword">new</span> ArrayList&lt;StateController&gt;();</span><br><span class="line">    mControllers.add(ConnectivityController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(TimeController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(IdleController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(BatteryController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(AppIdleController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(ContentObserverController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(DeviceIdleJobsController.get(<span class="keyword">this</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">JobSchedulerService</span><span class="params">(Context context)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">super</span>(context);</span><br><span class="line">    mHandler = <span class="keyword">new</span> JobHandler(context.getMainLooper());</span><br><span class="line">    mConstants = <span class="keyword">new</span> Constants(mHandler);</span><br><span class="line">    mJobSchedulerStub = <span class="keyword">new</span> JobSchedulerStub();</span><br><span class="line">    mJobs = JobStore.initAndGet(<span class="keyword">this</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Create the controllers.</span></span><br><span class="line">    mControllers = <span class="keyword">new</span> ArrayList&lt;StateController&gt;();</span><br><span class="line">    mControllers.add(ConnectivityController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(TimeController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(IdleController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(BatteryController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(AppIdleController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(ContentObserverController.get(<span class="keyword">this</span>));</span><br><span class="line">    mControllers.add(DeviceIdleJobsController.get(<span class="keyword">this</span>));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>系统启动阶段，<code>JobSchedulerService</code>需要注册应用程序安装包监听器（监听APP是否被卸载、重启），同时需要将持久化的任务数据从存储中加载，重新启动这些任务：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onBootPhase</span><span class="params">(<span class="keyword">int</span> phase)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (PHASE_SYSTEM_SERVICES_READY == phase) &#123;</span><br><span class="line">        mConstants.start(getContext().getContentResolver());</span><br><span class="line">        <span class="comment">// Register br for package removals and user removals.</span></span><br><span class="line">        <span class="keyword">final</span> IntentFilter filter = <span class="keyword">new</span> IntentFilter();</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_CHANGED);</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_RESTARTED);</span><br><span class="line">        filter.addAction(Intent.ACTION_QUERY_PACKAGE_RESTART);</span><br><span class="line">        filter.addDataScheme(<span class="string">"package"</span>);</span><br><span class="line">        getContext().registerReceiverAsUser(</span><br><span class="line">                mBroadcastReceiver, UserHandle.ALL, filter, <span class="keyword">null</span>, <span class="keyword">null</span>);</span><br><span class="line">        <span class="keyword">final</span> IntentFilter userFilter = <span class="keyword">new</span> IntentFilter(Intent.ACTION_USER_REMOVED);</span><br><span class="line">        getContext().registerReceiverAsUser(</span><br><span class="line">                mBroadcastReceiver, UserHandle.ALL, userFilter, <span class="keyword">null</span>, <span class="keyword">null</span>);</span><br><span class="line">        mPowerManager = (PowerManager)getContext().getSystemService(Context.POWER_SERVICE);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            ActivityManagerNative.getDefault().registerUidObserver(mUidObserver,</span><br><span class="line">                    ActivityManager.UID_OBSERVER_PROCSTATE | ActivityManager.UID_OBSERVER_GONE</span><br><span class="line">                    | ActivityManager.UID_OBSERVER_IDLE);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">            <span class="comment">// ignored; both services live in system_server</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (phase == PHASE_THIRD_PARTY_APPS_CAN_START) &#123;</span><br><span class="line">        <span class="keyword">synchronized</span> (mLock) &#123;</span><br><span class="line">            <span class="comment">// Let's go!</span></span><br><span class="line">            mReadyToRock = <span class="keyword">true</span>;</span><br><span class="line">            mBatteryStats = IBatteryStats.Stub.asInterface(ServiceManager.getService(</span><br><span class="line">                    BatteryStats.SERVICE_NAME));</span><br><span class="line">            mLocalDeviceIdleController</span><br><span class="line">                    = LocalServices.getService(DeviceIdleController.LocalService.class);</span><br><span class="line">            <span class="comment">// Create the "runners".</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; MAX_JOB_CONTEXTS_COUNT; i++) &#123;</span><br><span class="line">                mActiveServices.add(</span><br><span class="line">                        <span class="keyword">new</span> JobServiceContext(<span class="keyword">this</span>, mBatteryStats, mJobPackageTracker,</span><br><span class="line">                                getContext().getMainLooper()));</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// Attach jobs to their controllers.</span></span><br><span class="line">            mJobs.forEachJob(<span class="keyword">new</span> JobStatusFunctor() &#123;</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">process</span><span class="params">(JobStatus job)</span> </span>&#123;</span><br><span class="line">                    <span class="keyword">for</span> (<span class="keyword">int</span> controller = <span class="number">0</span>; controller &lt; mControllers.size(); controller++) &#123;</span><br><span class="line">                        <span class="keyword">final</span> StateController sc = mControllers.get(controller);</span><br><span class="line">                        sc.maybeStartTrackingJobLocked(job, <span class="keyword">null</span>);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">            <span class="comment">// GO GO GO!</span></span><br><span class="line">            mHandler.obtainMessage(MSG_CHECK_JOB).sendToTarget();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onBootPhase</span><span class="params">(<span class="keyword">int</span> phase)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (PHASE_SYSTEM_SERVICES_READY == phase) &#123;</span><br><span class="line">        mConstants.start(getContext().getContentResolver());</span><br><span class="line">        <span class="comment">// Register br for package removals and user removals.</span></span><br><span class="line">        <span class="keyword">final</span> IntentFilter filter = <span class="keyword">new</span> IntentFilter();</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_CHANGED);</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_RESTARTED);</span><br><span class="line">        filter.addAction(Intent.ACTION_QUERY_PACKAGE_RESTART);</span><br><span class="line">        filter.addDataScheme(<span class="string">&quot;package&quot;</span>);</span><br><span class="line">        getContext().registerReceiverAsUser(</span><br><span class="line">                mBroadcastReceiver, UserHandle.ALL, filter, <span class="keyword">null</span>, <span class="keyword">null</span>);</span><br><span class="line">        <span class="keyword">final</span> IntentFilter userFilter = <span class="keyword">new</span> IntentFilter(Intent.ACTION_USER_REMOVED);</span><br><span class="line">        getContext().registerReceiverAsUser(</span><br><span class="line">                mBroadcastReceiver, UserHandle.ALL, userFilter, <span class="keyword">null</span>, <span class="keyword">null</span>);</span><br><span class="line">        mPowerManager = (PowerManager)getContext().getSystemService(Context.POWER_SERVICE);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            ActivityManagerNative.getDefault().registerUidObserver(mUidObserver,</span><br><span class="line">                    ActivityManager.UID_OBSERVER_PROCSTATE | ActivityManager.UID_OBSERVER_GONE</span><br><span class="line">                    | ActivityManager.UID_OBSERVER_IDLE);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">            <span class="comment">// ignored; both services live in system_server</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (phase == PHASE_THIRD_PARTY_APPS_CAN_START) &#123;</span><br><span class="line">        <span class="keyword">synchronized</span> (mLock) &#123;</span><br><span class="line">            <span class="comment">// Let&#x27;s go!</span></span><br><span class="line">            mReadyToRock = <span class="keyword">true</span>;</span><br><span class="line">            mBatteryStats = IBatteryStats.Stub.asInterface(ServiceManager.getService(</span><br><span class="line">                    BatteryStats.SERVICE_NAME));</span><br><span class="line">            mLocalDeviceIdleController</span><br><span class="line">                    = LocalServices.getService(DeviceIdleController.LocalService.class);</span><br><span class="line">            <span class="comment">// Create the &quot;runners&quot;.</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; MAX_JOB_CONTEXTS_COUNT; i++) &#123;</span><br><span class="line">                mActiveServices.add(</span><br><span class="line">                        <span class="keyword">new</span> JobServiceContext(<span class="keyword">this</span>, mBatteryStats, mJobPackageTracker,</span><br><span class="line">                                getContext().getMainLooper()));</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// Attach jobs to their controllers.</span></span><br><span class="line">            mJobs.forEachJob(<span class="keyword">new</span> JobStatusFunctor() &#123;</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">process</span><span class="params">(JobStatus job)</span> </span>&#123;</span><br><span class="line">                    <span class="keyword">for</span> (<span class="keyword">int</span> controller = <span class="number">0</span>; controller &lt; mControllers.size(); controller++) &#123;</span><br><span class="line">                        <span class="keyword">final</span> StateController sc = mControllers.get(controller);</span><br><span class="line">                        sc.maybeStartTrackingJobLocked(job, <span class="keyword">null</span>);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">            <span class="comment">// GO GO GO!</span></span><br><span class="line">            mHandler.obtainMessage(MSG_CHECK_JOB).sendToTarget();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p><code>JobSchedulerService</code>中共启动了16个<code>JobServiceContext</code>服务负责处理任务请求。接下来，就来看下<code>JobSchedulerService</code>是如何进行工作调度的。</p>
 <h3 id="工作调度"><a href="#工作调度" class="headerlink" title="工作调度"></a><strong>工作调度</strong></h3><p>目前<code>JobSchedulerService</code>支持的任务调度主要有如下几个属性：</p>
 <ul>
@@ -479,432 +335,80 @@
 <li>网络连接： 指定网络链接时触发任务调度</li>
 </ul>
 <p>通过指定任务属性，我们可以发起一个定时任务，也可以指定某个网络条件下触发任务调度：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">JobInfo</span> <span class="keyword">implements</span> <span class="title">Parcelable</span> </span>&#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">/** Builder class for constructing &#123;<span class="doctag">@link</span> JobInfo&#125; objects. */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">Builder</span> </span>&#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">int</span> mJobId;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> ComponentName mJobService;</span><br><span class="line">        <span class="keyword">private</span> PersistableBundle mExtras = PersistableBundle.EMPTY;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mPriority = PRIORITY_DEFAULT;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mFlags;</span><br><span class="line">        <span class="comment">// Requirements.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mRequiresCharging;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mRequiresDeviceIdle;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mNetworkType;</span><br><span class="line">        <span class="keyword">private</span> ArrayList&lt;TriggerContentUri&gt; mTriggerContentUris;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mTriggerContentUpdateDelay = -<span class="number">1</span>;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mTriggerContentMaxDelay = -<span class="number">1</span>;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mIsPersisted;</span><br><span class="line">        <span class="comment">// One-off parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mMinLatencyMillis;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mMaxExecutionDelayMillis;</span><br><span class="line">        <span class="comment">// Periodic parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mIsPeriodic;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mHasEarlyConstraint;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mHasLateConstraint;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mIntervalMillis;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mFlexMillis;</span><br><span class="line">        <span class="comment">// Back-off parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mInitialBackoffMillis = DEFAULT_INITIAL_BACKOFF_MILLIS;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mBackoffPolicy = DEFAULT_BACKOFF_POLICY;</span><br><span class="line">        <span class="comment">/** Easy way to track whether the client has tried to set a back-off policy. */</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mBackoffPolicySet = <span class="keyword">false</span>;</span><br><span class="line"></span><br><span class="line">        ....</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献 "></a><strong>参考文献 </strong></h2><ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">JobInfo</span> <span class="keyword">implements</span> <span class="title">Parcelable</span> </span>&#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">/** Builder class for constructing &#123;<span class="doctag">@link</span> JobInfo&#125; objects. */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">Builder</span> </span>&#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">int</span> mJobId;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> ComponentName mJobService;</span><br><span class="line">        <span class="keyword">private</span> PersistableBundle mExtras = PersistableBundle.EMPTY;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mPriority = PRIORITY_DEFAULT;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mFlags;</span><br><span class="line">        <span class="comment">// Requirements.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mRequiresCharging;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mRequiresDeviceIdle;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mNetworkType;</span><br><span class="line">        <span class="keyword">private</span> ArrayList&lt;TriggerContentUri&gt; mTriggerContentUris;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mTriggerContentUpdateDelay = -<span class="number">1</span>;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mTriggerContentMaxDelay = -<span class="number">1</span>;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mIsPersisted;</span><br><span class="line">        <span class="comment">// One-off parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mMinLatencyMillis;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mMaxExecutionDelayMillis;</span><br><span class="line">        <span class="comment">// Periodic parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mIsPeriodic;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mHasEarlyConstraint;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mHasLateConstraint;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mIntervalMillis;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mFlexMillis;</span><br><span class="line">        <span class="comment">// Back-off parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">long</span> mInitialBackoffMillis = DEFAULT_INITIAL_BACKOFF_MILLIS;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">int</span> mBackoffPolicy = DEFAULT_BACKOFF_POLICY;</span><br><span class="line">        <span class="comment">/** Easy way to track whether the client has tried to set a back-off policy. */</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">boolean</span> mBackoffPolicySet = <span class="keyword">false</span>;</span><br><span class="line"></span><br><span class="line">        ....</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="**参考文献 **"></a>**参考文献 **</h2><ul>
 <li>ASOP源代码路径： <a href="/android/frameworks/base/services/core/java/com/android/server/job/">/android/frameworks/base/services/core/java/com/android/server/job/ </a></li>
-<li><a href="https://developer.android.com/training/monitoring-device-state/doze-standby.html" target="_blank" rel="noopener">https://developer.android.com/training/monitoring-device-state/doze-standby.html</a> </li>
-<li>示例代码： <a href="https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler" target="_blank" rel="noopener">https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler</a> </li>
+<li><a target="_blank" rel="noopener" href="https://developer.android.com/training/monitoring-device-state/doze-standby.html">https://developer.android.com/training/monitoring-device-state/doze-standby.html</a> </li>
+<li>示例代码： <a target="_blank" rel="noopener" href="https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler">https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler</a> </li>
 </ul>
 <hr>
 
-      
     </div>
-    
-    
-    
 
     
-
     
-
     
 
     <footer class="post-footer">
-      
-        <div class="post-tags">
-          
-            <a href="/tags/JobScheduler/" rel="tag"># JobScheduler</a>
-          
-            <a href="/tags/AlarmManager/" rel="tag"># AlarmManager</a>
-          
-            <a href="/tags/定时任务/" rel="tag"># 定时任务</a>
-          
-        </div>
-      
-
-      
-      
-      
-
-      
-        <div class="post-nav">
-          <div class="post-nav-next post-nav-item">
-            
-              <a href="/2017/11/20/Circuit-Switching-Packet-Switching/" rel="next" title="Circuit Switching & Packet Switching">
-                <i class="fa fa-chevron-left"></i> Circuit Switching & Packet Switching
-              </a>
-            
+          <div class="post-tags">
+              <a href="/tags/JobScheduler/" rel="tag"># JobScheduler</a>
+              <a href="/tags/AlarmManager/" rel="tag"># AlarmManager</a>
+              <a href="/tags/%E5%AE%9A%E6%97%B6%E4%BB%BB%E5%8A%A1/" rel="tag"># 定时任务</a>
           </div>
 
-          <span class="post-nav-divider"></span>
+        
 
-          <div class="post-nav-prev post-nav-item">
-            
-              <a href="/2018/01/07/Java虚拟机入门/" rel="prev" title="Java虚拟机入门">
-                Java虚拟机入门 <i class="fa fa-chevron-right"></i>
-              </a>
-            
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2017/11/20/Circuit-Switching-Packet-Switching/" rel="prev" title="Circuit Switching & Packet Switching">
+                  <i class="fa fa-chevron-left"></i> Circuit Switching & Packet Switching
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/" rel="next" title="Java虚拟机入门">
+                  Java虚拟机入门 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
           </div>
-        </div>
-      
-
-      
-      
     </footer>
-  </div>
-  
-  
-  
   </article>
+</div>
 
 
 
-    <div class="post-spread">
-      
-    </div>
-  </div>
 
 
-          </div>
-          
+
+    <div class="comments" id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
 
 
-          
-  <div class="comments" id="comments">
-    
-      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
-    
-  </div>
-
-
-        </div>
-        
-          
-  
-  <div class="sidebar-toggle">
-    <div class="sidebar-toggle-line-wrap">
-      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
-    </div>
-  </div>
-
-  <aside id="sidebar" class="sidebar">
-    
-    <div class="sidebar-inner">
-
-      
-
-      
-        <ul class="sidebar-nav motion-element">
-          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
-            文章目录
-          </li>
-          <li class="sidebar-nav-overview" data-target="site-overview">
-            站点概览
-          </li>
-        </ul>
-      
-
-      <section class="site-overview sidebar-panel">
-        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
-          <p class="site-author-name" itemprop="name">Jason</p>
-           
-              <p class="site-description motion-element" itemprop="description"></p>
-           
-        </div>
-        <nav class="site-state motion-element">
-
-          
-            <div class="site-state-item site-state-posts">
-              <a href="/archives">
-                <span class="site-state-item-count">81</span>
-                <span class="site-state-item-name">日志</span>
-              </a>
-            </div>
-          
-
-          
-            
-            
-            <div class="site-state-item site-state-categories">
-              <a href="/categories/index.html">
-                <span class="site-state-item-count">26</span>
-                <span class="site-state-item-name">分类</span>
-              </a>
-            </div>
-          
-
-          
-            
-            
-            <div class="site-state-item site-state-tags">
-              <a href="/tags/index.html">
-                <span class="site-state-item-count">172</span>
-                <span class="site-state-item-name">标签</span>
-              </a>
-            </div>
-          
-
-        </nav>
-
-        
-          <div class="feed-link motion-element">
-            <a href="/atom.xml" rel="alternate">
-              <i class="fa fa-rss"></i>
-              RSS
-            </a>
-          </div>
-        
-
-        <div class="links-of-author motion-element">
-          
-            
-              <span class="links-of-author-item">
-                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
-                  
-                    <i class="fa fa-fw fa-github"></i>
-                  
-                    
-                      GitHub
-                    
-                </a>
-              </span>
-            
-              <span class="links-of-author-item">
-                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
-                  
-                    <i class="fa fa-fw fa-weibo"></i>
-                  
-                    
-                      微博
-                    
-                </a>
-              </span>
-            
-          
-        </div>
-
-        
-        
-
-        
-        
-          <div class="links-of-blogroll motion-element links-of-blogroll-block">
-            <div class="links-of-blogroll-title">
-              <i class="fa  fa-fw fa-globe"></i>
-              链接
-            </div>
-            <ul class="links-of-blogroll-list">
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
-                </li>
-              
-            </ul>
-          </div>
-        
-
-        
-
-
-      </section>
-
-      
-      <!--noindex-->
-        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
-          <div class="post-toc">
-
-            
-              
-            
-
-            
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#如何使用JobScheduler"><span class="nav-number">1.</span> <span class="nav-text">如何使用JobScheduler</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JobScheduler的原理"><span class="nav-number">2.</span> <span class="nav-text">JobScheduler的原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#JobSchedulerService初始化"><span class="nav-number">2.1.</span> <span class="nav-text">JobSchedulerService初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#工作调度"><span class="nav-number">2.2.</span> <span class="nav-text">工作调度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文献"><span class="nav-number">3.</span> <span class="nav-text">参考文献 </span></a></li></ol></div>
-            
-
-          </div>
-        </section>
-      <!--/noindex-->
-      
-
-      
-
-    </div>
-  </aside>
-
-
-        
-      </div>
-    </main>
-
-    <footer id="footer" class="footer">
-      <div class="footer-inner">
-        <div class="copyright">
-  
+<div class="copyright">
   &copy; 
   <span itemprop="copyrightYear">2021</span>
-  
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
   <span class="author" itemprop="copyrightHolder">Jason Wang</span>
 </div>
-
-
-<div class="powered-by">
-  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
-</div>
-
-<div class="theme-info">
-  主题 -
-  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
-    NexT.Pisces
-  </a>
-</div>
-
-
-<div class="hosted-pages">
-  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
-</div>
-
-        
-<div class="busuanzi-count">
-  <script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-
-  
-
-  
-    <span class="site-pv">
-      
-      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
-      
-    </span>
-  
-</div>
-
-
-        
-      </div>
-    </footer>
-
-    
-      <div class="back-to-top">
-        <i class="fa fa-arrow-up"></i>
-        
-          <span id="scrollpercent"><span>0</span>%</span>
-        
-      </div>
-    
-
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
-  
-
-<script type="text/javascript">
-  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
-    window.Promise = null;
-  }
-</script>
-
-
-
-
-
-
-
-
+    </div>
+  </footer>
 
   
-
-
-
-
-
-
-
-
-
-
-
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
 
   
-  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
-
-  
-  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
-
-  
-  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
-
-  
-  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-
-  
-  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-
-  
-  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
-
-  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
-
-
-
-  
-  
-
-
-  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
-
-  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
-
-
-
-  
-  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
-<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
-
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
-
-
-
-  
-
-
-  
-
-
-
-
-	
-
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.10.3/dist/algoliasearch-lite.umd.js" integrity="sha256-G3d8uGe8RUBl42fj30KOUgKMV2LpwsJUI3fzfEiuHsY=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.25.2/dist/instantsearch.production.min.js" integrity="sha256-h8iRwCCyeIDuVWtR9WwIJ+XJ8Z37SunCvilg+pnImD4=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
 
 
 
@@ -912,518 +416,11 @@
   
 
 
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz","app_key":"nj66qROg1RNBE9qxvn1yTFMg","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
 
 
-
-  
-    <script type="text/javascript">
-      (function(d, s) {
-        var j, e = d.getElementsByTagName(s)[0];
-        if (typeof LivereTower === 'function') { return; }
-        j = d.createElement(s);
-        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
-        j.async = true;
-        e.parentNode.insertBefore(j, e);
-      })(document, 'script');
-    </script>
-  
-
-
-
-
-
-
-  
-
-  <script type="text/javascript">
-    // Popup Window;
-    var isfetched = false;
-    var isXml = true;
-    // Search DB path;
-    var search_path = "search.xml";
-    if (search_path.length === 0) {
-      search_path = "search.xml";
-    } else if (/json$/i.test(search_path)) {
-      isXml = false;
-    }
-    var path = "/" + search_path;
-    // monitor main search box;
-
-    var onPopupClose = function (e) {
-      $('.popup').hide();
-      $('#local-search-input').val('');
-      $('.search-result-list').remove();
-      $('#no-result').remove();
-      $(".local-search-pop-overlay").remove();
-      $('body').css('overflow', '');
-    }
-
-    function proceedsearch() {
-      $("body")
-        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
-        .css('overflow', 'hidden');
-      $('.search-popup-overlay').click(onPopupClose);
-      $('.popup').toggle();
-      var $localSearchInput = $('#local-search-input');
-      $localSearchInput.attr("autocapitalize", "none");
-      $localSearchInput.attr("autocorrect", "off");
-      $localSearchInput.focus();
-    }
-
-    // search function;
-    var searchFunc = function(path, search_id, content_id) {
-      'use strict';
-
-      // start loading animation
-      $("body")
-        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
-          '<div id="search-loading-icon">' +
-          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
-          '</div>' +
-          '</div>')
-        .css('overflow', 'hidden');
-      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
-
-      $.ajax({
-        url: path,
-        dataType: isXml ? "xml" : "json",
-        async: true,
-        success: function(res) {
-          // get the contents from search data
-          isfetched = true;
-          $('.popup').detach().appendTo('.header-inner');
-          var datas = isXml ? $("entry", res).map(function() {
-            return {
-              title: $("title", this).text(),
-              content: $("content",this).text(),
-              url: $("url" , this).text()
-            };
-          }).get() : res;
-          var input = document.getElementById(search_id);
-          var resultContent = document.getElementById(content_id);
-          var inputEventFunction = function() {
-            var searchText = input.value.trim().toLowerCase();
-            var keywords = searchText.split(/[\s\-]+/);
-            if (keywords.length > 1) {
-              keywords.push(searchText);
-            }
-            var resultItems = [];
-            if (searchText.length > 0) {
-              // perform local searching
-              datas.forEach(function(data) {
-                var isMatch = false;
-                var hitCount = 0;
-                var searchTextCount = 0;
-                var title = data.title.trim();
-                var titleInLowerCase = title.toLowerCase();
-                var content = data.content.trim().replace(/<[^>]+>/g,"");
-                var contentInLowerCase = content.toLowerCase();
-                var articleUrl = decodeURIComponent(data.url);
-                var indexOfTitle = [];
-                var indexOfContent = [];
-                // only match articles with not empty titles
-                if(title != '') {
-                  keywords.forEach(function(keyword) {
-                    function getIndexByWord(word, text, caseSensitive) {
-                      var wordLen = word.length;
-                      if (wordLen === 0) {
-                        return [];
-                      }
-                      var startPosition = 0, position = [], index = [];
-                      if (!caseSensitive) {
-                        text = text.toLowerCase();
-                        word = word.toLowerCase();
-                      }
-                      while ((position = text.indexOf(word, startPosition)) > -1) {
-                        index.push({position: position, word: word});
-                        startPosition = position + wordLen;
-                      }
-                      return index;
-                    }
-
-                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
-                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
-                  });
-                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
-                    isMatch = true;
-                    hitCount = indexOfTitle.length + indexOfContent.length;
-                  }
-                }
-
-                // show search results
-
-                if (isMatch) {
-                  // sort index by position of keyword
-
-                  [indexOfTitle, indexOfContent].forEach(function (index) {
-                    index.sort(function (itemLeft, itemRight) {
-                      if (itemRight.position !== itemLeft.position) {
-                        return itemRight.position - itemLeft.position;
-                      } else {
-                        return itemLeft.word.length - itemRight.word.length;
-                      }
-                    });
-                  });
-
-                  // merge hits into slices
-
-                  function mergeIntoSlice(text, start, end, index) {
-                    var item = index[index.length - 1];
-                    var position = item.position;
-                    var word = item.word;
-                    var hits = [];
-                    var searchTextCountInSlice = 0;
-                    while (position + word.length <= end && index.length != 0) {
-                      if (word === searchText) {
-                        searchTextCountInSlice++;
-                      }
-                      hits.push({position: position, length: word.length});
-                      var wordEnd = position + word.length;
-
-                      // move to next position of hit
-
-                      index.pop();
-                      while (index.length != 0) {
-                        item = index[index.length - 1];
-                        position = item.position;
-                        word = item.word;
-                        if (wordEnd > position) {
-                          index.pop();
-                        } else {
-                          break;
-                        }
-                      }
-                    }
-                    searchTextCount += searchTextCountInSlice;
-                    return {
-                      hits: hits,
-                      start: start,
-                      end: end,
-                      searchTextCount: searchTextCountInSlice
-                    };
-                  }
-
-                  var slicesOfTitle = [];
-                  if (indexOfTitle.length != 0) {
-                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
-                  }
-
-                  var slicesOfContent = [];
-                  while (indexOfContent.length != 0) {
-                    var item = indexOfContent[indexOfContent.length - 1];
-                    var position = item.position;
-                    var word = item.word;
-                    // cut out 100 characters
-                    var start = position - 20;
-                    var end = position + 80;
-                    if(start < 0){
-                      start = 0;
-                    }
-                    if (end < position + word.length) {
-                      end = position + word.length;
-                    }
-                    if(end > content.length){
-                      end = content.length;
-                    }
-                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
-                  }
-
-                  // sort slices in content by search text's count and hits' count
-
-                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
-                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
-                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
-                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
-                      return sliceRight.hits.length - sliceLeft.hits.length;
-                    } else {
-                      return sliceLeft.start - sliceRight.start;
-                    }
-                  });
-
-                  // select top N slices in content
-
-                  var upperBound = parseInt('1');
-                  if (upperBound >= 0) {
-                    slicesOfContent = slicesOfContent.slice(0, upperBound);
-                  }
-
-                  // highlight title and content
-
-                  function highlightKeyword(text, slice) {
-                    var result = '';
-                    var prevEnd = slice.start;
-                    slice.hits.forEach(function (hit) {
-                      result += text.substring(prevEnd, hit.position);
-                      var end = hit.position + hit.length;
-                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
-                      prevEnd = end;
-                    });
-                    result += text.substring(prevEnd, slice.end);
-                    return result;
-                  }
-
-                  var resultItem = '';
-
-                  if (slicesOfTitle.length != 0) {
-                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
-                  } else {
-                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
-                  }
-
-                  slicesOfContent.forEach(function (slice) {
-                    resultItem += "<a href='" + articleUrl + "'>" +
-                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
-                      "...</p>" + "</a>";
-                  });
-
-                  resultItem += "</li>";
-                  resultItems.push({
-                    item: resultItem,
-                    searchTextCount: searchTextCount,
-                    hitCount: hitCount,
-                    id: resultItems.length
-                  });
-                }
-              })
-            };
-            if (keywords.length === 1 && keywords[0] === "") {
-              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
-            } else if (resultItems.length === 0) {
-              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
-            } else {
-              resultItems.sort(function (resultLeft, resultRight) {
-                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
-                  return resultRight.searchTextCount - resultLeft.searchTextCount;
-                } else if (resultLeft.hitCount !== resultRight.hitCount) {
-                  return resultRight.hitCount - resultLeft.hitCount;
-                } else {
-                  return resultRight.id - resultLeft.id;
-                }
-              });
-              var searchResultList = '<ul class=\"search-result-list\">';
-              resultItems.forEach(function (result) {
-                searchResultList += result.item;
-              })
-              searchResultList += "</ul>";
-              resultContent.innerHTML = searchResultList;
-            }
-          }
-
-          if ('auto' === 'auto') {
-            input.addEventListener('input', inputEventFunction);
-          } else {
-            $('.search-icon').click(inputEventFunction);
-            input.addEventListener('keypress', function (event) {
-              if (event.keyCode === 13) {
-                inputEventFunction();
-              }
-            });
-          }
-
-          // remove loading animation
-          $(".local-search-pop-overlay").remove();
-          $('body').css('overflow', '');
-
-          proceedsearch();
-        }
-      });
-    }
-
-    // handle and trigger popup window;
-    $('.popup-trigger').click(function(e) {
-      e.stopPropagation();
-      if (isfetched === false) {
-        searchFunc(path, 'local-search-input', 'local-search-result');
-      } else {
-        proceedsearch();
-      };
-    });
-
-    $('.popup-btn-close').click(onPopupClose);
-    $('.popup').click(function(e){
-      e.stopPropagation();
-    });
-    $(document).on('keyup', function (event) {
-      var shouldDismissSearchPopup = event.which === 27 &&
-        $('.search-popup').is(':visible');
-      if (shouldDismissSearchPopup) {
-        onPopupClose();
-      }
-    });
-  </script>
-
-
-
-
-  
-  
-  
-  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
-
-  
-  
-  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
-  
-
-  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
-
-
-
-  
-
-  
-  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
-  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
-  <script>
-    function showTime(Counter) {
-      var query = new AV.Query(Counter);
-      var entries = [];
-      var $visitors = $(".leancloud_visitors");
-
-      $visitors.each(function () {
-        entries.push( $(this).attr("id").trim() );
-      });
-
-      query.containedIn('url', entries);
-      query.find()
-        .done(function (results) {
-          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
-
-          if (results.length === 0) {
-            $visitors.find(COUNT_CONTAINER_REF).text(0);
-            return;
-          }
-
-          for (var i = 0; i < results.length; i++) {
-            var item = results[i];
-            var url = item.get('url');
-            var time = item.get('time');
-            var element = document.getElementById(url);
-
-            $(element).find(COUNT_CONTAINER_REF).text(time);
-          }
-          for(var i = 0; i < entries.length; i++) {
-            var url = entries[i];
-            var element = document.getElementById(url);
-            var countSpan = $(element).find(COUNT_CONTAINER_REF);
-            if( countSpan.text() == '') {
-              countSpan.text(0);
-            }
-          }
-        })
-        .fail(function (object, error) {
-          console.log("Error: " + error.code + " " + error.message);
-        });
-    }
-
-    function addCount(Counter) {
-      var $visitors = $(".leancloud_visitors");
-      var url = $visitors.attr('id').trim();
-      var title = $visitors.attr('data-flag-title').trim();
-      var query = new AV.Query(Counter);
-
-      query.equalTo("url", url);
-      query.find({
-        success: function(results) {
-          if (results.length > 0) {
-            var counter = results[0];
-            counter.fetchWhenSave(true);
-            counter.increment("time");
-            counter.save(null, {
-              success: function(counter) {
-                var $element = $(document.getElementById(url));
-                $element.find('.leancloud-visitors-count').text(counter.get('time'));
-              },
-              error: function(counter, error) {
-                console.log('Failed to save Visitor num, with error message: ' + error.message);
-              }
-            });
-          } else {
-            var newcounter = new Counter();
-            /* Set ACL */
-            var acl = new AV.ACL();
-            acl.setPublicReadAccess(true);
-            acl.setPublicWriteAccess(true);
-            newcounter.setACL(acl);
-            /* End Set ACL */
-            newcounter.set("title", title);
-            newcounter.set("url", url);
-            newcounter.set("time", 1);
-            newcounter.save(null, {
-              success: function(newcounter) {
-                var $element = $(document.getElementById(url));
-                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
-              },
-              error: function(newcounter, error) {
-                console.log('Failed to create');
-              }
-            });
-          }
-        },
-        error: function(error) {
-          console.log('Error:' + error.code + " " + error.message);
-        }
-      });
-    }
-
-    $(function() {
-      var Counter = AV.Object.extend("Counter");
-      if ($('.leancloud_visitors').length == 1) {
-        addCount(Counter);
-      } else if ($('.post-title-link').length > 1) {
-        showTime(Counter);
-      }
-    });
-  </script>
-
-
-
-  
-<script>
-(function(){
-    var bp = document.createElement('script');
-    var curProtocol = window.location.protocol.split(':')[0];
-    if (curProtocol === 'https') {
-        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
-    }
-    else {
-        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-    }
-    var s = document.getElementsByTagName("script")[0];
-    s.parentNode.insertBefore(bp, s);
-})();
-</script>
-
-
-  
-
-  
-  
-    <script type="text/x-mathjax-config">
-      MathJax.Hub.Config({
-        tex2jax: {
-          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
-          processEscapes: true,
-          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
-        }
-      });
-    </script>
-
-    <script type="text/x-mathjax-config">
-      MathJax.Hub.Queue(function() {
-        var all = MathJax.Hub.getAllJax(), i;
-        for (i=0; i < all.length; i += 1) {
-          all[i].SourceElement().parentNode.className += ' has-jax';
-        }
-      });
-    </script>
-    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-  
-
-
-  
-
-  
+<script src="/js/third-party/comments/livere.js"></script>
 
 </body>
 </html>

@@ -1,444 +1,291 @@
 <!DOCTYPE html>
-
-
-
-  
-
-
-<html class="theme-next pisces use-motion" lang="zh-Hans">
-<head><meta name="generator" content="Hexo 3.8.0">
+<html lang="zh-CN">
+<head>
   <meta charset="UTF-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width">
 <meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
 
 
 
-  
-  
-    
-    
-  <script src="/lib/pace/pace.min.js?v=1.0.2"></script>
-  <link href="/lib/pace/pace-theme-minimal.min.css?v=1.0.2" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.3/css/all.min.css" integrity="sha256-2H3fkXt6FEmrReK448mDVGKb3WW2ZZw35gI7vqHOE4Y=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
 
-
-
-
-
-
-
-<meta http-equiv="Cache-Control" content="no-transform">
-<meta http-equiv="Cache-Control" content="no-siteapp">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
-
-
-
-
-  
-  
-  
-  
-
-  
-    
-    
-  
-
-  
-    
-      
-    
-
-    
-  
-
-  
-
-  
-
-  
-
-  
-    
-    
-    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic|Georgia, " times new roman", "microsoft yahei", "微软雅黑", stxihei, "华文细黑", serif:300,300italic,400,400italic,700,700italic&subset="latin,latin-ext"" rel="stylesheet" type="text/css">
-  
-
-
-
-
-
-
-<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
-
-<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css">
-
-
-  <meta name="keywords" content="网络管理,流量统计,">
-
-
-
-
-
-  <link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
-
-
-
-
-  <link rel="shortcut icon" type="image/x-icon" href="/images/sniffer.png?v=5.1.1">
-
-
-
-
-
-
-<meta name="description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计:  统计每个网口当前发送/接收的流量">
-<meta name="keywords" content="网络管理,流量统计">
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+<meta name="description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计:  统计每个网口当前发送&#x2F;接收的流量">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Android是如何实现流量统计的?">
-<meta property="og:url" content="http://sniffer.site/2020/04/01/说说Android中的流量统计/index.html">
+<meta property="og:url" content="http://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计:  统计每个网口当前发送/接收的流量">
-<meta property="og:locale" content="zh-Hans">
+<meta property="og:description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计:  统计每个网口当前发送&#x2F;接收的流量">
+<meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%8E%9F%E7%90%86%E5%9B%BE.png">
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/%E6%B5%81%E9%87%8F%E6%95%B0%E6%8D%AE%E7%9A%84%E8%AF%BB%E5%86%99.png">
-<meta property="og:updated_time" content="2020-06-15T08:17:32.258Z">
+<meta property="article:published_time" content="2020-04-01T07:56:35.000Z">
+<meta property="article:modified_time" content="2021-08-11T06:56:56.047Z">
+<meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="网络管理">
+<meta property="article:tag" content="流量统计">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Android是如何实现流量统计的?">
-<meta name="twitter:description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计:  统计每个网口当前发送/接收的流量">
 <meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%8E%9F%E7%90%86%E5%9B%BE.png">
 
 
-
-<script type="text/javascript" id="hexo.configurations">
-  var NexT = window.NexT || {};
-  var CONFIG = {
-    root: '/',
-    scheme: 'Pisces',
-    sidebar: {"position":"right","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":true,"onmobile":false},
-    fancybox: true,
-    tabs: true,
-    motion: true,
-    duoshuo: {
-      userId: '0',
-      author: '博主'
-    },
-    algolia: {
-      applicationID: '1POSCBVZ02',
-      apiKey: 'bf09f0197d475fa69488099407011316',
-      indexName: 'getstarted_actors',
-      hits: {"per_page":10},
-      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
-    }
-  };
-</script>
+<link rel="canonical" href="http://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">
 
 
 
-  <link rel="canonical" href="http://sniffer.site/2020/04/01/说说Android中的流量统计/">
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"http://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/","path":"2020/04/01/说说Android中的流量统计/","title":"Android是如何实现流量统计的?"}</script>
 
-
-
-
-
-  <title>Android是如何实现流量统计的? | JasonWang's Blog</title>
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>Android是如何实现流量统计的? | JasonWang's Blog</title>
   
 
 
 
 
-
-
-
-
-
-
-
-
-
-
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
 </head>
 
-<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
 
-  
-  
-    
-  
-
-  <div class="container sidebar-position-right page-post-detail ">
-    <div class="headband"></div>
-
-    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-wrapper">
-  <div class="site-meta ">
-    
-
-    <div class="custom-logo-site-title">
-      <a href="/" class="brand" rel="start">
-        <span class="logo-line-before"><i></i></span>
-        <span class="site-title">JasonWang's Blog</span>
-        <span class="logo-line-after"><i></i></span>
-      </a>
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
     </div>
-      
-        <h1 class="site-subtitle" itemprop="description">本色做人，角色做事</h1>
-      
   </div>
 
-  <div class="site-nav-toggle">
-    <button>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-    </button>
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">JasonWang's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
   </div>
 </div>
 
+
+
 <nav class="site-nav">
-  
-
-  
-    <ul id="menu" class="menu">
-      
-        
-        <li class="menu-item menu-item-home">
-          <a href="/" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-home"></i> <br>
-            
-            首页
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-archives">
-          <a href="/archives" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br>
-            
-            归档
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-tags">
-          <a href="/tags" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br>
-            
-            标签
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-categories">
-          <a href="/categories" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-th"></i> <br>
-            
-            分类
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-about">
-          <a href="/about" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-user"></i> <br>
-            
-            关于
-          </a>
-        </li>
-      
-
-      
-        <li class="menu-item menu-item-search">
-          
-            <a href="javascript:;" class="popup-trigger">
-          
-            
-              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>
-            
-            搜索
-          </a>
-        </li>
-      
-    </ul>
-  
-
-  
-    <div class="site-search">
-      
-  
-  <div class="algolia-popup popup search-popup">
-    <div class="algolia-search">
-      <div class="algolia-search-input-icon">
-        <i class="fa fa-search"></i>
-      </div>
-      <div class="algolia-search-input" id="algolia-search-input"></div>
-    </div>
-
-    <div class="algolia-results">
-      <div id="algolia-stats"></div>
-      <div id="algolia-hits"></div>
-      <div id="algolia-pagination" class="algolia-pagination"></div>
-    </div>
-
-    <span class="popup-btn-close">
-      <i class="fa fa-times-circle"></i>
-    </span>
-  </div>
-
-
-
-
-    </div>
-  
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-tags"><a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a></li>
+        <li class="menu-item menu-item-categories"><a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
 </nav>
 
 
 
- </div>
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container"></div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container">
+  <div class="algolia-stats"><hr></div>
+  <div class="algolia-hits"></div>
+  <div class="algolia-pagination"></div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%AE%9E%E7%8E%B0"><span class="nav-number">1.</span> <span class="nav-text">Android流量统计实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%A9%E7%94%A8%E6%A0%87%E7%AD%BE%E6%9D%A5%E7%BB%9F%E8%AE%A1%E7%89%B9%E5%AE%9ASocket%E6%B5%81%E9%87%8F"><span class="nav-number">2.</span> <span class="nav-text">利用标签来统计特定Socket流量</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-overview">
+            <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Jason Wang"
+      src="/images/gallaxy.jpg">
+  <p class="site-author-name" itemprop="name">Jason Wang</p>
+  <div class="site-description" itemprop="description">关于编程,生活,工作</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">81</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">172</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/runningforlife" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;runningforlife" rel="noopener" target="_blank">GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="http://weibo.com/u/2573460570" title="微博 → http:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;2573460570" rel="noopener" target="_blank">微博</a>
+      </span>
+  </div>
+
+
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
     </header>
 
-    <main id="main" class="main">
-      <div class="main-inner">
-        <div class="content-wrap">
-          <div id="content" class="content">
-            
-
-  <div id="posts" class="posts-expand">
     
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/runningforlife" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
 
   
 
-  
+
+<div class="post-block">
   
   
 
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2020/04/01/说说Android中的流量统计/">
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Jason">
-      <meta itemprop="description" content>
       <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+      <meta itemprop="description" content="关于编程,生活,工作">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="JasonWang's Blog">
     </span>
-
-    
       <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Android是如何实现流量统计的?
+        </h1>
 
-        
-        
-          <h2 class="post-title" itemprop="name headline">Android是如何实现流量统计的?</h2>
-        
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
 
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-04-01T15:56:35+08:00">
-                2020-04-01
-              </time>
-            
+      <time title="创建时间：2020-04-01 15:56:35" itemprop="dateCreated datePublished" datetime="2020-04-01T15:56:35+08:00">2020-04-01</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2021-08-11 14:56:56" itemprop="dateModified" datetime="2021-08-11T14:56:56+08:00">2021-08-11</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Android/" itemprop="url" rel="index"><span itemprop="name">Android</span></a>
+        </span>
+    </span>
 
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Android/" itemprop="url" rel="index">
-                    <span itemprop="name">Android</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-             <span id="/2020/04/01/说说Android中的流量统计/" class="leancloud_visitors" data-flag-title="Android是如何实现流量统计的?">
-               <span class="post-meta-divider">|</span>
-               <span class="post-meta-item-icon">
-                 <i class="fa fa-eye"></i>
-               </span>
-               
-                 <span class="post-meta-item-text">阅读次数 </span>
-               
-                 <span class="leancloud-visitors-count"></span>
-             </span>
-          
-
-          
-
-          
-
-          
+  
+    <span id="/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/" class="post-meta-item leancloud_visitors" data-flag-title="Android是如何实现流量统计的?" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
 
         </div>
       </header>
-    
 
     
     
     
     <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
         <p>使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理.</p>
 <p>大致说来, Android从如何几个方面进行流量统计:</p>
 <ul>
@@ -447,26 +294,32 @@
 <li>支持对总的流量配额进行限制, 如达到一定的流量阈值后, 会对网络进行限制</li>
 </ul>
 <p>而具体到每个应用(比如system应用, UID=1000), Android还支持对应用内的每个socket进行标记(tag), 用于区分每个应用(UID)内部具体使用了那些流量.后面, 我们会讲到如何通过标签来区分UID内部的流量.</p>
+<span id="more"></span>
+
 <p>下图是Android流量统计的原理框图: 为了实现流量统计, Android在Linux内核增加了一个netfilter模块: <code>xt_qtaguid</code>(源码可以在<code>kernel/net/netfilter</code>中找到), 用于统计当前系统所有流量, 该模块初始化时, 会初始化一个<code>/proc/net/xt_qtaguid</code>目录供用户空间的进程使用;<code>NetworkStatsService</code>系统服务就是周期性的读取该目录的数据来获取当前系统消耗的实时流量的;而如果要对某个特定的<code>socket</code>打上标签, 则需要通过JNI接口调用,然后发请求给<code>netd</code>将该<code>socket</code>标签信息通过接口<code>/proc/net/xt_qtaguid/ctrl</code>写入内核.</p>
 <p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%8E%9F%E7%90%86%E5%9B%BE.png" alt="Android流量统计原理图"></p>
 <p>接下来就一起看下Android具体是如何进行流量统计的.</p>
 <h2 id="Android流量统计实现"><a href="#Android流量统计实现" class="headerlink" title="Android流量统计实现"></a><strong>Android流量统计实现</strong></h2><p>Android有一个系统服务<code>NetworkStatsService</code>来负责流量统计管理. 在系统启动的时候会创建该服务, 对其进行初始化: 创建一个<code>NetworkStatsService</code>, 并返回给<code>SystemServer</code>, 服务内有一个线程用于数据统计业务的处理.</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> NetworkStatsService <span class="title">create</span><span class="params">(Context context,</span></span></span><br><span class="line"><span class="function"><span class="params">            INetworkManagementService networkManager)</span> </span>&#123;</span><br><span class="line">    AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);</span><br><span class="line">    PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);</span><br><span class="line">    PowerManager.WakeLock wakeLock =</span><br><span class="line">            powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);</span><br><span class="line"></span><br><span class="line">    NetworkStatsService service = <span class="keyword">new</span> NetworkStatsService(context, networkManager, alarmManager,</span><br><span class="line">            wakeLock, getDefaultClock(), TelephonyManager.getDefault(),</span><br><span class="line">            <span class="keyword">new</span> DefaultNetworkStatsSettings(context), <span class="keyword">new</span> NetworkStatsObservers(),</span><br><span class="line">            getDefaultSystemDir(), getDefaultBaseDir());</span><br><span class="line"></span><br><span class="line">    HandlerThread handlerThread = <span class="keyword">new</span> HandlerThread(TAG);</span><br><span class="line">    Handler.Callback callback = <span class="keyword">new</span> HandlerCallback(service);</span><br><span class="line">    handlerThread.start();</span><br><span class="line">    Handler handler = <span class="keyword">new</span> Handler(handlerThread.getLooper(), callback);</span><br><span class="line">    service.setHandler(handler, callback);</span><br><span class="line">    <span class="keyword">return</span> service;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> NetworkStatsService <span class="title">create</span><span class="params">(Context context,</span></span></span><br><span class="line"><span class="params"><span class="function">            INetworkManagementService networkManager)</span> </span>&#123;</span><br><span class="line">    AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);</span><br><span class="line">    PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);</span><br><span class="line">    PowerManager.WakeLock wakeLock =</span><br><span class="line">            powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);</span><br><span class="line"></span><br><span class="line">    NetworkStatsService service = <span class="keyword">new</span> NetworkStatsService(context, networkManager, alarmManager,</span><br><span class="line">            wakeLock, getDefaultClock(), TelephonyManager.getDefault(),</span><br><span class="line">            <span class="keyword">new</span> DefaultNetworkStatsSettings(context), <span class="keyword">new</span> NetworkStatsObservers(),</span><br><span class="line">            getDefaultSystemDir(), getDefaultBaseDir());</span><br><span class="line"></span><br><span class="line">    HandlerThread handlerThread = <span class="keyword">new</span> HandlerThread(TAG);</span><br><span class="line">    Handler.Callback callback = <span class="keyword">new</span> HandlerCallback(service);</span><br><span class="line">    handlerThread.start();</span><br><span class="line">    Handler handler = <span class="keyword">new</span> Handler(handlerThread.getLooper(), callback);</span><br><span class="line">    service.setHandler(handler, callback);</span><br><span class="line">    <span class="keyword">return</span> service;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>等到<code>SystemServer</code>完成对系统服务的初始化后, 会调用<code>NetworkStatsService.systemReady()</code>, 告诉服务可以正常启动了, 启动时<code>NetworkStatsService</code>需要做如下几件事情:</p>
 <ul>
 <li>创建四个流量统计的类型, 实际对应放在<code>/data/system/netstats</code>目录的四个类型的文件而已, 分别用于统计每个网口的消耗的流量(<code>PREFIX_DEV</code>), 视频通话以及热点分享所消耗的流量(<code>PREFIX_XT</code>), 每个用户所消耗的流量(<code>PREFXI_UID</code>)以及每个用户对应的每个标签所消耗的流量(<code>PREFIX_UID_TAG</code>)</li>
 <li>更新每个流量统计数据写入的阈值: 即流量消耗达到某个阈值后, 需要将当前统计数据写入磁盘, 目前默认统一使用的是<code>2MB</code>；接着还要看下是否需要从早前版本中把老的流量统计数据迁移过来</li>
 <li>注册并监听系统广播, 比如定时从系统拉取流量统计数据(<code>ACTION_NETWORK_STATS_POLL</code>), Android默认30分钟拉取一次; 系统用户增加与删除的广播;关机的广播等</li>
 </ul>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">systemReady</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    mSystemReady = <span class="keyword">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">synchronized</span> (mStatsLock) &#123;</span><br><span class="line">        <span class="comment">// create data recorders along with historical rotators</span></span><br><span class="line">        mDevRecorder = buildRecorder(PREFIX_DEV, mSettings.getDevConfig(), <span class="keyword">false</span>);</span><br><span class="line">        mXtRecorder = buildRecorder(PREFIX_XT, mSettings.getXtConfig(), <span class="keyword">false</span>);</span><br><span class="line">        mUidRecorder = buildRecorder(PREFIX_UID, mSettings.getUidConfig(), <span class="keyword">false</span>);</span><br><span class="line">        mUidTagRecorder = buildRecorder(PREFIX_UID_TAG, mSettings.getUidTagConfig(), <span class="keyword">true</span>);</span><br><span class="line"></span><br><span class="line">        updatePersistThresholdsLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// upgrade any legacy stats, migrating them to rotated files</span></span><br><span class="line">        maybeUpgradeLegacyStatsLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// read historical network stats from disk, since policy service</span></span><br><span class="line">        <span class="comment">// might need them right away.</span></span><br><span class="line">        mXtStatsCached = mXtRecorder.getOrLoadCompleteLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// bootstrap initial stats to prevent double-counting later</span></span><br><span class="line">        bootstrapStatsLocked();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// watch for tethering changes</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter tetherFilter = <span class="keyword">new</span> IntentFilter(ACTION_TETHER_STATE_CHANGED);</span><br><span class="line">    mContext.registerReceiver(mTetherReceiver, tetherFilter, <span class="keyword">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for periodic polling events</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter pollFilter = <span class="keyword">new</span> IntentFilter(ACTION_NETWORK_STATS_POLL);</span><br><span class="line">    mContext.registerReceiver(mPollReceiver, pollFilter, READ_NETWORK_USAGE_HISTORY, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for uid removal to clean stats</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter removedFilter = <span class="keyword">new</span> IntentFilter(ACTION_UID_REMOVED);</span><br><span class="line">    mContext.registerReceiver(mRemovedReceiver, removedFilter, <span class="keyword">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for user changes to clean stats</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter userFilter = <span class="keyword">new</span> IntentFilter(ACTION_USER_REMOVED);</span><br><span class="line">    mContext.registerReceiver(mUserReceiver, userFilter, <span class="keyword">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// persist stats during clean shutdown</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter shutdownFilter = <span class="keyword">new</span> IntentFilter(ACTION_SHUTDOWN);</span><br><span class="line">    mContext.registerReceiver(mShutdownReceiver, shutdownFilter);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        mNetworkManager.registerObserver(mAlertObserver);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">        <span class="comment">// ignored; service lives in system_server</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    registerPollAlarmLocked();</span><br><span class="line">    registerGlobalAlert();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">systemReady</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    mSystemReady = <span class="keyword">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">synchronized</span> (mStatsLock) &#123;</span><br><span class="line">        <span class="comment">// create data recorders along with historical rotators</span></span><br><span class="line">        mDevRecorder = buildRecorder(PREFIX_DEV, mSettings.getDevConfig(), <span class="keyword">false</span>);</span><br><span class="line">        mXtRecorder = buildRecorder(PREFIX_XT, mSettings.getXtConfig(), <span class="keyword">false</span>);</span><br><span class="line">        mUidRecorder = buildRecorder(PREFIX_UID, mSettings.getUidConfig(), <span class="keyword">false</span>);</span><br><span class="line">        mUidTagRecorder = buildRecorder(PREFIX_UID_TAG, mSettings.getUidTagConfig(), <span class="keyword">true</span>);</span><br><span class="line"></span><br><span class="line">        updatePersistThresholdsLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// upgrade any legacy stats, migrating them to rotated files</span></span><br><span class="line">        maybeUpgradeLegacyStatsLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// read historical network stats from disk, since policy service</span></span><br><span class="line">        <span class="comment">// might need them right away.</span></span><br><span class="line">        mXtStatsCached = mXtRecorder.getOrLoadCompleteLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// bootstrap initial stats to prevent double-counting later</span></span><br><span class="line">        bootstrapStatsLocked();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// watch for tethering changes</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter tetherFilter = <span class="keyword">new</span> IntentFilter(ACTION_TETHER_STATE_CHANGED);</span><br><span class="line">    mContext.registerReceiver(mTetherReceiver, tetherFilter, <span class="keyword">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for periodic polling events</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter pollFilter = <span class="keyword">new</span> IntentFilter(ACTION_NETWORK_STATS_POLL);</span><br><span class="line">    mContext.registerReceiver(mPollReceiver, pollFilter, READ_NETWORK_USAGE_HISTORY, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for uid removal to clean stats</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter removedFilter = <span class="keyword">new</span> IntentFilter(ACTION_UID_REMOVED);</span><br><span class="line">    mContext.registerReceiver(mRemovedReceiver, removedFilter, <span class="keyword">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for user changes to clean stats</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter userFilter = <span class="keyword">new</span> IntentFilter(ACTION_USER_REMOVED);</span><br><span class="line">    mContext.registerReceiver(mUserReceiver, userFilter, <span class="keyword">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// persist stats during clean shutdown</span></span><br><span class="line">    <span class="keyword">final</span> IntentFilter shutdownFilter = <span class="keyword">new</span> IntentFilter(ACTION_SHUTDOWN);</span><br><span class="line">    mContext.registerReceiver(mShutdownReceiver, shutdownFilter);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        mNetworkManager.registerObserver(mAlertObserver);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">        <span class="comment">// ignored; service lives in system_server</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    registerPollAlarmLocked();</span><br><span class="line">    registerGlobalAlert();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p><code>NetworkStatsService</code>启动后, 注册了一个定时广播<code>com.android.server.action.NETWORK_STATS_POLL</code>, 每隔一段时间就会定时拉取当前系统消耗的流量统计数据, 收到该广播后, 系统会尝试将统计数据写入到磁盘永久保存下来:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> BroadcastReceiver mPollReceiver = <span class="keyword">new</span> BroadcastReceiver() &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onReceive</span><span class="params">(Context context, Intent intent)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// on background handler thread, and verified UPDATE_DEVICE_STATS</span></span><br><span class="line">        <span class="comment">// permission above.</span></span><br><span class="line">        performPoll(FLAG_PERSIST_ALL);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// verify that we're watching global alert</span></span><br><span class="line">        registerGlobalAlert();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 拉取当前流量数据</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">performPoll</span><span class="params">(<span class="keyword">int</span> flags)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">synchronized</span> (mStatsLock) &#123;</span><br><span class="line">        mWakeLock.acquire();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            performPollLocked(flags);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            mWakeLock.release();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> BroadcastReceiver mPollReceiver = <span class="keyword">new</span> BroadcastReceiver() &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onReceive</span><span class="params">(Context context, Intent intent)</span> </span>&#123;</span><br><span class="line">        <span class="comment">// on background handler thread, and verified UPDATE_DEVICE_STATS</span></span><br><span class="line">        <span class="comment">// permission above.</span></span><br><span class="line">        performPoll(FLAG_PERSIST_ALL);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// verify that we&#x27;re watching global alert</span></span><br><span class="line">        registerGlobalAlert();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 拉取当前流量数据</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">performPoll</span><span class="params">(<span class="keyword">int</span> flags)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">synchronized</span> (mStatsLock) &#123;</span><br><span class="line">        mWakeLock.acquire();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            performPollLocked(flags);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            mWakeLock.release();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>方法<code>performPollLocked</code>首先会获取当前的统计数据快照, 然后将其自动写入到磁盘<code>/data/system/netstats</code>目录:</p>
 <ul>
 <li><code>recordSnapShotLocked()</code>实际通过<code>NetworkManagementService</code>提供的接口从<code>/proc/net/xt_qtaguid</code>这个目录读取当前的历史统计数据并将其保存到<code>mDevRecorder</code>/<code>mXtRecorder</code>/<code>mUidRecorder</code>中</li>
 <li>根据传入的标志位, 来确定各个<code>NetworkStatsRecorder</code>是否将数据写入磁盘: 可以强制写入(<code>forcePersistLocked</code>), 也可以等到消耗流量达到阈值(就是之前说的<code>2MB</code>)之后再写入(<code>maybePersistLocked</code>)</li>
 </ul>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">performPollLocked</span><span class="params">(<span class="keyword">int</span> flags)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!mSystemReady) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">boolean</span> persistNetwork = (flags &amp; FLAG_PERSIST_NETWORK) != <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">boolean</span> persistUid = (flags &amp; FLAG_PERSIST_UID) != <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">boolean</span> persistForce = (flags &amp; FLAG_PERSIST_FORCE) != <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// <span class="doctag">TODO:</span> consider marking "untrusted" times in historical stats</span></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> currentTime = mClock.millis();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        recordSnapshotLocked(currentTime);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IllegalStateException e) &#123;</span><br><span class="line">        Log.wtf(TAG, <span class="string">"problem reading network stats"</span>, e);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">        <span class="comment">// ignored; service lives in system_server</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// persist any pending data depending on requested flags</span></span><br><span class="line">    <span class="keyword">if</span> (persistForce) &#123;</span><br><span class="line">        mDevRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mXtRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mUidRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mUidTagRecorder.forcePersistLocked(currentTime);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (persistNetwork) &#123;</span><br><span class="line">            mDevRecorder.maybePersistLocked(currentTime);</span><br><span class="line">            mXtRecorder.maybePersistLocked(currentTime);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (persistUid) &#123;</span><br><span class="line">            mUidRecorder.maybePersistLocked(currentTime);</span><br><span class="line">            mUidTagRecorder.maybePersistLocked(currentTime);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">performPollLocked</span><span class="params">(<span class="keyword">int</span> flags)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!mSystemReady) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">boolean</span> persistNetwork = (flags &amp; FLAG_PERSIST_NETWORK) != <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">boolean</span> persistUid = (flags &amp; FLAG_PERSIST_UID) != <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">boolean</span> persistForce = (flags &amp; FLAG_PERSIST_FORCE) != <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// <span class="doctag">TODO:</span> consider marking &quot;untrusted&quot; times in historical stats</span></span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">long</span> currentTime = mClock.millis();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        recordSnapshotLocked(currentTime);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IllegalStateException e) &#123;</span><br><span class="line">        Log.wtf(TAG, <span class="string">&quot;problem reading network stats&quot;</span>, e);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">        <span class="comment">// ignored; service lives in system_server</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// persist any pending data depending on requested flags</span></span><br><span class="line">    <span class="keyword">if</span> (persistForce) &#123;</span><br><span class="line">        mDevRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mXtRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mUidRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mUidTagRecorder.forcePersistLocked(currentTime);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (persistNetwork) &#123;</span><br><span class="line">            mDevRecorder.maybePersistLocked(currentTime);</span><br><span class="line">            mXtRecorder.maybePersistLocked(currentTime);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (persistUid) &#123;</span><br><span class="line">            mUidRecorder.maybePersistLocked(currentTime);</span><br><span class="line">            mUidTagRecorder.maybePersistLocked(currentTime);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>最后, 我们来看看流量统计的数据是如何写入磁盘, 又如何从磁盘读取的. Android将系统消耗的流量按照时间切割成一段段固定时间长度的统计值(<code>NetworkStatsHistory</code>), 并将其与<code>NetworkIdentitySet</code>(表示一个网口集合)组成一个统计的哈希列表(<code>NetworkStatsCollection</code>), 然后每次更新当前消耗的流量时, <code>NetworkStatsRecorder</code>都会不断的将数据写入到磁盘:</p>
 <ul>
 <li><code>NetworkStatsRecorder</code>中包含了两个流量统计数据: 当前未写入磁盘的数据(<code>pending</code>)以及开机以来的统计数据(<code>mSinceBoot</code>)</li>
@@ -474,429 +327,80 @@
 </ul>
 <p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/%E6%B5%81%E9%87%8F%E6%95%B0%E6%8D%AE%E7%9A%84%E8%AF%BB%E5%86%99.png" alt="流量统计数据的读写"></p>
 <h2 id="利用标签来统计特定Socket流量"><a href="#利用标签来统计特定Socket流量" class="headerlink" title="利用标签来统计特定Socket流量"></a><strong>利用标签来统计特定Socket流量</strong></h2><p><code>TrafficStats</code>中提供了接口, 可以在特定的socket(也可以使用socket对应的文件描述符)上打上标签,从而实现对每个应用你内部的流量消耗进行细分.Android系统已经定义了部分的TAG值, 比如用户DHCP协议的数据(<code>TAG_SYSTEM_DHCP</code>), 用于获取NTP网络时间的流量(<code>TAG_SYSTEM_NTP</code>), 用于探测网络的流量(<code>TAG_SYSTEM_PROBE</code>).</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TrafficStats</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> DownloadManager&#125; traffic.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_DOWNLOAD = <span class="number">0xFFFFFF01</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> MediaPlayer&#125; traffic.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_MEDIA = <span class="number">0xFFFFFF02</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> BackupManager&#125; backup traffic; that is,</span></span><br><span class="line"><span class="comment">    * traffic from the device to the storage backend.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_BACKUP = <span class="number">0xFFFFFF03</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> BackupManager&#125; restore traffic; that is,</span></span><br><span class="line"><span class="comment">    * app data retrieved from the storage backend at install time.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_RESTORE = <span class="number">0xFFFFFF04</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for code (typically APKs) downloaded by an app store on</span></span><br><span class="line"><span class="comment">    * behalf of the app, such as updates.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_APP = <span class="number">0xFFFFFF05</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_DHCP = <span class="number">0xFFFFFF40</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_NTP = <span class="number">0xFFFFFF41</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_PROBE = <span class="number">0xFFFFFF42</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_NEIGHBOR = <span class="number">0xFFFFFF43</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_GPS = <span class="number">0xFFFFFF44</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_PAC = <span class="number">0xFFFFFF45</span>;</span><br><span class="line"></span><br><span class="line">    ....</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Set active tag to use when accounting &#123;<span class="doctag">@link</span> Socket&#125; traffic originating</span></span><br><span class="line"><span class="comment">    * from the current thread. Only one active tag per thread is supported.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Changes only take effect during subsequent calls to</span></span><br><span class="line"><span class="comment">    * &#123;<span class="doctag">@link</span> #tagSocket(Socket)&#125;.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Tags between &#123;<span class="doctag">@code</span> 0xFFFFFF00&#125; and &#123;<span class="doctag">@code</span> 0xFFFFFFFF&#125; are reserved and</span></span><br><span class="line"><span class="comment">    * used internally by system services like &#123;<span class="doctag">@link</span> DownloadManager&#125; when</span></span><br><span class="line"><span class="comment">    * performing traffic on behalf of an application.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@see</span> #clearThreadStatsTag()</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">setThreadStatsTag</span><span class="params">(<span class="keyword">int</span> tag)</span> </span>&#123;</span><br><span class="line">        NetworkManagementSocketTagger.setThreadSocketStatsTag(tag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Set active tag to use when accounting &#123;<span class="doctag">@link</span> Socket&#125; traffic originating</span></span><br><span class="line"><span class="comment">    * from the current thread. Only one active tag per thread is supported.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Changes only take effect during subsequent calls to</span></span><br><span class="line"><span class="comment">    * &#123;<span class="doctag">@link</span> #tagSocket(Socket)&#125;.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Tags between &#123;<span class="doctag">@code</span> 0xFFFFFF00&#125; and &#123;<span class="doctag">@code</span> 0xFFFFFFFF&#125; are reserved and</span></span><br><span class="line"><span class="comment">    * used internally by system services like &#123;<span class="doctag">@link</span> DownloadManager&#125; when</span></span><br><span class="line"><span class="comment">    * performing traffic on behalf of an application.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@return</span> the current tag for the calling thread, which can be used to</span></span><br><span class="line"><span class="comment">    *         restore any existing values after a nested operation is finished</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">getAndSetThreadStatsTag</span><span class="params">(<span class="keyword">int</span> tag)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> NetworkManagementSocketTagger.setThreadSocketStatsTag(tag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * Tag the given &#123;<span class="doctag">@link</span> Socket&#125; with any statistics parameters active for</span></span><br><span class="line"><span class="comment">   * the current thread. Subsequent calls always replace any existing</span></span><br><span class="line"><span class="comment">   * parameters. When finished, call &#123;<span class="doctag">@link</span> #untagSocket(Socket)&#125; to remove</span></span><br><span class="line"><span class="comment">   * statistics parameters.</span></span><br><span class="line"><span class="comment">   *</span></span><br><span class="line"><span class="comment">   * <span class="doctag">@see</span> #setThreadStatsTag(int)</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">tagSocket</span><span class="params">(Socket socket)</span> <span class="keyword">throws</span> SocketException </span>&#123;</span><br><span class="line">      SocketTagger.get().tag(socket);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * Remove any statistics parameters from the given &#123;<span class="doctag">@link</span> Socket&#125;.</span></span><br><span class="line"><span class="comment">   * &lt;p&gt;</span></span><br><span class="line"><span class="comment">   * In Android 8.1 (API level 27) and lower, a socket is automatically</span></span><br><span class="line"><span class="comment">   * untagged when it's sent to another process using binder IPC with a</span></span><br><span class="line"><span class="comment">   * &#123;<span class="doctag">@code</span> ParcelFileDescriptor&#125; container. In Android 9.0 (API level 28)</span></span><br><span class="line"><span class="comment">   * and higher, the socket tag is kept when the socket is sent to another</span></span><br><span class="line"><span class="comment">   * process using binder IPC. You can mimic the previous behavior by</span></span><br><span class="line"><span class="comment">   * calling &#123;<span class="doctag">@code</span> untagSocket()&#125; before sending the socket to another</span></span><br><span class="line"><span class="comment">   * process.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">untagSocket</span><span class="params">(Socket socket)</span> <span class="keyword">throws</span> SocketException </span>&#123;</span><br><span class="line">      SocketTagger.get().untag(socket);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TrafficStats</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> DownloadManager&#125; traffic.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_DOWNLOAD = <span class="number">0xFFFFFF01</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> MediaPlayer&#125; traffic.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_MEDIA = <span class="number">0xFFFFFF02</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> BackupManager&#125; backup traffic; that is,</span></span><br><span class="line"><span class="comment">    * traffic from the device to the storage backend.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_BACKUP = <span class="number">0xFFFFFF03</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> BackupManager&#125; restore traffic; that is,</span></span><br><span class="line"><span class="comment">    * app data retrieved from the storage backend at install time.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_RESTORE = <span class="number">0xFFFFFF04</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for code (typically APKs) downloaded by an app store on</span></span><br><span class="line"><span class="comment">    * behalf of the app, such as updates.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_APP = <span class="number">0xFFFFFF05</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_DHCP = <span class="number">0xFFFFFF40</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_NTP = <span class="number">0xFFFFFF41</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_PROBE = <span class="number">0xFFFFFF42</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_NEIGHBOR = <span class="number">0xFFFFFF43</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_GPS = <span class="number">0xFFFFFF44</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">int</span> TAG_SYSTEM_PAC = <span class="number">0xFFFFFF45</span>;</span><br><span class="line"></span><br><span class="line">    ....</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Set active tag to use when accounting &#123;<span class="doctag">@link</span> Socket&#125; traffic originating</span></span><br><span class="line"><span class="comment">    * from the current thread. Only one active tag per thread is supported.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Changes only take effect during subsequent calls to</span></span><br><span class="line"><span class="comment">    * &#123;<span class="doctag">@link</span> #tagSocket(Socket)&#125;.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Tags between &#123;<span class="doctag">@code</span> 0xFFFFFF00&#125; and &#123;<span class="doctag">@code</span> 0xFFFFFFFF&#125; are reserved and</span></span><br><span class="line"><span class="comment">    * used internally by system services like &#123;<span class="doctag">@link</span> DownloadManager&#125; when</span></span><br><span class="line"><span class="comment">    * performing traffic on behalf of an application.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@see</span> #clearThreadStatsTag()</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">setThreadStatsTag</span><span class="params">(<span class="keyword">int</span> tag)</span> </span>&#123;</span><br><span class="line">        NetworkManagementSocketTagger.setThreadSocketStatsTag(tag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Set active tag to use when accounting &#123;<span class="doctag">@link</span> Socket&#125; traffic originating</span></span><br><span class="line"><span class="comment">    * from the current thread. Only one active tag per thread is supported.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Changes only take effect during subsequent calls to</span></span><br><span class="line"><span class="comment">    * &#123;<span class="doctag">@link</span> #tagSocket(Socket)&#125;.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Tags between &#123;<span class="doctag">@code</span> 0xFFFFFF00&#125; and &#123;<span class="doctag">@code</span> 0xFFFFFFFF&#125; are reserved and</span></span><br><span class="line"><span class="comment">    * used internally by system services like &#123;<span class="doctag">@link</span> DownloadManager&#125; when</span></span><br><span class="line"><span class="comment">    * performing traffic on behalf of an application.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@return</span> the current tag for the calling thread, which can be used to</span></span><br><span class="line"><span class="comment">    *         restore any existing values after a nested operation is finished</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">getAndSetThreadStatsTag</span><span class="params">(<span class="keyword">int</span> tag)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> NetworkManagementSocketTagger.setThreadSocketStatsTag(tag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * Tag the given &#123;<span class="doctag">@link</span> Socket&#125; with any statistics parameters active for</span></span><br><span class="line"><span class="comment">   * the current thread. Subsequent calls always replace any existing</span></span><br><span class="line"><span class="comment">   * parameters. When finished, call &#123;<span class="doctag">@link</span> #untagSocket(Socket)&#125; to remove</span></span><br><span class="line"><span class="comment">   * statistics parameters.</span></span><br><span class="line"><span class="comment">   *</span></span><br><span class="line"><span class="comment">   * <span class="doctag">@see</span> #setThreadStatsTag(int)</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">tagSocket</span><span class="params">(Socket socket)</span> <span class="keyword">throws</span> SocketException </span>&#123;</span><br><span class="line">      SocketTagger.get().tag(socket);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * Remove any statistics parameters from the given &#123;<span class="doctag">@link</span> Socket&#125;.</span></span><br><span class="line"><span class="comment">   * &lt;p&gt;</span></span><br><span class="line"><span class="comment">   * In Android 8.1 (API level 27) and lower, a socket is automatically</span></span><br><span class="line"><span class="comment">   * untagged when it&#x27;s sent to another process using binder IPC with a</span></span><br><span class="line"><span class="comment">   * &#123;<span class="doctag">@code</span> ParcelFileDescriptor&#125; container. In Android 9.0 (API level 28)</span></span><br><span class="line"><span class="comment">   * and higher, the socket tag is kept when the socket is sent to another</span></span><br><span class="line"><span class="comment">   * process using binder IPC. You can mimic the previous behavior by</span></span><br><span class="line"><span class="comment">   * calling &#123;<span class="doctag">@code</span> untagSocket()&#125; before sending the socket to another</span></span><br><span class="line"><span class="comment">   * process.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">untagSocket</span><span class="params">(Socket socket)</span> <span class="keyword">throws</span> SocketException </span>&#123;</span><br><span class="line">      SocketTagger.get().untag(socket);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>要使用一个socket的标签其实很简单, 只要在创建通讯的socket的连接后, 主动调用<code>setThreadStatsTag</code>就可以了, 来看一个示例:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">setupSocket</span><span class="params">(<span class="keyword">int</span> sockType, <span class="keyword">int</span> prot, </span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">long</span> writeTimeout, <span class="keyword">long</span> readTimeout, <span class="keyword">int</span> destPort)</span> <span class="keyword">throws</span> ErrnoException, IOException </span>&#123;</span><br><span class="line">    <span class="comment">// 将当前socket打上PROBE标签</span></span><br><span class="line">    <span class="keyword">int</span> oldTag = TrafficStats.getAndSetThreadStatsTag(TrafficStats.TAG_SYSTEM_PROBE);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        mFd = Os.socket(mAddrFamily, sockType, prot);</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        TrafficStats.setThreadStatsTag(oldTag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    Os.setsockoptTimeval(mFd, SOL_SOCKET, SO_SNDTIMEO, StructTimeval.fromMillis(writeTimeout));</span><br><span class="line">    Os.setsockoptTimeval(mFd, SOL_SOCKET, SO_RCVTIMEO, StructTimeval.fromMillis(readTimeout));</span><br><span class="line">    <span class="keyword">if</span> (!TextUtils.isEmpty(mIface)) &#123;</span><br><span class="line">        Os.setsockoptIfreq(mFd, SOL_SOCKET, SO_BINDTODEVICE, mIface);</span><br><span class="line">    &#125;</span><br><span class="line">    Os.connect(mFd, mTarget, destPort);</span><br><span class="line"></span><br><span class="line">    mSockAddr = Os.getsockname(mFd);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">setupSocket</span><span class="params">(<span class="keyword">int</span> sockType, <span class="keyword">int</span> prot, </span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">long</span> writeTimeout, <span class="keyword">long</span> readTimeout, <span class="keyword">int</span> destPort)</span> <span class="keyword">throws</span> ErrnoException, IOException </span>&#123;</span><br><span class="line">    <span class="comment">// 将当前socket打上PROBE标签</span></span><br><span class="line">    <span class="keyword">int</span> oldTag = TrafficStats.getAndSetThreadStatsTag(TrafficStats.TAG_SYSTEM_PROBE);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        mFd = Os.socket(mAddrFamily, sockType, prot);</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        TrafficStats.setThreadStatsTag(oldTag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    Os.setsockoptTimeval(mFd, SOL_SOCKET, SO_SNDTIMEO, StructTimeval.fromMillis(writeTimeout));</span><br><span class="line">    Os.setsockoptTimeval(mFd, SOL_SOCKET, SO_RCVTIMEO, StructTimeval.fromMillis(readTimeout));</span><br><span class="line">    <span class="keyword">if</span> (!TextUtils.isEmpty(mIface)) &#123;</span><br><span class="line">        Os.setsockoptIfreq(mFd, SOL_SOCKET, SO_BINDTODEVICE, mIface);</span><br><span class="line">    &#125;</span><br><span class="line">    Os.connect(mFd, mTarget, destPort);</span><br><span class="line"></span><br><span class="line">    mSockAddr = Os.getsockname(mFd);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <p>如果要获取某个UID对应的标签数据, 只要调用<code>NetworkStatsManager.java</code>的<code>queryDetailsForUid</code>接口, 传入对应的开始/结束时间就可以了:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Query network usage statistics details for a given uid.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * #see queryDetailsForUidTagState(int, String, long, long, int, int, int)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> NetworkStats <span class="title">queryDetailsForUid</span><span class="params">(<span class="keyword">int</span> networkType, String subscriberId,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">long</span> startTime, <span class="keyword">long</span> endTime, <span class="keyword">int</span> uid)</span> <span class="keyword">throws</span> SecurityException </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> queryDetailsForUidTagState(networkType, subscriberId, startTime, endTime, uid,</span><br><span class="line">        NetworkStats.Bucket.TAG_NONE, NetworkStats.Bucket.STATE_ALL);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Query network usage statistics details for a given uid and tag.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * #see queryDetailsForUidTagState(int, String, long, long, int, int, int)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> NetworkStats <span class="title">queryDetailsForUidTag</span><span class="params">(<span class="keyword">int</span> networkType, String subscriberId,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">long</span> startTime, <span class="keyword">long</span> endTime, <span class="keyword">int</span> uid, <span class="keyword">int</span> tag)</span> <span class="keyword">throws</span> SecurityException </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> queryDetailsForUidTagState(networkType, subscriberId, startTime, endTime, uid,</span><br><span class="line">        tag, NetworkStats.Bucket.STATE_ALL);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Query network usage statistics details for a given uid.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * #see queryDetailsForUidTagState(int, String, long, long, int, int, int)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> NetworkStats <span class="title">queryDetailsForUid</span><span class="params">(<span class="keyword">int</span> networkType, String subscriberId,</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">long</span> startTime, <span class="keyword">long</span> endTime, <span class="keyword">int</span> uid)</span> <span class="keyword">throws</span> SecurityException </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> queryDetailsForUidTagState(networkType, subscriberId, startTime, endTime, uid,</span><br><span class="line">        NetworkStats.Bucket.TAG_NONE, NetworkStats.Bucket.STATE_ALL);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Query network usage statistics details for a given uid and tag.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * #see queryDetailsForUidTagState(int, String, long, long, int, int, int)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> NetworkStats <span class="title">queryDetailsForUidTag</span><span class="params">(<span class="keyword">int</span> networkType, String subscriberId,</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">long</span> startTime, <span class="keyword">long</span> endTime, <span class="keyword">int</span> uid, <span class="keyword">int</span> tag)</span> <span class="keyword">throws</span> SecurityException </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> queryDetailsForUidTagState(networkType, subscriberId, startTime, endTime, uid,</span><br><span class="line">        tag, NetworkStats.Bucket.STATE_ALL);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>Android流量统计在9.0还是基于<code>xt_qtaguid</code>来实现的, 后面实际会通过<code>BPF</code>来做(参考文章<a href="http://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/">BPF与eBPF</a>).</p>
 
-      
     </div>
-    
-    
-    
 
     
-
     
-
     
 
     <footer class="post-footer">
-      
-        <div class="post-tags">
-          
-            <a href="/tags/网络管理/" rel="tag"># 网络管理</a>
-          
-            <a href="/tags/流量统计/" rel="tag"># 流量统计</a>
-          
-        </div>
-      
-
-      
-      
-      
-
-      
-        <div class="post-nav">
-          <div class="post-nav-next post-nav-item">
-            
-              <a href="/2020/02/24/如何利用SSH隧道访问局域网/" rel="next" title="利用SSH隧道访问局域网">
-                <i class="fa fa-chevron-left"></i> 利用SSH隧道访问局域网
-              </a>
-            
+          <div class="post-tags">
+              <a href="/tags/%E7%BD%91%E7%BB%9C%E7%AE%A1%E7%90%86/" rel="tag"># 网络管理</a>
+              <a href="/tags/%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/" rel="tag"># 流量统计</a>
           </div>
 
-          <span class="post-nav-divider"></span>
+        
 
-          <div class="post-nav-prev post-nav-item">
-            
-              <a href="/2020/04/04/说说这次新冠传染病想到的事情/" rel="prev" title="由新冠病毒想到的一些事情">
-                由新冠病毒想到的一些事情 <i class="fa fa-chevron-right"></i>
-              </a>
-            
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/02/24/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8SSH%E9%9A%A7%E9%81%93%E8%AE%BF%E9%97%AE%E5%B1%80%E5%9F%9F%E7%BD%91/" rel="prev" title="利用SSH隧道访问局域网">
+                  <i class="fa fa-chevron-left"></i> 利用SSH隧道访问局域网
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/04/04/%E8%AF%B4%E8%AF%B4%E8%BF%99%E6%AC%A1%E6%96%B0%E5%86%A0%E4%BC%A0%E6%9F%93%E7%97%85%E6%83%B3%E5%88%B0%E7%9A%84%E4%BA%8B%E6%83%85/" rel="next" title="由新冠病毒想到的一些事情">
+                  由新冠病毒想到的一些事情 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
           </div>
-        </div>
-      
-
-      
-      
     </footer>
-  </div>
-  
-  
-  
   </article>
+</div>
 
 
 
-    <div class="post-spread">
-      
-    </div>
-  </div>
 
 
-          </div>
-          
+
+    <div class="comments" id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
 
 
-          
-  <div class="comments" id="comments">
-    
-      <div id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
-    
-  </div>
-
-
-        </div>
-        
-          
-  
-  <div class="sidebar-toggle">
-    <div class="sidebar-toggle-line-wrap">
-      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
-    </div>
-  </div>
-
-  <aside id="sidebar" class="sidebar">
-    
-    <div class="sidebar-inner">
-
-      
-
-      
-        <ul class="sidebar-nav motion-element">
-          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
-            文章目录
-          </li>
-          <li class="sidebar-nav-overview" data-target="site-overview">
-            站点概览
-          </li>
-        </ul>
-      
-
-      <section class="site-overview sidebar-panel">
-        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-          <img class="site-author-image" itemprop="image" src="/images/gallaxy.jpg" alt="Jason">
-          <p class="site-author-name" itemprop="name">Jason</p>
-           
-              <p class="site-description motion-element" itemprop="description"></p>
-           
-        </div>
-        <nav class="site-state motion-element">
-
-          
-            <div class="site-state-item site-state-posts">
-              <a href="/archives">
-                <span class="site-state-item-count">81</span>
-                <span class="site-state-item-name">日志</span>
-              </a>
-            </div>
-          
-
-          
-            
-            
-            <div class="site-state-item site-state-categories">
-              <a href="/categories/index.html">
-                <span class="site-state-item-count">26</span>
-                <span class="site-state-item-name">分类</span>
-              </a>
-            </div>
-          
-
-          
-            
-            
-            <div class="site-state-item site-state-tags">
-              <a href="/tags/index.html">
-                <span class="site-state-item-count">172</span>
-                <span class="site-state-item-name">标签</span>
-              </a>
-            </div>
-          
-
-        </nav>
-
-        
-          <div class="feed-link motion-element">
-            <a href="/atom.xml" rel="alternate">
-              <i class="fa fa-rss"></i>
-              RSS
-            </a>
-          </div>
-        
-
-        <div class="links-of-author motion-element">
-          
-            
-              <span class="links-of-author-item">
-                <a href="https://github.com/runningforlife" target="_blank" title="GitHub">
-                  
-                    <i class="fa fa-fw fa-github"></i>
-                  
-                    
-                      GitHub
-                    
-                </a>
-              </span>
-            
-              <span class="links-of-author-item">
-                <a href="http://weibo.com/u/2573460570" target="_blank" title="微博">
-                  
-                    <i class="fa fa-fw fa-weibo"></i>
-                  
-                    
-                      微博
-                    
-                </a>
-              </span>
-            
-          
-        </div>
-
-        
-        
-
-        
-        
-          <div class="links-of-blogroll motion-element links-of-blogroll-block">
-            <div class="links-of-blogroll-title">
-              <i class="fa  fa-fw fa-globe"></i>
-              链接
-            </div>
-            <ul class="links-of-blogroll-list">
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://www.paulgraham.com" title="Paul Graham" target="_blank">Paul Graham</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://coolshell.cn" title="Cool Shell" target="_blank">Cool Shell</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://www.ruanyifeng.com/home.html" title="阮一峰" target="_blank">阮一峰</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="https://www.byvoid.com" title="BYVOID" target="_blank">BYVOID</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://www.matrix67.com" title="Matrix67" target="_blank">Matrix67</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://blog.codingnow.com" title="云风" target="_blank">云风</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://chuangzaoshi.com" title="创造狮" target="_blank">创造狮</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="https://medium.com" title="Medium" target="_blank">Medium</a>
-                </li>
-              
-            </ul>
-          </div>
-        
-
-        
-
-
-      </section>
-
-      
-      <!--noindex-->
-        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
-          <div class="post-toc">
-
-            
-              
-            
-
-            
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Android流量统计实现"><span class="nav-number">1.</span> <span class="nav-text">Android流量统计实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#利用标签来统计特定Socket流量"><span class="nav-number">2.</span> <span class="nav-text">利用标签来统计特定Socket流量</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
-            
-
-          </div>
-        </section>
-      <!--/noindex-->
-      
-
-      
-
-    </div>
-  </aside>
-
-
-        
-      </div>
-    </main>
-
-    <footer id="footer" class="footer">
-      <div class="footer-inner">
-        <div class="copyright">
-  
+<div class="copyright">
   &copy; 
   <span itemprop="copyrightYear">2021</span>
-  
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
   <span class="author" itemprop="copyrightHolder">Jason Wang</span>
 </div>
-
-
-<div class="powered-by">
-  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
-</div>
-
-<div class="theme-info">
-  主题 -
-  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
-    NexT.Pisces
-  </a>
-</div>
-
-
-<div class="hosted-pages">
-  Hosted by <a class="theme-link" href="https://pages.coding.me">Coding Pages</a>
-</div>
-
-        
-<div class="busuanzi-count">
-  <script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-
-  
-
-  
-    <span class="site-pv">
-      
-      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
-      
-    </span>
-  
-</div>
-
-
-        
-      </div>
-    </footer>
-
-    
-      <div class="back-to-top">
-        <i class="fa fa-arrow-up"></i>
-        
-          <span id="scrollpercent"><span>0</span>%</span>
-        
-      </div>
-    
-
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
-  
-
-<script type="text/javascript">
-  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
-    window.Promise = null;
-  }
-</script>
-
-
-
-
-
-
-
-
+    </div>
+  </footer>
 
   
-
-
-
-
-
-
-
-
-
-
-
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
 
   
-  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
-
-  
-  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
-
-  
-  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
-
-  
-  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-
-  
-  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-
-  
-  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
-
-  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
-
-
-
-  
-  
-
-
-  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
-
-  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
-
-
-
-  
-  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
-<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
-
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
-
-
-
-  
-
-
-  
-
-
-
-
-	
-
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.10.3/dist/algoliasearch-lite.umd.js" integrity="sha256-G3d8uGe8RUBl42fj30KOUgKMV2LpwsJUI3fzfEiuHsY=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.25.2/dist/instantsearch.production.min.js" integrity="sha256-h8iRwCCyeIDuVWtR9WwIJ+XJ8Z37SunCvilg+pnImD4=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
 
 
 
@@ -904,518 +408,11 @@
   
 
 
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz","app_key":"nj66qROg1RNBE9qxvn1yTFMg","server_url":null,"security":true}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
 
 
-
-  
-    <script type="text/javascript">
-      (function(d, s) {
-        var j, e = d.getElementsByTagName(s)[0];
-        if (typeof LivereTower === 'function') { return; }
-        j = d.createElement(s);
-        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
-        j.async = true;
-        e.parentNode.insertBefore(j, e);
-      })(document, 'script');
-    </script>
-  
-
-
-
-
-
-
-  
-
-  <script type="text/javascript">
-    // Popup Window;
-    var isfetched = false;
-    var isXml = true;
-    // Search DB path;
-    var search_path = "search.xml";
-    if (search_path.length === 0) {
-      search_path = "search.xml";
-    } else if (/json$/i.test(search_path)) {
-      isXml = false;
-    }
-    var path = "/" + search_path;
-    // monitor main search box;
-
-    var onPopupClose = function (e) {
-      $('.popup').hide();
-      $('#local-search-input').val('');
-      $('.search-result-list').remove();
-      $('#no-result').remove();
-      $(".local-search-pop-overlay").remove();
-      $('body').css('overflow', '');
-    }
-
-    function proceedsearch() {
-      $("body")
-        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
-        .css('overflow', 'hidden');
-      $('.search-popup-overlay').click(onPopupClose);
-      $('.popup').toggle();
-      var $localSearchInput = $('#local-search-input');
-      $localSearchInput.attr("autocapitalize", "none");
-      $localSearchInput.attr("autocorrect", "off");
-      $localSearchInput.focus();
-    }
-
-    // search function;
-    var searchFunc = function(path, search_id, content_id) {
-      'use strict';
-
-      // start loading animation
-      $("body")
-        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
-          '<div id="search-loading-icon">' +
-          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
-          '</div>' +
-          '</div>')
-        .css('overflow', 'hidden');
-      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
-
-      $.ajax({
-        url: path,
-        dataType: isXml ? "xml" : "json",
-        async: true,
-        success: function(res) {
-          // get the contents from search data
-          isfetched = true;
-          $('.popup').detach().appendTo('.header-inner');
-          var datas = isXml ? $("entry", res).map(function() {
-            return {
-              title: $("title", this).text(),
-              content: $("content",this).text(),
-              url: $("url" , this).text()
-            };
-          }).get() : res;
-          var input = document.getElementById(search_id);
-          var resultContent = document.getElementById(content_id);
-          var inputEventFunction = function() {
-            var searchText = input.value.trim().toLowerCase();
-            var keywords = searchText.split(/[\s\-]+/);
-            if (keywords.length > 1) {
-              keywords.push(searchText);
-            }
-            var resultItems = [];
-            if (searchText.length > 0) {
-              // perform local searching
-              datas.forEach(function(data) {
-                var isMatch = false;
-                var hitCount = 0;
-                var searchTextCount = 0;
-                var title = data.title.trim();
-                var titleInLowerCase = title.toLowerCase();
-                var content = data.content.trim().replace(/<[^>]+>/g,"");
-                var contentInLowerCase = content.toLowerCase();
-                var articleUrl = decodeURIComponent(data.url);
-                var indexOfTitle = [];
-                var indexOfContent = [];
-                // only match articles with not empty titles
-                if(title != '') {
-                  keywords.forEach(function(keyword) {
-                    function getIndexByWord(word, text, caseSensitive) {
-                      var wordLen = word.length;
-                      if (wordLen === 0) {
-                        return [];
-                      }
-                      var startPosition = 0, position = [], index = [];
-                      if (!caseSensitive) {
-                        text = text.toLowerCase();
-                        word = word.toLowerCase();
-                      }
-                      while ((position = text.indexOf(word, startPosition)) > -1) {
-                        index.push({position: position, word: word});
-                        startPosition = position + wordLen;
-                      }
-                      return index;
-                    }
-
-                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
-                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
-                  });
-                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
-                    isMatch = true;
-                    hitCount = indexOfTitle.length + indexOfContent.length;
-                  }
-                }
-
-                // show search results
-
-                if (isMatch) {
-                  // sort index by position of keyword
-
-                  [indexOfTitle, indexOfContent].forEach(function (index) {
-                    index.sort(function (itemLeft, itemRight) {
-                      if (itemRight.position !== itemLeft.position) {
-                        return itemRight.position - itemLeft.position;
-                      } else {
-                        return itemLeft.word.length - itemRight.word.length;
-                      }
-                    });
-                  });
-
-                  // merge hits into slices
-
-                  function mergeIntoSlice(text, start, end, index) {
-                    var item = index[index.length - 1];
-                    var position = item.position;
-                    var word = item.word;
-                    var hits = [];
-                    var searchTextCountInSlice = 0;
-                    while (position + word.length <= end && index.length != 0) {
-                      if (word === searchText) {
-                        searchTextCountInSlice++;
-                      }
-                      hits.push({position: position, length: word.length});
-                      var wordEnd = position + word.length;
-
-                      // move to next position of hit
-
-                      index.pop();
-                      while (index.length != 0) {
-                        item = index[index.length - 1];
-                        position = item.position;
-                        word = item.word;
-                        if (wordEnd > position) {
-                          index.pop();
-                        } else {
-                          break;
-                        }
-                      }
-                    }
-                    searchTextCount += searchTextCountInSlice;
-                    return {
-                      hits: hits,
-                      start: start,
-                      end: end,
-                      searchTextCount: searchTextCountInSlice
-                    };
-                  }
-
-                  var slicesOfTitle = [];
-                  if (indexOfTitle.length != 0) {
-                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
-                  }
-
-                  var slicesOfContent = [];
-                  while (indexOfContent.length != 0) {
-                    var item = indexOfContent[indexOfContent.length - 1];
-                    var position = item.position;
-                    var word = item.word;
-                    // cut out 100 characters
-                    var start = position - 20;
-                    var end = position + 80;
-                    if(start < 0){
-                      start = 0;
-                    }
-                    if (end < position + word.length) {
-                      end = position + word.length;
-                    }
-                    if(end > content.length){
-                      end = content.length;
-                    }
-                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
-                  }
-
-                  // sort slices in content by search text's count and hits' count
-
-                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
-                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
-                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
-                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
-                      return sliceRight.hits.length - sliceLeft.hits.length;
-                    } else {
-                      return sliceLeft.start - sliceRight.start;
-                    }
-                  });
-
-                  // select top N slices in content
-
-                  var upperBound = parseInt('1');
-                  if (upperBound >= 0) {
-                    slicesOfContent = slicesOfContent.slice(0, upperBound);
-                  }
-
-                  // highlight title and content
-
-                  function highlightKeyword(text, slice) {
-                    var result = '';
-                    var prevEnd = slice.start;
-                    slice.hits.forEach(function (hit) {
-                      result += text.substring(prevEnd, hit.position);
-                      var end = hit.position + hit.length;
-                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
-                      prevEnd = end;
-                    });
-                    result += text.substring(prevEnd, slice.end);
-                    return result;
-                  }
-
-                  var resultItem = '';
-
-                  if (slicesOfTitle.length != 0) {
-                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
-                  } else {
-                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
-                  }
-
-                  slicesOfContent.forEach(function (slice) {
-                    resultItem += "<a href='" + articleUrl + "'>" +
-                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
-                      "...</p>" + "</a>";
-                  });
-
-                  resultItem += "</li>";
-                  resultItems.push({
-                    item: resultItem,
-                    searchTextCount: searchTextCount,
-                    hitCount: hitCount,
-                    id: resultItems.length
-                  });
-                }
-              })
-            };
-            if (keywords.length === 1 && keywords[0] === "") {
-              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
-            } else if (resultItems.length === 0) {
-              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
-            } else {
-              resultItems.sort(function (resultLeft, resultRight) {
-                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
-                  return resultRight.searchTextCount - resultLeft.searchTextCount;
-                } else if (resultLeft.hitCount !== resultRight.hitCount) {
-                  return resultRight.hitCount - resultLeft.hitCount;
-                } else {
-                  return resultRight.id - resultLeft.id;
-                }
-              });
-              var searchResultList = '<ul class=\"search-result-list\">';
-              resultItems.forEach(function (result) {
-                searchResultList += result.item;
-              })
-              searchResultList += "</ul>";
-              resultContent.innerHTML = searchResultList;
-            }
-          }
-
-          if ('auto' === 'auto') {
-            input.addEventListener('input', inputEventFunction);
-          } else {
-            $('.search-icon').click(inputEventFunction);
-            input.addEventListener('keypress', function (event) {
-              if (event.keyCode === 13) {
-                inputEventFunction();
-              }
-            });
-          }
-
-          // remove loading animation
-          $(".local-search-pop-overlay").remove();
-          $('body').css('overflow', '');
-
-          proceedsearch();
-        }
-      });
-    }
-
-    // handle and trigger popup window;
-    $('.popup-trigger').click(function(e) {
-      e.stopPropagation();
-      if (isfetched === false) {
-        searchFunc(path, 'local-search-input', 'local-search-result');
-      } else {
-        proceedsearch();
-      };
-    });
-
-    $('.popup-btn-close').click(onPopupClose);
-    $('.popup').click(function(e){
-      e.stopPropagation();
-    });
-    $(document).on('keyup', function (event) {
-      var shouldDismissSearchPopup = event.which === 27 &&
-        $('.search-popup').is(':visible');
-      if (shouldDismissSearchPopup) {
-        onPopupClose();
-      }
-    });
-  </script>
-
-
-
-
-  
-  
-  
-  <link rel="stylesheet" href="/lib/algolia-instant-search/instantsearch.min.css">
-
-  
-  
-  <script src="/lib/algolia-instant-search/instantsearch.min.js"></script>
-  
-
-  <script src="/js/src/algolia-search.js?v=5.1.1"></script>
-
-
-
-  
-
-  
-  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
-  <script>AV.initialize("rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz", "nj66qROg1RNBE9qxvn1yTFMg");</script>
-  <script>
-    function showTime(Counter) {
-      var query = new AV.Query(Counter);
-      var entries = [];
-      var $visitors = $(".leancloud_visitors");
-
-      $visitors.each(function () {
-        entries.push( $(this).attr("id").trim() );
-      });
-
-      query.containedIn('url', entries);
-      query.find()
-        .done(function (results) {
-          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
-
-          if (results.length === 0) {
-            $visitors.find(COUNT_CONTAINER_REF).text(0);
-            return;
-          }
-
-          for (var i = 0; i < results.length; i++) {
-            var item = results[i];
-            var url = item.get('url');
-            var time = item.get('time');
-            var element = document.getElementById(url);
-
-            $(element).find(COUNT_CONTAINER_REF).text(time);
-          }
-          for(var i = 0; i < entries.length; i++) {
-            var url = entries[i];
-            var element = document.getElementById(url);
-            var countSpan = $(element).find(COUNT_CONTAINER_REF);
-            if( countSpan.text() == '') {
-              countSpan.text(0);
-            }
-          }
-        })
-        .fail(function (object, error) {
-          console.log("Error: " + error.code + " " + error.message);
-        });
-    }
-
-    function addCount(Counter) {
-      var $visitors = $(".leancloud_visitors");
-      var url = $visitors.attr('id').trim();
-      var title = $visitors.attr('data-flag-title').trim();
-      var query = new AV.Query(Counter);
-
-      query.equalTo("url", url);
-      query.find({
-        success: function(results) {
-          if (results.length > 0) {
-            var counter = results[0];
-            counter.fetchWhenSave(true);
-            counter.increment("time");
-            counter.save(null, {
-              success: function(counter) {
-                var $element = $(document.getElementById(url));
-                $element.find('.leancloud-visitors-count').text(counter.get('time'));
-              },
-              error: function(counter, error) {
-                console.log('Failed to save Visitor num, with error message: ' + error.message);
-              }
-            });
-          } else {
-            var newcounter = new Counter();
-            /* Set ACL */
-            var acl = new AV.ACL();
-            acl.setPublicReadAccess(true);
-            acl.setPublicWriteAccess(true);
-            newcounter.setACL(acl);
-            /* End Set ACL */
-            newcounter.set("title", title);
-            newcounter.set("url", url);
-            newcounter.set("time", 1);
-            newcounter.save(null, {
-              success: function(newcounter) {
-                var $element = $(document.getElementById(url));
-                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
-              },
-              error: function(newcounter, error) {
-                console.log('Failed to create');
-              }
-            });
-          }
-        },
-        error: function(error) {
-          console.log('Error:' + error.code + " " + error.message);
-        }
-      });
-    }
-
-    $(function() {
-      var Counter = AV.Object.extend("Counter");
-      if ($('.leancloud_visitors').length == 1) {
-        addCount(Counter);
-      } else if ($('.post-title-link').length > 1) {
-        showTime(Counter);
-      }
-    });
-  </script>
-
-
-
-  
-<script>
-(function(){
-    var bp = document.createElement('script');
-    var curProtocol = window.location.protocol.split(':')[0];
-    if (curProtocol === 'https') {
-        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
-    }
-    else {
-        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
-    }
-    var s = document.getElementsByTagName("script")[0];
-    s.parentNode.insertBefore(bp, s);
-})();
-</script>
-
-
-  
-
-  
-  
-    <script type="text/x-mathjax-config">
-      MathJax.Hub.Config({
-        tex2jax: {
-          inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
-          processEscapes: true,
-          skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
-        }
-      });
-    </script>
-
-    <script type="text/x-mathjax-config">
-      MathJax.Hub.Queue(function() {
-        var all = MathJax.Hub.getAllJax(), i;
-        for (i=0; i < all.length; i += 1) {
-          all[i].SourceElement().parentNode.className += ' has-jax';
-        }
-      });
-    </script>
-    <script type="text/javascript" src="//cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-  
-
-
-  
-
-  
+<script src="/js/third-party/comments/livere.js"></script>
 
 </body>
 </html>
