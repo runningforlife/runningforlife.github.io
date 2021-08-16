@@ -20,25 +20,26 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
 
 <script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
-<meta name="description" content="缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。这里，将要讨论的cache是指CPU与主内存之间的一种基于SRAM(Static Random Access Memory)存储结构。 自计算机诞生以来，CPU的性能大致都按照摩尔定律以每年50%的速度递增，而主内存RAM(Random Access Memory)">
+<meta name="description" content="缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。目前大多数的计算机系统都会在软件或者硬件层面集成有各种cache, 比如:  L2(Level 2 cache,3-10个CPU周期)作为L1(Level 1 cache, 1-3个CPU周期)的缓存, 同样L3又作为L2的缓存, 从而形成一个多级缓存的结构 TLB">
 <meta property="og:type" content="article">
 <meta property="og:title" content="cache揭秘">
 <meta property="og:url" content="http://sniffer.site/2017/07/16/cache%E6%8F%AD%E7%A7%98/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。这里，将要讨论的cache是指CPU与主内存之间的一种基于SRAM(Static Random Access Memory)存储结构。 自计算机诞生以来，CPU的性能大致都按照摩尔定律以每年50%的速度递增，而主内存RAM(Random Access Memory)">
+<meta property="og:description" content="缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。目前大多数的计算机系统都会在软件或者硬件层面集成有各种cache, 比如:  L2(Level 2 cache,3-10个CPU周期)作为L1(Level 1 cache, 1-3个CPU周期)的缓存, 同样L3又作为L2的缓存, 从而形成一个多级缓存的结构 TLB">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CPU-and-RAM-gap.jpg">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchyOfProcessor.png">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM-cache-architecture.jpg">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM%2Bprocessor%2B4way_cache.jpg">
 <meta property="article:published_time" content="2017-07-16T12:34:41.000Z">
-<meta property="article:modified_time" content="2021-08-11T07:09:52.128Z">
+<meta property="article:modified_time" content="2021-08-16T06:04:15.823Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Memory Cache">
 <meta property="article:tag" content="CPU Architecture">
 <meta property="article:tag" content="Memory Hierarchy">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CPU-and-RAM-gap.jpg">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png">
 
 
 <link rel="canonical" href="http://sniffer.site/2017/07/16/cache%E6%8F%AD%E7%A7%98/">
@@ -151,7 +152,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E6%9E%B6%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">缓存架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5"><span class="nav-number">2.</span> <span class="nav-text">缓存策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#write-policy"><span class="nav-number">2.1.</span> <span class="nav-text">write policy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#replacement-policy"><span class="nav-number">2.2.</span> <span class="nav-text">replacement policy</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">3.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E6%9E%B6%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">缓存架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E7%AD%96%E7%95%A5"><span class="nav-number">2.</span> <span class="nav-text">缓存策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#write-policy"><span class="nav-number">2.1.</span> <span class="nav-text">write policy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#replacement-policy"><span class="nav-number">2.2.</span> <span class="nav-text">replacement policy</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">4.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -260,7 +261,7 @@
           <i class="far fa-calendar-check"></i>
         </span>
         <span class="post-meta-item-text">更新于</span>
-        <time title="修改时间：2021-08-11 15:09:52" itemprop="dateModified" datetime="2021-08-11T15:09:52+08:00">2021-08-11</time>
+        <time title="修改时间：2021-08-16 14:04:15" itemprop="dateModified" datetime="2021-08-16T14:04:15+08:00">2021-08-16</time>
       </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
@@ -289,14 +290,23 @@
     
     
     <div class="post-body" itemprop="articleBody">
-        <p>缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。这里，将要讨论的cache是指CPU与主内存之间的一种基于<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_random-access_memory">SRAM</a>(Static Random Access Memory)存储结构。</p>
+        <p>缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。目前大多数的计算机系统都会在软件或者硬件层面集成有各种cache, 比如:</p>
+<ul>
+<li>L2(Level 2 cache,3-10个CPU周期)作为L1(Level 1 cache, 1-3个CPU周期)的缓存, 同样L3又作为L2的缓存, 从而形成一个<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/CPU_cache">多级缓存的结构</a></li>
+<li>TLB(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Translation_lookaside_buffer">Translation Lookaside Buffer</a>)用于系统页表查找的缓存, 可以加速虚拟内存与物理内存的地址转换</li>
+<li>Main Memory(主存)是磁盘数据的缓存, 保存了部分使用的磁盘数据, 改善系统运行的性能</li>
+</ul>
+<p>一般来说, 现代的多核CPU系统都有多级的缓存结构, 简图如下:</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png" alt="multiple level cache"></p>
+<p>这篇文章将要讨论的cache是指CPU与主内存之间的一种基于<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_random-access_memory">SRAM</a>(Static Random Access Memory)存储结构。</p>
 <p>自计算机诞生以来，CPU的性能大致都按照摩尔定律以每年50%的速度递增，而主内存RAM(Random Access Memory)的性能增速却只有7%，因此在CPU性能与主内存性能之间渐渐形成了一个鸿沟：</p>
+<span id="more"></span>
+
+
 <p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CPU-and-RAM-gap.jpg" alt="CPU and Memory Gap"></p>
 <blockquote>
 <p>1980年CPU中尚无cache; 到1995年CPU开始有两级cache</p>
 </blockquote>
-<span id="more"></span>
-
 <p>从主内存中读取数据通常需要花费50~200个CPU周期，利用cache来保存CPU最近使用的数据或者指令，如果cache中存在所需数据（指令），则直接返回给CPU；如果不存在相应的数据，则从主内存中获取，从而提升CPU效率。这样Cache, Main Memory以及Disk（磁盘）之间就形成了通常被称为”<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Memory_hierarchy">Memory Hierarchy</a>“的存储层次化的结构：</p>
 <p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchyOfProcessor.png" alt="memory hierarchy"></p>
 <p>那么，为什么cache能够提升CPU的运行效率？这里边依靠的是程序运行时的一个基本原理：引用的局部性(<br><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Locality_of_reference">Locality of reference</a>):相近的或者最近被访问的内存区域通常就是下一次需要访问的内存区域。最常见的是两种局部性：</p>
@@ -316,7 +326,7 @@
 <li>cache miss: 出现缓存缺失，cache controller需要将主内存中的数据拷贝到缓存中，并将其提供给CPU；</li>
 <li>cache hit: 缓存命中，直接将命中缓存数据发送给CPU（利用<code>data index</code>确定数据所在位置）；</li>
 </ul>
-<p>那么，主内存是如何映射到cache当中的了？学过中学数学的都知道，两个集合的映射一般有一对一，多对一、一对多、多对多等几种形式。与此相类似，主内存与cache直接的物理映射（通过硬件设计实现）大致有三种形式：</p>
+<p>那么，主内存是如何映射到cache当中的了？从数学集合的角度来看，两个集合的映射一般有一对一，多对一、一对多、多对多等几种形式。与此相类似，主内存与cache直接的物理映射（通过硬件设计实现）大致有三种形式：</p>
 <ul>
 <li>Directed Mapping(直接映射）： 对于主内存中的任一地址仅有一个可能的cache地址。这种映射方式最为简单，其存在的不足之处容易出现“缓存抖动”(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Thrashing_(computer_science)">cache thrashing</a>) - 不断出现缓存缺失，从而降低系统性能；</li>
 <li>Full-associative cache（全关联）： 对每个主内存中的地址可以映射到任何一个cache位置。全关联虽然为主内存数据的存储带来了更多的灵活性，但是由于其实现方式复杂，成本高，因而通常只在cache空间很小的CPU中使用；</li>
@@ -329,9 +339,9 @@
 <p>与前文中的示意图不同的是，这里cache memory共包含了4路，每路都包含了64(2^6)个缓存行，但cache总的大小仍然是4KB（<code>4*4*64*4</code> bytes),但现在对于每个<code>set index</code>都对应了4个cache line,这4个缓存行可以看成是一个<code>set</code>，这也是<code>set index</code>这个名字的由来。</p>
 <h2 id="缓存策略"><a href="#缓存策略" class="headerlink" title="缓存策略"></a><strong>缓存策略</strong></h2><p>这里就来看下缓存的两种策略： 写内存以及缓存替换策略。写内存策略用于确定何时将数据写入内存；但出现cache miss时，使用替换策略将某个缓存行换出。</p>
 <p>首先来看下写策略。</p>
-<h3 id="write-policy"><a href="#write-policy" class="headerlink" title="write policy"></a><strong>write policy</strong></h3><p>当CPU需要将数据写回主内存时，cache controller有两种写策略可选择：一种是同时更新缓存行数据和主内存数据，这种方法被称为<code>writethrough</code>;另一种策略<code>writeback</code>则只更新缓存行数据，而不更新主内存数据。</p>
+<h3 id="write-policy"><a href="#write-policy" class="headerlink" title="write policy"></a><strong>write policy</strong></h3><p>当CPU需要将数据写回主内存时，cache controller有两种写策略可选择：一种是同时更新缓存行数据和主内存数据，这种方法被称为<code>write-through</code>;另一种策略<code>write-back</code>则只更新缓存行数据，而不更新主内存数据。</p>
 <ul>
-<li>Writethrough: 如果缓存命中，则同时更新主内存与缓存行数据，确保主内存与缓存数据始终保持一致，由于需要将数据写回内存，因此<code>Writethrough</code>会比<code>Writeback</code>慢；</li>
+<li>Writethrough: 如果缓存命中，则同时更新主内存与缓存行数据，确保主内存与缓存数据始终保持一致，由于需要将数据写回内存，因此<code>write-through</code>会比<code>write-back</code>慢；</li>
 <li>Writeback: 使用该写策略，只更新有效(缓存行标记为valid)的缓存数据，而不更新主内存，这样就可能出现缓存与主内存数据不一致，那么，何时将缓存数据写入内存了？当cache controller写数据到缓存时，将该缓存行中的数据标记为<code>dirty</code>，等到下一次访问时，controller知道这个缓存行数据并不在内存中，因此换出该缓存行时，则自动将其写回主内存；</li>
 </ul>
 <h3 id="replacement-policy"><a href="#replacement-policy" class="headerlink" title="replacement policy"></a><strong>replacement policy</strong></h3><p>出现cache miss时，cache controller需要从缓存中选择一个缓存行用于保存从主内存中加载的新数据。如果被替换的缓存行包含了有效或者脏数据，则需要将其写回内存。那么，如何从缓存中选择可能被替换的缓存行了？这就是缓存的替换策略。一般有以下几种：</p>
@@ -340,6 +350,12 @@
 <li>Roud-robin(RR): 轮盘随机选择一个缓存行换出；</li>
 </ul>
 <p>更多关于缓存替换策略可以参考WIKIPEDIA文章：<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Cache_replacement_policies">https://en.wikipedia.org/wiki/Cache_replacement_policies</a>。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>目前大多数计算机系统都使用多级的缓存结构, 使用多级缓存好处是改善了缓存命中率, 但同时需要考虑各个缓存(L1/L2/L3)数据的同步与一致性问题<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Cache_coherence">参考Wikipedia Cache Coherence</a>, 增加了硬件设计的复杂度. 一般来说对CPU cache来说, 需要考虑如下几个问题:</p>
+<ul>
+<li>cache的结构: 每个cache line的大小是多少, 具体是如何构成的?</li>
+<li>如何找到一个cache项: 如何通过给定的内存地址找到对应的cache line, 这里就需要建立cache与主存之间的映射关系, 通常有直接映射(direct mapped), 多路关联(full-way associcative)以及全关联(fully associative)</li>
+<li>如何同步cache与主存之间的数据: 一般来说有回写(write-back)与直写(write-through)两种策略.</li>
+</ul>
 <h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
 <li><a target="_blank" rel="noopener" href="http://service.scs.carleton.ca/sivarama/org_book/org_book_web/slides/chap_1_versions/ch17_1.pdf">http://service.scs.carleton.ca/sivarama/org_book/org_book_web/slides/chap_1_versions/ch17_1.pdf</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.cs.umd.edu/class/fall2001/cmsc411/proj01/cache/cache.pdf">https://www.cs.umd.edu/class/fall2001/cmsc411/proj01/cache/cache.pdf</a></li>
@@ -348,6 +364,7 @@
 <li><a target="_blank" rel="noopener" href="http://people.cs.pitt.edu/~cho/cs1541/current/handouts/lect-memh_4up.pdf">http://people.cs.pitt.edu/~cho/cs1541/current/handouts/lect-memh_4up.pdf</a></li>
 <li>《ARM System Develop’s Guide - Designing and Optimizting System Software》</li>
 <li><a target="_blank" rel="noopener" href="https://coolshell.cn/articles/20793.html">与程序员相关的CPU缓存知识</a></li>
+<li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/CPU_cache">CPU cache</a></li>
 </ul>
 
     </div>
