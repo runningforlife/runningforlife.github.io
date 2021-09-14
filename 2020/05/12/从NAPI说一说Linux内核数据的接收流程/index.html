@@ -23,7 +23,7 @@
 <meta name="description" content="NAPI(New API)是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，驱动收到硬件中断后，通过poll方式将传输过来的数据包统一处理， 通过禁止网络设备中断以减少硬件中断数量((Interrupt Mitigation)，从而实现更高的数据传输。 基于NAPI接口， 一般的网络传输都有如下几个步骤：  网络设备驱动加载与初始化（配置IP等） 数据包从网络侧发">
 <meta property="og:type" content="article">
 <meta property="og:title" content="从NAPI说一说Linux内核数据的接收流程">
-<meta property="og:url" content="http://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/index.html">
+<meta property="og:url" content="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="NAPI(New API)是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，驱动收到硬件中断后，通过poll方式将传输过来的数据包统一处理， 通过禁止网络设备中断以减少硬件中断数量((Interrupt Mitigation)，从而实现更高的数据传输。 基于NAPI接口， 一般的网络传输都有如下几个步骤：  网络设备驱动加载与初始化（配置IP等） 数据包从网络侧发">
 <meta property="og:locale" content="zh_CN">
@@ -38,11 +38,11 @@
 <meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png">
 
 
-<link rel="canonical" href="http://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">
+<link rel="canonical" href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">
 
 
 
-<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"http://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/","path":"2020/05/12/从NAPI说一说Linux内核数据的接收流程/","title":"从NAPI说一说Linux内核数据的接收流程"}</script>
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/","path":"2020/05/12/从NAPI说一说Linux内核数据的接收流程/","title":"从NAPI说一说Linux内核数据的接收流程"}</script>
 
 <script class="next-config" data-name="calendar" type="application/json">""</script>
 <title>从NAPI说一说Linux内核数据的接收流程 | JasonWang's Blog</title>
@@ -224,7 +224,7 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/gallaxy.jpg">
@@ -410,7 +410,7 @@
   </li>
   <li class="post-copyright-link">
       <strong>本文链接：</strong>
-      <a href="http://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/" title="从NAPI说一说Linux内核数据的接收流程">http://sniffer.site/2020/05/12/从NAPI说一说Linux内核数据的接收流程/</a>
+      <a href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/" title="从NAPI说一说Linux内核数据的接收流程">https://sniffer.site/2020/05/12/从NAPI说一说Linux内核数据的接收流程/</a>
   </li>
   <li class="post-copyright-license">
     <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！

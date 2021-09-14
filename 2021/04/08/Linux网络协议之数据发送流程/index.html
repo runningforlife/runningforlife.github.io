@@ -23,7 +23,7 @@
 <meta name="description" content="最近抽空学习下Linux网络协议栈, 读源码时总会前一天看到的源码, 第二天再来看却发现又忘记的差不多, 只能又看一遍, 这么看了几遍才完全的把整个逻辑理清楚. 于是下定想着要把看过的代码逻辑整理下来, 算是对这段时间学习的总结, 也方便后面的查阅.  在之前的一篇有关网络协议的文章从NAPI说一说Linux内核数据的接收流程简单的讲到了Linux的数据接收流程, 但主要是集中在数据链路层与设备驱">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Linux网络协议之数据发送流程">
-<meta property="og:url" content="http://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/index.html">
+<meta property="og:url" content="https://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="最近抽空学习下Linux网络协议栈, 读源码时总会前一天看到的源码, 第二天再来看却发现又忘记的差不多, 只能又看一遍, 这么看了几遍才完全的把整个逻辑理清楚. 于是下定想着要把看过的代码逻辑整理下来, 算是对这段时间学习的总结, 也方便后面的查阅.  在之前的一篇有关网络协议的文章从NAPI说一说Linux内核数据的接收流程简单的讲到了Linux的数据接收流程, 但主要是集中在数据链路层与设备驱">
 <meta property="og:locale" content="zh_CN">
@@ -40,11 +40,11 @@
 <meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/linux_network_stack_flow.png">
 
 
-<link rel="canonical" href="http://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">
+<link rel="canonical" href="https://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">
 
 
 
-<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"http://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/","path":"2021/04/08/Linux网络协议之数据发送流程/","title":"Linux网络协议之数据发送流程"}</script>
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/","path":"2021/04/08/Linux网络协议之数据发送流程/","title":"Linux网络协议之数据发送流程"}</script>
 
 <script class="next-config" data-name="calendar" type="application/json">""</script>
 <title>Linux网络协议之数据发送流程 | JasonWang's Blog</title>
@@ -226,7 +226,7 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/gallaxy.jpg">
@@ -444,7 +444,7 @@
   </li>
   <li class="post-copyright-link">
       <strong>本文链接：</strong>
-      <a href="http://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/" title="Linux网络协议之数据发送流程">http://sniffer.site/2021/04/08/Linux网络协议之数据发送流程/</a>
+      <a href="https://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/" title="Linux网络协议之数据发送流程">https://sniffer.site/2021/04/08/Linux网络协议之数据发送流程/</a>
   </li>
   <li class="post-copyright-license">
     <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
