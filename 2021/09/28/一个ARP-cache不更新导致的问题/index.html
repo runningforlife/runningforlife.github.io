@@ -22,7 +22,7 @@
 <script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
 <meta name="description" content="最近碰到了一个很奇怪的问题, Android系统(Linux内核4.15)唤醒后, SoC(高通平台)跟TBox(Telematics Box)TCP的连接会偶发变慢, 需要等超过10s才能连接上. 发送ping包给TBox, 通过strace看进程一直提示EAGAIN的错误.从字面意义来说EAGAIN(Resource temporarily unavailable)是内核告知ping进程当前没">
 <meta property="og:type" content="article">
-<meta property="og:title" content="ARP cache不更新导致的问题">
+<meta property="og:title" content="ARP cache不更新导致的网络问题">
 <meta property="og:url" content="https://sniffer.site/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="最近碰到了一个很奇怪的问题, Android系统(Linux内核4.15)唤醒后, SoC(高通平台)跟TBox(Telematics Box)TCP的连接会偶发变慢, 需要等超过10s才能连接上. 发送ping包给TBox, 通过strace看进程一直提示EAGAIN的错误.从字面意义来说EAGAIN(Resource temporarily unavailable)是内核告知ping进程当前没">
@@ -33,7 +33,7 @@
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/tbox_arp_cache_mismatch_mod.png">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ping_combine.png">
 <meta property="article:published_time" content="2021-09-28T06:35:36.000Z">
-<meta property="article:modified_time" content="2021-10-01T12:08:36.375Z">
+<meta property="article:modified_time" content="2021-10-09T07:50:34.973Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="TCP&#x2F;IP">
 <meta property="article:tag" content="MAC">
@@ -48,10 +48,10 @@
 
 
 
-<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sniffer.site/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/","path":"2021/09/28/一个ARP-cache不更新导致的问题/","title":"ARP cache不更新导致的问题"}</script>
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sniffer.site/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/","path":"2021/09/28/一个ARP-cache不更新导致的问题/","title":"ARP cache不更新导致的网络问题"}</script>
 
 <script class="next-config" data-name="calendar" type="application/json">""</script>
-<title>ARP cache不更新导致的问题 | JasonWang's Blog</title>
+<title>ARP cache不更新导致的网络问题 | JasonWang's Blog</title>
   
 
 
@@ -152,7 +152,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E7%8E%B0%E8%B1%A1"><span class="nav-number">1.</span> <span class="nav-text">问题现象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8A%93%E5%8C%85%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">抓包分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#EGAIN%E9%94%99%E8%AF%AF%E4%BB%8E%E4%BD%95%E8%80%8C%E6%9D%A5"><span class="nav-number">3.</span> <span class="nav-text">EGAIN错误从何而来</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ARP-cache%E6%89%8D%E6%98%AF%E7%BD%AA%E9%AD%81%E7%A5%B8%E9%A6%96"><span class="nav-number">4.</span> <span class="nav-text">ARP cache才是罪魁祸首</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ping%E5%9B%9E%E5%8C%85%E4%B8%A2%E5%BC%83%E4%B9%8B%E8%B0%9C"><span class="nav-number">5.</span> <span class="nav-text">ping回包丢弃之谜</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="nav-number">6.</span> <span class="nav-text">解决方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E7%8E%B0%E8%B1%A1"><span class="nav-number">1.</span> <span class="nav-text">问题现象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8A%93%E5%8C%85%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">抓包分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#EGAIN%E9%94%99%E8%AF%AF%E4%BB%8E%E4%BD%95%E8%80%8C%E6%9D%A5"><span class="nav-number">3.</span> <span class="nav-text">EGAIN错误从何而来</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ARP-cache%E6%89%8D%E6%98%AF%E7%BD%AA%E9%AD%81%E7%A5%B8%E9%A6%96"><span class="nav-number">4.</span> <span class="nav-text">ARP cache才是罪魁祸首</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ping%E5%9B%9E%E5%8C%85%E4%B8%A2%E5%BC%83%E4%B9%8B%E8%B0%9C"><span class="nav-number">5.</span> <span class="nav-text">ping回包丢弃之谜</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="nav-number">6.</span> <span class="nav-text">解决方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">8.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -168,7 +168,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">82</span>
+          <span class="site-state-item-count">83</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -179,7 +179,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">175</span>
+        <span class="site-state-item-count">176</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -243,7 +243,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          ARP cache不更新导致的问题
+          ARP cache不更新导致的网络问题
         </h1>
 
         <div class="post-meta-container">
@@ -267,7 +267,7 @@
     </span>
 
   
-    <span id="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/" class="post-meta-item leancloud_visitors" data-flag-title="ARP cache不更新导致的问题" title="阅读次数">
+    <span id="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/" class="post-meta-item leancloud_visitors" data-flag-title="ARP cache不更新导致的网络问题" title="阅读次数">
       <span class="post-meta-item-icon">
         <i class="far fa-eye"></i>
       </span>
@@ -347,12 +347,15 @@
 <ol>
 <li>TBox在网卡UP的时候发送ARP包或者ping包给SoC这边, 主动更新ARP cache</li>
 <li>SoC把USB网卡的MAC地址修改成固定值, 这样ARP cache始终不会发生变化了</li>
-<li>SoC在USB网卡UP时主动发送一个GARP(<code>Gratuitous ARP</code>)给TBox(参考<code>devinet.c</code>函数<code>inetdev_send_gratuitous_arp</code>)</li>
+<li>SoC在USB网卡UP时主动发送一个GARP(<code>Gratuitous ARP</code>)给TBox(参考<code>devinet.c</code>函数<code>inetdev_send_gratuitous_arp</code>)(下篇文章就来介绍下<code>GARP</code>)</li>
 </ol>
 <p>对局域网来说, USB的rndis网卡修改成固定值看起来更为合理, 而且修改的代码量是最少的, 只需要把<code>rndis_host.c</code>中网卡随机生成的逻辑去掉即可:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">--- a/drivers/net/usb/rndis_host.c</span><br><span class="line">+++ b/drivers/net/usb/rndis_host.c</span><br><span class="line">@@ <span class="number">-430</span>,<span class="number">10</span> +<span class="number">430</span>,<span class="number">7</span> @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, <span class="keyword">int</span> flags)</span><br><span class="line">        <span class="keyword">goto</span> halt_fail_and_release;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">-	<span class="keyword">if</span> (bp[<span class="number">0</span>] &amp; <span class="number">0x02</span>)</span><br><span class="line">-		eth_hw_addr_random(net);</span><br><span class="line">-	<span class="keyword">else</span></span><br><span class="line">-		ether_addr_copy(net-&gt;dev_addr, bp);</span><br><span class="line">+	ether_addr_copy(net-&gt;dev_addr, bp);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* set a nonzero filter to enable data transfers */</span></span><br><span class="line">    <span class="built_in">memset</span>(u.<span class="built_in">set</span>, <span class="number">0</span>, <span class="keyword">sizeof</span> *u.<span class="built_in">set</span>);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>这个问题本身其实并不算困难, 但是由于一开始就忽略了<code>packets donot lie</code>这么一个原则, 没有认真看<code>tcpdump</code>的数据包, 忽略了MAC地址不匹配这么重要的事实, 导致问题定位走了弯路. 总的说来, 网络问题首先要抓到数据包, 再基于对TCP/IP各层协议的理解梳理linux内核协议栈的流程, 疑难杂症就没有什么可怕的了.</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>这个问题本身其实并不算困难, 但是由于一开始就忽略了<code>packets donot lie</code>这个原则, 没有认真看<code>tcpdump</code>的数据包, 忽略了MAC地址不匹配重要的事实, 导致问题定位走了弯路. 总的说来, 网络问题首先要抓到数据包, 再基于对TCP/IP协议的理解, 认真梳理linux内核协议栈的流程, 疑难杂症就没有什么可怕的了.</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
+<li><a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v4.14.249/source">https://elixir.bootlin.com/linux/v4.14.249/source</a></li>
+</ul>
 
     </div>
 
@@ -370,7 +373,7 @@
   </li>
   <li class="post-copyright-link">
       <strong>本文链接：</strong>
-      <a href="https://sniffer.site/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/" title="ARP cache不更新导致的问题">https://sniffer.site/2021/09/28/一个ARP-cache不更新导致的问题/</a>
+      <a href="https://sniffer.site/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/" title="ARP cache不更新导致的网络问题">https://sniffer.site/2021/09/28/一个ARP-cache不更新导致的问题/</a>
   </li>
   <li class="post-copyright-license">
     <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
@@ -400,6 +403,9 @@
                 </a>
             </div>
             <div class="post-nav-item">
+                <a href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/" rel="next" title="什么是GARP">
+                  什么是GARP <i class="fa fa-chevron-right"></i>
+                </a>
             </div>
           </div>
     </footer>
