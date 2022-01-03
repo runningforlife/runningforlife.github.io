@@ -44,7 +44,7 @@
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/curl_examples.png">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/iw_usage.png">
 <meta property="article:published_time" content="2019-01-17T10:23:08.000Z">
-<meta property="article:modified_time" content="2021-08-13T11:29:57.660Z">
+<meta property="article:modified_time" content="2021-12-21T03:26:41.296Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="Network tools">
@@ -180,7 +180,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">84</span>
+          <span class="site-state-item-count">85</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -191,7 +191,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">178</span>
+        <span class="site-state-item-count">180</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -394,14 +394,21 @@
 </ol>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">netcfg &lt;interface&gt; dhcp</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<h2 id="iptables"><a href="#iptables" class="headerlink" title="iptables"></a><strong>iptables</strong></h2><p>iptables是netfilter(<a target="_blank" rel="noopener" href="https://www.netfilter.org/)%E5%9C%A8%E7%94%A8%E6%88%B7%E7%A9%BA%E9%97%B4%E7%9A%84%E5%B7%A5%E5%85%B7">https://www.netfilter.org/)在用户空间的工具</a>, 可以用来读网络数据包进行转发, 拦截, 过滤以及修改. 简单说来, netfilter是在tcp/ip的内核传输路径添加各种hooks函数,如PREROUTING, INPUT, FORWARD, OUTPUT, POSTROUTING; 这些hooks函数负责将数据包发送个各个队列(tables), 示意图如下: </p>
+<h2 id="iptables"><a href="#iptables" class="headerlink" title="iptables"></a><strong>iptables</strong></h2><p>iptables是Linux内核模块netfilter(<a target="_blank" rel="noopener" href="https://www.netfilter.org/)%E5%9C%A8%E7%94%A8%E6%88%B7%E7%A9%BA%E9%97%B4%E7%9A%84%E5%B7%A5%E5%85%B7">https://www.netfilter.org/)在用户空间的工具</a>, 可以对网络数据包进行转发, 拦截, 过滤以及修改. 简单说来, netfilter是在tcp/ip的内核传输路径添加各种hooks函数(chains),如<code>PREROUTING</code>, <code>INPUT</code>, <code>FORWARD</code>, <code>OUTPUT</code>, <code>POSTROUTING</code>; 这些hooks函数负责将数据包发送个各个队列(tables), 示意图如下: </p>
 <p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Iptables_packet_flow.png" alt="iptables-netfilter flow"></p>
+<ul>
+<li><code>PREROUTING</code>: 对应<code>NF_IP_PRE_ROUTING</code>hook函数, 从外部节点发送到网卡的数据在进入协议栈之前会在该hook处理</li>
+<li><code>INPUT</code>: 对应<code>NF_IP_LOCAL_IN</code>hook节点, 协议栈对数据做了路由处理, 确认数据包是发送到当前系统的会在这里处理</li>
+<li><code>FORWARD</code>: 对应<code>NF_IP_FORWARD</code>hook函数, 协议栈做了路由处理, 确认该数据是转发给其他节点的包会在该hook函数处理</li>
+<li><code>OUTPUT</code>: 对应<code>NF_IP_LOCAL_OUT</code>hook函数, 所有本地进程的数据包在进入协议栈之后会在该hook函数处理</li>
+<li><code>POSTROUTING</code>: 对应<code>NF_IP_POST_ROUTING</code>hook函数, 数据被协议栈做了路由处理, 在进入网卡之前会在该hook函数处理</li>
+</ul>
 <p>在Linux中内置的tables有如下几个:</p>
 <ul>
-<li><strong>Filter</strong>: 用于数据包过滤(接收或者丢弃)</li>
-<li><strong>Nat</strong>: IP地址转换, 有源地址(snat), 目标地址(dnat)以及masquerade(装饰)三种</li>
-<li><strong>Managle</strong>: 修改数据包的头(ttl/tos等)</li>
-<li><strong>Raw</strong>: 主要用于配置链接跟踪(connection tracking)</li>
+<li><strong>Filter</strong>: 用于数据包过滤(接收或者丢弃), 只有<code>INPUT</code>/<code>FORWARD</code>/<code>OUTPUT</code>实现<code>filter</code>表</li>
+<li><strong>Nat</strong>: IP地址转换, 有源地址(snat), 目标地址(dnat)以及masquerade(装饰)三种, SNAT实现的节点有<code>INPUT</code>, <code>POSTROUTING</code>; DNAT实现的节点<code>PREROUTING</code>/<code>OUTPUT</code></li>
+<li><strong>Managle</strong>: 修改数据包的头(ttl/tos等), mangle表在所有hook节点都有实现</li>
+<li><strong>Raw</strong>: 主要用于配置链接跟踪(connection tracking), <code>PREOUTING</code>/<code>OUTPUT</code>节点实现了<code>raw</code>表</li>
 </ul>
 <p>有关iptables使用的具体示例可以参考<a target="_blank" rel="noopener" href="https://eecs.wsu.edu/~hauser/teaching/CS455-F01/LectureNotes/4-22-4up.pdf">Linux Configuration for NAT and Firewall</a>在Ubuntu系统中, 输入<code>man iptables</code>可以查看iptables的具体用法:</p>
 <p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/iptables-usage.png" alt="iptables usage"></p>
@@ -417,7 +424,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">iptables -L -v -n</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 
-<p>通过iptables的规则链条, 我们可以很方便的构造一系列防火墙规则, 看起来是非常强大的一个工具了. 很值得学习; Linux内核netfilter数据过滤规则可以参考<a target="_blank" rel="noopener" href="https://upload.wikimedia.org/wikipedia/commons/3/37/Netfilter-packet-flow.svg">Wikipedia中详细的流程图</a>, 从中我们可以看到内核中不同规则链上上规则的适用情况.</p>
+<p>通过iptables的规则链条, 我们可以很方便的构造一系列防火墙规则, 是一个非常强大的工具, 值得学习; Linux内核netfilter数据过滤规则可以参考<a target="_blank" rel="noopener" href="https://upload.wikimedia.org/wikipedia/commons/3/37/Netfilter-packet-flow.svg">Wikipedia中详细的流程图</a>, 从中我们可以看到内核中不同规则链上上规则的适用情况.</p>
 <h2 id="netcat"><a href="#netcat" class="headerlink" title="netcat"></a><strong>netcat</strong></h2><p><code>netcat</code>通常简写成<code>nc</code>, 是一个用于建立TCP/UDP连接的小工具, 在Linux下<code>netcat -h</code>或者<code>nc -h</code>都可以查看其使用说明；Android也包含了一个缩减版的<code>netcat</code>, 可以通过<code>nc -h</code>查看. 以Ubuntu为例, 通常<code>nc</code>有如下几个参数:</p>
 <p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/nc_usage.png" alt="netcat usage"></p>
 <p>比如要测试下跟google的TCP连接是否正常(设置<code>-v</code>可以输出连接的状态信息):</p>
@@ -469,6 +476,7 @@
 <li><a target="_blank" rel="noopener" href="http://linux-ip.net/html/tools-ip-route.html">http://linux-ip.net/html/tools-ip-route.html</a></li>
 <li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Iptables">https://en.wikipedia.org/wiki/Iptables</a></li>
 <li><a target="_blank" rel="noopener" href="https://linux.die.net/man/8/tc">https://linux.die.net/man/8/tc</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.digitalocean.com/community/tutorials/a-deep-dive-into-iptables-and-netfilter-architecture">https://www.digitalocean.com/community/tutorials/a-deep-dive-into-iptables-and-netfilter-architecture</a></li>
 </ul>
 
     </div>
@@ -542,7 +550,7 @@
 
 <div class="copyright">
   &copy; 
-  <span itemprop="copyrightYear">2021</span>
+  <span itemprop="copyrightYear">2022</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
