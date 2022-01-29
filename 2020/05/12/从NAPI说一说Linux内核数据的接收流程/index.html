@@ -29,7 +29,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png">
 <meta property="article:published_time" content="2020-05-12T10:01:22.000Z">
-<meta property="article:modified_time" content="2021-09-29T10:10:40.357Z">
+<meta property="article:modified_time" content="2022-01-05T12:02:35.458Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="TCP&#x2F;IP">
@@ -162,18 +162,18 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">85</span>
+          <span class="site-state-item-count">86</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
           <a href="/categories/">
-        <span class="site-state-item-count">27</span>
+        <span class="site-state-item-count">28</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">180</span>
+        <span class="site-state-item-count">182</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -283,6 +283,7 @@
 <li>NIC产生硬件中断告知内核有新的数据包达到了</li>
 <li>网卡驱动收到中断后调用NAPI接口开启poll线程（如果当前没有正在执行的线程）(常规数据传输直接处理NIC的中断时中间一般通过调用<code>netif_rx_action</code>来发起数据接收）</li>
 <li><code>ksoftirqd</code>（内核启动时每个CPU上都会启动这样一个线程）线程负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
+<li>解除ring buffer中的DMA内存映射(unmapped)</li>
 <li>通过DMA传输到内存中的数据包，最终通过<code>sk_buff</code>的形式传递给上层网络协议栈（TCP/IP层)</li>
 <li>如果支持数据包转发(packet steering)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行分发</li>
 <li>网络协议栈处理数据包，并将其发送到对应的<code>socket</code>接收缓冲区</li>
@@ -377,7 +378,7 @@
 <p>回调协议包<code> struct packet_type</code>注册的回调函数，把<code>sk_buff</code>传给该协议层处理。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">int</span> <span class="title">deliver_skb</span><span class="params">(struct sk_buff *skb,</span></span></span><br><span class="line"><span class="params"><span class="function">			      struct packet_type *pt_prev,</span></span></span><br><span class="line"><span class="params"><span class="function">			      struct net_device *orig_dev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">	atomic_inc(&amp;skb-&gt;users);</span><br><span class="line">	<span class="keyword">return</span> pt_prev-&gt;func(skb, skb-&gt;dev, pt_prev, orig_dev);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<p>所有这些<code> struct packet_type</code>实际都是在内核初始化的时候通过<code>dev_add_pack</code>注册的，有兴趣的可以跟踪下对应的代码逻辑。至此, 数据包从设备物理层L1传输到了链路层L2了,传输完成了第一步. </p>
+<p>所有这些<code> struct packet_type</code>实际都是在内核初始化的时候通过<code>dev_add_pack</code>注册的，有兴趣的可以跟踪下对应的代码逻辑。至此, 数据包从设备物理层L1传输到了链路层L2了,传输完成了第一步.</p>
 <p>总的说来, NAPI针对高负载的数据通讯做了优化, 减少了物理中断数量, 同时又兼顾了各个物理设备在传输调度上的公平性.</p>
 <h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
 <li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/30107/">Driver porting: Network drivers</a></li>
@@ -389,6 +390,7 @@
 <li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/822521/">DMA相关的文章</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/DMA-API-HOWTO.txt">内核DMA API说明</a></li>
 <li><a target="_blank" rel="noopener" href="https://elinux.org/images/3/32/Pinchart--mastering_the_dma_and_iommu_apis.pdf">https://elinux.org/images/3/32/Pinchart--mastering_the_dma_and_iommu_apis.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="https://arthurchiao.art/blog/tuning-stack-rx-zh/">Linux 网络栈监控和调优：接收数据(中译版)</a></li>
 </ul>
 
     </div>
