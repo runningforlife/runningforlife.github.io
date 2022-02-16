@@ -265,47 +265,15 @@
       </header>
     
     <div class="post-body" itemprop="articleBody">
-          <p>最近因为公司安全的需求, 要修改<code>openssh</code>的源码, 并将其移植到一个ARM的嵌入式系统上, 替换原有的预编译的版本. 参考了网上的一些资料, 如<a target="_blank" rel="noopener" href="https://wiki.openssl.org/index.php/Compilation_and_Installation">openssl官网编译安装说明</a>; <a target="_blank" rel="noopener" href="https://www.cnblogs.com/TaXueWuYun/p/15314124.html">移植openssh到arm-linux</a>, 但是由于移植的目标平台并不一样, 实践起来并不能完全参考, 会有细微的差异. 这里把整个流程写下来, 总结一下, 方便后面移植相关开发工具.</p>
-<h2 id="下载源码"><a href="#下载源码" class="headerlink" title="下载源码"></a><strong>下载源码</strong></h2><p><code>openssh</code>的编译依赖于<code>openssl</code>, <code>zlib</code>两个库, 因此编译的第一步是把所有这些源码都下载过来, 三个开源仓库下载路径如下:</p>
-<ul>
-<li><code>openssh</code>: git仓库以及各个release版本, <a target="_blank" rel="noopener" href="https://www.openssh.com/portable.html">https://www.openssh.com/portable.html</a>; 由于release版本才有<code>Configure</code>脚本, 因此我直接下载了一个<code>v6.6p1</code>的稳定版本</li>
-<li><code>openssl</code>: 包含github仓库以及文档说明, <a target="_blank" rel="noopener" href="https://www.openssl.org/">https://www.openssl.org/</a>; github上的源码基本包含了历史分支信息, 因此可以直接通过<code>git clone</code>下载, 然后<code>checkout</code>到对应版本的分支(使用<code>v1.0.1</code>版本)</li>
-<li><code>z-lib</code>: 官网上有下载链接, <a target="_blank" rel="noopener" href="https://zlib.net/">https://zlib.net/</a>; github上也有仓库, 但是没有历史分支信息, 所以下载了版本<code>zlib-1.2.11</code>的源码.</li>
-</ul>
-<blockquote>
-<p><code>openssh</code>的<code>INSTALL</code>文档中对所要求的<code>openssl</code>/<code>z-lib</code>版本有具体说明, 可以参考.</p>
-</blockquote>
-<p>由于目标移植平台已有的<code>openssh</code>使用的版本是<code>OpenSSH_6.6p1</code>, 因此实际下载的源码版本信息如下:</p>
-<ul>
-<li><code>openssh</code>: Openssh_6.6p1</li>
-<li><code>openssl</code>: OpenSSL_1_0_1-stable</li>
-<li><code>z-lib</code>: zlib-1.2.11</li>
-</ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">/usr/local/bin # ./ssh -V</span><br><span class="line">OpenSSH_6<span class="number">.6</span>p1, OpenSSL <span class="number">1.0</span><span class="number">.1</span>h <span class="number">5</span> Jun <span class="number">2014</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="编译源码"><a href="#编译源码" class="headerlink" title="编译源码"></a><strong>编译源码</strong></h2><p>为了方便管理以及查看编译结果, 可以把三个软件包解压放到一个目录: <code>/data/wxn/openSSH</code>. 本地机器是<code>x86_64</code>, 操作系统是Ubuntu16, 目标平台是<code>armv7</code>, 交叉编译使用的工具是<code>arm-none-linux-gnueabi-gcc</code>(gcc 4.6.2). </p>
-<h3 id="编译zlib"><a href="#编译zlib" class="headerlink" title="编译zlib"></a><strong>编译zlib</strong></h3><p>进入<code>/data/wxn/openSSH/zlib-1.2.11</code>, 通过<code>./configure -h</code>查看编译配置说明:</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">./configure -h</span><br><span class="line">usage:</span><br><span class="line">  configure [--<span class="keyword">const</span>] [--zprefix] [--prefix=PREFIX]  [--eprefix=EXPREFIX]</span><br><span class="line">    [--<span class="keyword">static</span>] [-<span class="number">-64</span>] [--libdir=LIBDIR] [--sharedlibdir=LIBDIR]</span><br><span class="line">    [--includedir=INCLUDEDIR] [--archs=<span class="string">&quot;-arch i386 -arch x86_64&quot;</span>]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>如果只需要生成静态库, 就指定参数<code>--static</code>; 另外需要指定生成文件的路径:</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">./configure --<span class="keyword">static</span> --prefix=/data/wxn/openSSH</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>上述指令生成编译的<code>Makefile</code>后, 修改其中的编译工具, 将其指向交叉编译工具所在的路径(需要修改<code>gcc</code>/<code>ar</code>两个工具的路径): </p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">TOOL_PREFIX=/data/wxn/toolchainbin/arm-none-linux-gnueabi-</span><br><span class="line">CC=$(TOOL_PREFIX)gcc</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>执行<code>make;make install</code>, 在目录<code>/data/wxn/openSSH/lib</code>下可以看到生成了一个<code>libz.a</code>的静态库.</p>
-<h3 id="编译openssl"><a href="#编译openssl" class="headerlink" title="编译openssl"></a><strong>编译openssl</strong></h3><p>编译<code>openssl</code>会稍微麻烦点. 同样查看<code>./Configure -h</code>可以看到, 需要配置目标平台的系统类型:</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">	./Configure -h</span><br><span class="line">	Configuring <span class="keyword">for</span></span><br><span class="line"> </span><br><span class="line">Usage: Configure [no-&lt;cipher&gt; ...] [enable-&lt;cipher&gt; ...] [experimental-&lt;cipher&gt; ...] [-Dxxx] [-lxxx] [-Lxxx] [-fxxx] [-Kxxx] [no-hw-xxx|no-hw] [[no-]threads] [[no-]shared] [[no-]zlib|zlib-dynamic] [no-<span class="keyword">asm</span>] [no-dso] [no-krb5] [sctp] [<span class="number">386</span>] [--prefix=DIR] [--openssldir=OPENSSLDIR] [--with-xxx[=vvv]] [--test-sanity] os/compiler[:flags]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>编译配置<code>Configure</code>中已经添加了很多平台类型(<code>./Configure LIST</code>可以查看已经支持的平台), 但是好像并没有发现<code>armv7</code>架构的平台, <a target="_blank" rel="noopener" href="https://wiki.openssl.org/index.php/Compilation_and_Installation#ARM">openssl官网</a>建议自己手动添加一个配置, 但看了其他地方说可以使用相似平台的配置, 看配置列表跟arm相关的有<code>android-armv7</code>/<code>linux-armv4</code>两个, 尝试了<code>armv4</code>发现是可以(<code>android-armv7</code>会出现编译错误):</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">./Configure linux-armv4 --prefix=/data/wxn/openSSH</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>修改生成的<code>Makefile</code>, 按照之前的<code>zlib</code>配置, 将其中<code>gcc/nm/ar</code>的地方都指向交叉编译工具所在的目录, 执行<code>make; make install</code>, 即可看到<code>/data/wxn/openSSH</code>生成了<code>lib/bin</code>两个目录, <code>lib</code>目录包含了<code>libssl.a/libcrypto.a</code>静态库, <code>bin</code>下包含了<code>openssl</code>工具.</p>
-<h3 id="编译openssh"><a href="#编译openssh" class="headerlink" title="编译openssh"></a><strong>编译openssh</strong></h3><p>编译<code>openssh</code>跟之前两个库的编译类似(具体可以参考<code>INSTALL</code>文档), 只不过需要指定生成的<code>openssl</code>/<code>zlib</code>所在目录(进入代码根目录):</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">GCC=/data/wxn/toolchain/arm-none-linux-gnueabi-gcc</span><br><span class="line">AAR=/data/wxn/toolchain/arm-none-linux-gnueabi-ar</span><br><span class="line">./configure --host=arm-linux --prefix=/usr/local --with-zlib=/data/wxn/openSSH --with-ssl-dir=/data/wxn/openSSH --disable-etc-<span class="keyword">default</span>-login --disable-strip CC=$GCC AR=$AAR</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>接着执行<code>make</code>(不用执行安装指令<code>make install</code>), 可以看到根目录下多了<code>ssh/sshd/scp</code>等工具.将其拷贝到目标平台对应目录<code>/usr/local/bin</code>, 确认可以正常运行, 至此大功告成.</p>
-
+          <p>最近因为公司安全的需求, 要修改<code>openssh</code>的源码, 将其移植到一个ARM的嵌入式系统上, 替换原有的预编译的版本. 参考了网上的一些移植<code>openssh</code>的资料, 如<a target="_blank" rel="noopener" href="https://wiki.openssl.org/index.php/Compilation_and_Installation">openssl官网编译安装说明</a>; <a target="_blank" rel="noopener" href="https://www.cnblogs.com/TaXueWuYun/p/15314124.html">移植openssh到arm-linux</a>, 但是由于目标平台不一样, 实践起来并不能完全参考, 会有细微的差异. 这里把整个流程写下来, 总结一下, 方便后面移植相关开发工具.</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2022/02/16/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dopenssh%E5%88%B0armv7%E7%B3%BB%E7%BB%9F/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
