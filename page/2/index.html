@@ -533,6 +533,7 @@
 <ul>
 <li>MAC/PHY的基础知识</li>
 <li>Linux下MAC/PHY驱动的加载流程</li>
+<li>PHY驱动的开发与适配</li>
 <li>车载以太网MAC/PHY调试的一些经验总结</li>
 </ul>
           <!--noindex-->
@@ -1055,19 +1056,18 @@
       </header>
     
     <div class="post-body" itemprop="articleBody">
-          <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/New_API">NAPI(New API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，驱动收到硬件中断后，通过poll方式将传输过来的数据包统一处理， 通过禁止网络设备中断以减少硬件中断数量((Interrupt Mitigation)，从而实现更高的数据传输。</p>
-<p>基于NAPI接口， 一般的网络传输都有如下几个步骤：</p>
+          <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/New_API">NAPI(New API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，网络驱动收到硬件中断后，通过poll(轮询)方式将传输过来的数据包统一处理， 在poll时通过禁止网络设备中断以减少硬件中断数量(<code>Interrupt Mitigation</code>)，从而实现更高的数据传输速率。</p>
+<p>基于NAPI接口， 一般的网络传输(接收)有如下几个步骤：</p>
 <ul>
 <li>网络设备驱动加载与初始化（配置IP等）</li>
-<li>数据包从网络侧发送到网卡(Network Interface Controller, NIC)</li>
+<li>数据包从网络侧发送到网卡(<code>Network Interface Controller</code>, NIC)</li>
 <li>通过<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Direct_memory_access">DMA(Direct Memory Access)</a>，将数据从网卡拷贝到内存的环形缓冲区(ring buffer)</li>
-<li>NIC产生硬件中断告知内核有新的数据包达到了</li>
-<li>网卡驱动收到中断后调用NAPI接口开启poll线程（如果当前没有正在执行的线程）(常规数据传输直接处理NIC的中断时中间一般通过调用<code>netif_rx_action</code>来发起数据接收）</li>
-<li><code>ksoftirqd</code>（内核启动时每个CPU上都会启动这样一个线程）线程负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
-<li>解除ring buffer中的DMA内存映射(unmapped)</li>
-<li>通过DMA传输到内存中的数据包，最终通过<code>sk_buff</code>的形式传递给上层网络协议栈（TCP/IP层)</li>
-<li>如果支持数据包转发(packet steering)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行分发</li>
-<li>网络协议栈处理数据包，并将其发送到对应的<code>socket</code>接收缓冲区</li>
+<li>数据从网卡拷贝到内存后, NIC产生硬件中断告知内核有新的数据包达到</li>
+<li>内核收到中断后, 调用相应中断处理函数, 此时就会调用NAPI接口<code>__napi_schedule</code>开启poll线程（实际是触发一个软中断<code>NET_RX_SOFTIRQ</code>）(常规数据传输, 一般在处理NIC的中断时调用<code>netif_rx_action</code>处理网卡队列的数据）</li>
+<li><code>ksoftirqd</code>（每个CPU上都会启动一个软中断处理线程）收到软中断后被唤醒, 然后执行函数<code>net_rx_action</code>, 这个函数负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
+<li>解除网卡<code>ring buffer</code>中的DMA内存映射(unmapped), 数据由CPU负责处理, <code>netif_receive_skb</code>传递回内核协议栈</li>
+<li>如果内核支持数据包定向分发(<code>packet steering</code>)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行均衡, 这样可以获得更高的网络速率</li>
+<li>网络协议栈处理数据包，并将其发送到对应应用的<code>socket</code>接收缓冲区</li>
 </ul>
           <!--noindex-->
             <div class="post-button">
