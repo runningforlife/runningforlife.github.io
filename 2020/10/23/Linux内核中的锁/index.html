@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width">
-<meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 5.4.0">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.1.0">
 
 
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
@@ -16,16 +15,17 @@
 
 
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.3/css/all.min.css" integrity="sha256-2H3fkXt6FEmrReK448mDVGKb3WW2ZZw35gI7vqHOE4Y=" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" integrity="sha256-jTIdiMuX/e3DGJUGwl3pKSxuc6YOuqtJYkM0bGQESA4=" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
 
-<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
-<meta name="description" content="在看Linux内核代码时，经常会遇到各种锁(lock)的使用。对于像spin_lock_irq&#x2F;spin_lock_irqsave的区别感到困惑，每次都要重新查一下资料。遂决定写一篇文章记录下内核中使用到的锁，以及使用的场景。 与应用中的锁类似，内核中的锁也只是为了保护某个内核数据结构或者内存区域在多个执行路径时不被破坏，确保数据的一致性。Linux内核作为应用层服务的提供者，一方面要为应用提供系">
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.10.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在看Linux内核代码时，经常会遇到各种锁(lock)的使用。对于像spin_lock_irq&#x2F;spin_lock_irqsave的区别感到困惑，每次都要重新查一下资料。遂决定写一篇文章记录下内核中使用到的锁，以及使用的场景。 与应用中的锁类似，内核中的锁也只是为了保护某个内核数据结构或者内存区域在多个执行路径时不被破坏，确保数据的一致性。Linux内核作为应用层服务的提供者，一方面要为">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Linux内核中的锁">
 <meta property="og:url" content="https://sniffer.site/2020/10/23/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E7%9A%84%E9%94%81/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="在看Linux内核代码时，经常会遇到各种锁(lock)的使用。对于像spin_lock_irq&#x2F;spin_lock_irqsave的区别感到困惑，每次都要重新查一下资料。遂决定写一篇文章记录下内核中使用到的锁，以及使用的场景。 与应用中的锁类似，内核中的锁也只是为了保护某个内核数据结构或者内存区域在多个执行路径时不被破坏，确保数据的一致性。Linux内核作为应用层服务的提供者，一方面要为应用提供系">
+<meta property="og:description" content="在看Linux内核代码时，经常会遇到各种锁(lock)的使用。对于像spin_lock_irq&#x2F;spin_lock_irqsave的区别感到困惑，每次都要重新查一下资料。遂决定写一篇文章记录下内核中使用到的锁，以及使用的场景。 与应用中的锁类似，内核中的锁也只是为了保护某个内核数据结构或者内存区域在多个执行路径时不被破坏，确保数据的一致性。Linux内核作为应用层服务的提供者，一方面要为">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2020-10-23T02:21:25.000Z">
 <meta property="article:modified_time" content="2021-09-14T06:03:22.864Z">
@@ -45,6 +45,7 @@
 <script class="next-config" data-name="calendar" type="application/json">""</script>
 <title>Linux内核中的锁 | JasonWang's Blog</title>
   
+
 
 
 
@@ -72,7 +73,7 @@
 
     <a href="/" class="brand" rel="start">
       <i class="logo-line"></i>
-      <h1 class="site-title">JasonWang's Blog</h1>
+      <p class="site-title">JasonWang's Blog</p>
       <i class="logo-line"></i>
     </a>
       <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
@@ -150,8 +151,7 @@
         <!--/noindex-->
 
         <div class="site-overview-wrap sidebar-panel">
-          <div class="site-overview">
-            <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
     <img class="site-author-image" itemprop="image" alt="Jason Wang"
       src="/images/gallaxy.jpg">
   <p class="site-author-name" itemprop="name">Jason Wang</p>
@@ -188,7 +188,6 @@
 
 
 
-          </div>
         </div>
       </div>
     </div>
@@ -228,11 +227,16 @@
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/gallaxy.jpg">
       <meta itemprop="name" content="Jason Wang">
-      <meta itemprop="description" content="关于编程,生活,工作">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Linux内核中的锁 | JasonWang's Blog">
+      <meta itemprop="description" content="">
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
@@ -273,8 +277,8 @@
       </header>
     
     <div class="post-body" itemprop="articleBody">
-        <p>在看Linux内核代码时，经常会遇到各种锁(lock)的使用。对于像<code>spin_lock_irq</code>/<code>spin_lock_irqsave</code>的区别感到困惑，每次都要重新查一下资料。遂决定写一篇文章记录下内核中使用到的锁，以及使用的场景。</p>
-<p>与应用中的锁类似，内核中的锁也只是为了保护某个内核数据结构或者内存区域在多个执行路径时不被破坏，确保数据的一致性。Linux内核作为应用层服务的提供者，一方面要为应用提供系统调用接口(<code>system call</code>)，代表用户进程执行任务,即<a target="_blank" rel="noopener" href="https://tldp.org/LDP/LG/issue23/flower/intro.html">process context</a>;同时与硬件直接交互，要响应硬件中断的请求，处理诸如网卡数据/串口数据等请求，即<a target="_blank" rel="noopener" href="https://linux-kernel-labs.github.io/refs/heads/master/lectures/interrupts.html">Interrupt Context</a>. 内核就是在进程上下文/中断上下文直接来回切换，执行相应的任务请求。这就自然产生了数据的并发访问，产生了竞争条件(<code>race condition</code>)。另一方面，目前大多数的系统都是多核CPU的，多个CPU同时访问内核数据也同样会产生竞争条件。</p>
+        <p>在看Linux内核代码时，经常会遇到各种锁(lock)的使用。对于像<code>spin_lock_irq</code>&#x2F;<code>spin_lock_irqsave</code>的区别感到困惑，每次都要重新查一下资料。遂决定写一篇文章记录下内核中使用到的锁，以及使用的场景。</p>
+<p>与应用中的锁类似，内核中的锁也只是为了保护某个内核数据结构或者内存区域在多个执行路径时不被破坏，确保数据的一致性。Linux内核作为应用层服务的提供者，一方面要为应用提供系统调用接口(<code>system call</code>)，代表用户进程执行任务,即<a target="_blank" rel="noopener" href="https://tldp.org/LDP/LG/issue23/flower/intro.html">process context</a>;同时与硬件直接交互，要响应硬件中断的请求，处理诸如网卡数据&#x2F;串口数据等请求，即<a target="_blank" rel="noopener" href="https://linux-kernel-labs.github.io/refs/heads/master/lectures/interrupts.html">Interrupt Context</a>. 内核就是在进程上下文&#x2F;中断上下文直接来回切换，执行相应的任务请求。这就自然产生了数据的并发访问，产生了竞争条件(<code>race condition</code>)。另一方面，目前大多数的系统都是多核CPU的，多个CPU同时访问内核数据也同样会产生竞争条件。</p>
 <span id="more"></span>
 
 <p>简单来说，内核中锁要做的事情就是确保临界区&lt;<code>critical section</code>&gt;始终只有一个执行路径，就是说在有锁保护的情况下，临界区的执行不会被其他执行路径中断; 接下来，就分别看一看内核中常用的几个锁保护机制&lt;对应的代码实现在<code>/kernel/locking/</code>&gt;：</p>
@@ -285,7 +289,7 @@
 <li>Atomic(原子操作）</li>
 </ul>
 <h2 id="Semaphore-信号量）"><a href="#Semaphore-信号量）" class="headerlink" title="Semaphore(信号量）"></a><strong>Semaphore(信号量）</strong></h2><p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Semaphore_(programming)"><code>semaphore</code></a>是很常见的同步资源访问的方法，可以用于多个资源的访问控制;一般用于多个内核路径试图控制某个数据的并发访问，内核中对应的头文件在<code>linux/semaphore.h</code>:</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">semaphore</span> &#123;</span></span><br><span class="line">  <span class="keyword">raw_spinlock_t</span>		lock;</span><br><span class="line">  <span class="keyword">unsigned</span> <span class="keyword">int</span>		count;</span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span>	<span class="title">wait_list</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">semaphore</span> &#123;</span><br><span class="line">  <span class="type">raw_spinlock_t</span>		lock;</span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span>		count;</span><br><span class="line">  <span class="keyword">struct</span> <span class="title class_">list_head</span>	wait_list;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>上述中<code>count</code>就是需要同步访问的资源个数，一般在内核中都设置为<code>1</code>，即等同于互斥锁。<code>semaphore</code>有两个常用的操作方法：</p>
 <ul>
@@ -310,7 +314,7 @@
 <p>跟上述几个场景对应，Linux中的<code>spin lock</code>提供了好几个函数来实现不同场景下的同步&lt;<code>linux/spinlock.h</code>&gt;：</p>
 <ul>
 <li><code>spin_lock</code>: 获取锁，如果锁被持有了，则等待</li>
-<li><code>spin_lock_bh</code>： 获取锁，禁止了软中断/本地中断，但可以响应物理中断</li>
+<li><code>spin_lock_bh</code>： 获取锁，禁止了软中断&#x2F;本地中断，但可以响应物理中断</li>
 <li><code>spin_lock_irq</code>： 获取锁时打开中断</li>
 <li><code>spin_lock_irqsave</code>： 获取锁时禁止本地中断</li>
 </ul>
@@ -351,7 +355,7 @@
 
         
   <div class="post-widgets">
-    <div class="wp_rating">
+    <div class="wpac-rating-container">
       <div id="wpac-rating"></div>
     </div>
   </div>
@@ -417,8 +421,9 @@
   <script src="https://embed.widgetpack.com/widget.js" async></script>
   <script class="next-config" data-name="rating" type="application/json">{"enable":true,"id":32167,"color":"#fc6423"}</script>
   <script src="/js/third-party/rating.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.10.3/dist/algoliasearch-lite.umd.js" integrity="sha256-G3d8uGe8RUBl42fj30KOUgKMV2LpwsJUI3fzfEiuHsY=" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.25.2/dist/instantsearch.production.min.js" integrity="sha256-h8iRwCCyeIDuVWtR9WwIJ+XJ8Z37SunCvilg+pnImD4=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.12.1/dist/algoliasearch-lite.umd.js" integrity="sha256-gOvJ6W+j+t/cgnnl9iUU3cb6F1WFQGDdtTXhfPjU4bc=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.39.0/dist/instantsearch.production.min.js" integrity="sha256-+ZlQZK9m82XOYGFZCIRrPOFh2kDdAGB6e7TjWGvoaSY=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+
 
 
 

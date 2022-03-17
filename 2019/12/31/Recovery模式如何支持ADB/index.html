@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width">
-<meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 5.4.0">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.1.0">
 
 
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
@@ -16,16 +15,17 @@
 
 
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.3/css/all.min.css" integrity="sha256-2H3fkXt6FEmrReK448mDVGKb3WW2ZZw35gI7vqHOE4Y=" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" integrity="sha256-jTIdiMuX/e3DGJUGwl3pKSxuc6YOuqtJYkM0bGQESA4=" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
 
-<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
-<meta name="description" content="这两天顺着recovery模式下一个网络需求, 为了便于调试又在recovery下做了ADB功能. 在Android早期的如4.4版本, recovery模式下支持ADB配置起来比较简单(支持adb devices&#x2F;adb reboot&#x2F;adb pull&#x2F;push等常用指令), 但在Android 9.0下USB辅助设备一般都通过configfs的方式来配置了, 因此相对来说要适配的东西就多一些,">
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.10.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="这两天顺着recovery模式下一个网络需求, 为了便于调试又在recovery下做了ADB功能. 在Android早期的如4.4版本, recovery模式下支持ADB配置起来比较简单(支持adb devices&#x2F;adb reboot&#x2F;adb pull&#x2F;push等常用指令), 但在Android 9.0下USB辅助设备一般都通过configfs的方式来配置了, 因此相对来说要">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Recovery模式如何支持ADB">
 <meta property="og:url" content="https://sniffer.site/2019/12/31/Recovery%E6%A8%A1%E5%BC%8F%E5%A6%82%E4%BD%95%E6%94%AF%E6%8C%81ADB/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="这两天顺着recovery模式下一个网络需求, 为了便于调试又在recovery下做了ADB功能. 在Android早期的如4.4版本, recovery模式下支持ADB配置起来比较简单(支持adb devices&#x2F;adb reboot&#x2F;adb pull&#x2F;push等常用指令), 但在Android 9.0下USB辅助设备一般都通过configfs的方式来配置了, 因此相对来说要适配的东西就多一些,">
+<meta property="og:description" content="这两天顺着recovery模式下一个网络需求, 为了便于调试又在recovery下做了ADB功能. 在Android早期的如4.4版本, recovery模式下支持ADB配置起来比较简单(支持adb devices&#x2F;adb reboot&#x2F;adb pull&#x2F;push等常用指令), 但在Android 9.0下USB辅助设备一般都通过configfs的方式来配置了, 因此相对来说要">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/usb_system_architecture.png">
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/usb_gadgets_configfs.png">
@@ -48,6 +48,7 @@
 <script class="next-config" data-name="calendar" type="application/json">""</script>
 <title>Recovery模式如何支持ADB | JasonWang's Blog</title>
   
+
 
 
 
@@ -75,7 +76,7 @@
 
     <a href="/" class="brand" rel="start">
       <i class="logo-line"></i>
-      <h1 class="site-title">JasonWang's Blog</h1>
+      <p class="site-title">JasonWang's Blog</p>
       <i class="logo-line"></i>
     </a>
       <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
@@ -153,8 +154,7 @@
         <!--/noindex-->
 
         <div class="site-overview-wrap sidebar-panel">
-          <div class="site-overview">
-            <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
     <img class="site-author-image" itemprop="image" alt="Jason Wang"
       src="/images/gallaxy.jpg">
   <p class="site-author-name" itemprop="name">Jason Wang</p>
@@ -191,7 +191,6 @@
 
 
 
-          </div>
         </div>
       </div>
     </div>
@@ -231,11 +230,16 @@
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/gallaxy.jpg">
       <meta itemprop="name" content="Jason Wang">
-      <meta itemprop="description" content="关于编程,生活,工作">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Recovery模式如何支持ADB | JasonWang's Blog">
+      <meta itemprop="description" content="">
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
@@ -276,7 +280,7 @@
       </header>
     
     <div class="post-body" itemprop="articleBody">
-        <p>这两天顺着recovery模式下一个网络需求, 为了便于调试又在recovery下做了ADB功能. 在Android早期的如4.4版本, recovery模式下支持ADB配置起来比较简单(支持<code>adb devices</code>/<code>adb reboot</code>/<code>adb pull/push</code>等常用指令), 但在Android 9.0下USB辅助设备一般都通过<code>configfs</code>的方式来配置了, 因此相对来说要适配的东西就多一些, 如果额外要适配<code>adb shell</code>命令, 则要修改<code>adbd</code>的源代码了.这篇文章就来看看如何在Recovery模式下解决这几个问题.</p>
+        <p>这两天顺着recovery模式下一个网络需求, 为了便于调试又在recovery下做了ADB功能. 在Android早期的如4.4版本, recovery模式下支持ADB配置起来比较简单(支持<code>adb devices</code>&#x2F;<code>adb reboot</code>&#x2F;<code>adb pull/push</code>等常用指令), 但在Android 9.0下USB辅助设备一般都通过<code>configfs</code>的方式来配置了, 因此相对来说要适配的东西就多一些, 如果额外要适配<code>adb shell</code>命令, 则要修改<code>adbd</code>的源代码了.这篇文章就来看看如何在Recovery模式下解决这几个问题.</p>
 <p>在进入正题之前, 先了解下USB相关的基础知识.</p>
 <p>USB全称是<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/USB"><code>Universal Serial Bus</code></a>, 是一种广泛用于主机与外设之间的连接的串行总线.USB设备使用的是一种层级的结构, 最多可支持多达127个设备, 每个USB设备对应一个功能(<code>function</code>), 比如USB打印机提供了打印服务; 存储设备则提供了存储数据的功能.</p>
 <p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/usb_system_architecture.png" alt="USB system architecture"></p>
@@ -286,11 +290,11 @@
 <h2 id="Recovery下的ADB"><a href="#Recovery下的ADB" class="headerlink" title="Recovery下的ADB"></a>Recovery下的ADB</h2><p>适配的第一步是首先看看源码. 进入Recovery的代码<code>/bootable/recovery</code>下面有一个<code>README.md</code>的文档, 里边有大致说明了如何在recovery下使用ADB. 对<code>USESRDEBUG/ENG</code>版本, 默认是启动了<code>adbd</code>, 并且对于<code>recovery</code>模式通过<code>adb devices</code>看到的是一个如下设备:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">$ adb devices</span><br><span class="line">List of devices attached</span><br><span class="line">1234567890abcdef    recovery</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<p>还需要明确的一点是, 在recovery模式下, 只有部分adb指令可用, 比如<code>adb root</code>/<code>adb push/pull</code>, 如果要使用<code>adb shell</code>需要把<code>/system</code>分区挂载上来.看起来一切都比较简单了, 可通过<code>adb reboot recovery</code>之后却无法找到设备, 在PC端查看<code>dmesg</code>也没有任何USB设备枚举上来. </p>
+<p>还需要明确的一点是, 在recovery模式下, 只有部分adb指令可用, 比如<code>adb root</code>&#x2F;<code>adb push/pull</code>, 如果要使用<code>adb shell</code>需要把<code>/system</code>分区挂载上来.看起来一切都比较简单了, 可通过<code>adb reboot recovery</code>之后却无法找到设备, 在PC端查看<code>dmesg</code>也没有任何USB设备枚举上来. </p>
 <p>继续看文档, 上面说到, 如果设备使用了<code>configfs</code>这个配置文件系统的话, 需要设置相关的配置.那问题可能就出在这里: 使用了<code>configfs</code>来配置USB设备, 但是在recovery模式没有正常配置.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">If device is using [configfs](https://www.kernel.org/doc/Documentation/usb/gadget_configfs.txt),</span><br><span class="line">check if configfs has been properly set up in init rc scripts. See the [example</span><br><span class="line">configuration](https://android.googlesource.com/device/google/wahoo/+/master/init.recovery.hardware.rc)</span><br><span class="line">for Pixel 2 devices. Note that the flag set via sysfs (i.e. the one above) is no-op when using</span><br><span class="line">configfs.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<p>简单来说, 在Linux中, <code>USB Gadget</code>是一个具有UDC(<code>USB Device Controller</code>)的可以连接到一个USB Host的设备, 其通常具有串口通讯/数据存储的功能.而对于Host来说, 一个<code>USB Gadget</code>就是一个配置的集合而已, 每个配置包含很多接口, 也被称为功能(functions). 目前Linux已经包含了很多功能供<code>USB Gadgets</code>使用, 具体可以参看Linux的源码<code>/kernel/drivers/usb/gadget</code>. </p>
+<p>简单来说, 在Linux中, <code>USB Gadget</code>是一个具有UDC(<code>USB Device Controller</code>)的可以连接到一个USB Host的设备, 其通常具有串口通讯&#x2F;数据存储的功能.而对于Host来说, 一个<code>USB Gadget</code>就是一个配置的集合而已, 每个配置包含很多接口, 也被称为功能(functions). 目前Linux已经包含了很多功能供<code>USB Gadgets</code>使用, 具体可以参看Linux的源码<code>/kernel/drivers/usb/gadget</code>. </p>
 <p>那么具体来说ADB适配要经历哪几个步骤了? 接下来就来看一看recovery下适配ADB需要做的事情.</p>
 <h2 id="Recovery下的ADB适配"><a href="#Recovery下的ADB适配" class="headerlink" title="Recovery下的ADB适配"></a>Recovery下的ADB适配</h2><ul>
 <li><strong>挂载FunctionFs将USB用于ADB通信</strong></li>
@@ -299,13 +303,13 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">on fs</span><br><span class="line">    write /sys/class/android_usb/android0/f_ffs/aliases adb</span><br><span class="line">    mkdir /dev/usb-ffs 0770 shell shell</span><br><span class="line">    mkdir /dev/usb-ffs/adb 0770 shell shell</span><br><span class="line">    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>这个有什么用了?看ADB的源码(<code>/system/core/daemon</code>), 大致可以看到, 只有挂载了<code>functionfs</code>, ADB才能基于USB的<code>ep0</code>端口进行通讯:</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// /dev/usb-ffs/adb/ep0 (main.cpp)</span></span><br><span class="line"><span class="keyword">if</span> (<span class="built_in">access</span>(USB_FFS_ADB_EP0, F_OK) == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// Listen on USB.</span></span><br><span class="line">    <span class="built_in">usb_init</span>();</span><br><span class="line">    is_usb = <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// usb.cpp</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">usb_init</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  dummy_fd = <span class="built_in">adb_open</span>(<span class="string">&quot;/dev/null&quot;</span>, O_WRONLY);</span><br><span class="line">  <span class="built_in">CHECK_NE</span>(dummy_fd, <span class="number">-1</span>);</span><br><span class="line">  <span class="built_in">usb_ffs_init</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// usb.cpp</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">usb_ffs_init</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">D</span>(<span class="string">&quot;[ usb_init - using FunctionFS ]&quot;</span>);</span><br><span class="line"></span><br><span class="line">    usb_handle* h = <span class="keyword">new</span> <span class="built_in">usb_handle</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (android::base::<span class="built_in">GetBoolProperty</span>(<span class="string">&quot;sys.usb.ffs.aio_compat&quot;</span>, <span class="literal">false</span>)) &#123;</span><br><span class="line">        <span class="comment">// Devices on older kernels (&lt; 3.18) will not have aio support for ffs</span></span><br><span class="line">        <span class="comment">// unless backported. Fall back on the non-aio functions instead.</span></span><br><span class="line">        h-&gt;write = usb_ffs_write;</span><br><span class="line">        h-&gt;read = usb_ffs_read;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        h-&gt;write = usb_ffs_aio_write;</span><br><span class="line">        h-&gt;read = usb_ffs_aio_read;</span><br><span class="line">        <span class="built_in">aio_block_init</span>(&amp;h-&gt;read_aiob);</span><br><span class="line">        <span class="built_in">aio_block_init</span>(&amp;h-&gt;write_aiob);</span><br><span class="line">    &#125;</span><br><span class="line">    h-&gt;kick = usb_ffs_kick;</span><br><span class="line">    h-&gt;close = usb_ffs_close;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">D</span>(<span class="string">&quot;[ usb_init - starting thread ]&quot;</span>);</span><br><span class="line">    std::<span class="built_in">thread</span>(usb_ffs_open_thread, h).<span class="built_in">detach</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// /dev/usb-ffs/adb/ep0 (main.cpp)</span></span><br><span class="line"><span class="keyword">if</span> (<span class="built_in">access</span>(USB_FFS_ADB_EP0, F_OK) == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// Listen on USB.</span></span><br><span class="line">    <span class="built_in">usb_init</span>();</span><br><span class="line">    is_usb = <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// usb.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">usb_init</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  dummy_fd = <span class="built_in">adb_open</span>(<span class="string">&quot;/dev/null&quot;</span>, O_WRONLY);</span><br><span class="line">  <span class="built_in">CHECK_NE</span>(dummy_fd, <span class="number">-1</span>);</span><br><span class="line">  <span class="built_in">usb_ffs_init</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// usb.cpp</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">usb_ffs_init</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">D</span>(<span class="string">&quot;[ usb_init - using FunctionFS ]&quot;</span>);</span><br><span class="line"></span><br><span class="line">    usb_handle* h = <span class="keyword">new</span> <span class="built_in">usb_handle</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (android::base::<span class="built_in">GetBoolProperty</span>(<span class="string">&quot;sys.usb.ffs.aio_compat&quot;</span>, <span class="literal">false</span>)) &#123;</span><br><span class="line">        <span class="comment">// Devices on older kernels (&lt; 3.18) will not have aio support for ffs</span></span><br><span class="line">        <span class="comment">// unless backported. Fall back on the non-aio functions instead.</span></span><br><span class="line">        h-&gt;write = usb_ffs_write;</span><br><span class="line">        h-&gt;read = usb_ffs_read;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        h-&gt;write = usb_ffs_aio_write;</span><br><span class="line">        h-&gt;read = usb_ffs_aio_read;</span><br><span class="line">        <span class="built_in">aio_block_init</span>(&amp;h-&gt;read_aiob);</span><br><span class="line">        <span class="built_in">aio_block_init</span>(&amp;h-&gt;write_aiob);</span><br><span class="line">    &#125;</span><br><span class="line">    h-&gt;kick = usb_ffs_kick;</span><br><span class="line">    h-&gt;close = usb_ffs_close;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">D</span>(<span class="string">&quot;[ usb_init - starting thread ]&quot;</span>);</span><br><span class="line">    std::<span class="built_in">thread</span>(usb_ffs_open_thread, h).<span class="built_in">detach</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>需要了解USB<code>FunctionFs</code>的同学可以参考Linux的文档<code>https://www.kernel.org/doc/Documentation/usb/functionfs.txt</code>.</p>
 <ul>
 <li><strong>创建ADB相关的功能配置</strong></li>
 </ul>
-<p>挂载<code>configfs</code>到某个目录, 并生成ADB相关的配置, 主要是USB的ProductID/VendorID以及设备序列号等信息</p>
+<p>挂载<code>configfs</code>到某个目录, 并生成ADB相关的配置, 主要是USB的ProductID&#x2F;VendorID以及设备序列号等信息</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">on init</span><br><span class="line">    mount configfs none /config</span><br><span class="line">    mkdir /config/usb_gadget/g1 0770 shell shell</span><br><span class="line">    write /config/usb_gadget/g1/idVendor &lt;youre_usb_vendor_id&gt;</span><br><span class="line">    write /config/usb_gadget/g1/idProduct &lt;youre_usb_product_id&gt;</span><br><span class="line">    mkdir /config/usb_gadget/g1/strings/0x409 0770</span><br><span class="line">    write /config/usb_gadget/g1/strings/0x409/serialnumber $&#123;ro.serialno&#125;</span><br><span class="line">    write /config/usb_gadget/g1/strings/0x409/manufacturer $&#123;ro.product.manufacturer&#125;</span><br><span class="line">    write /config/usb_gadget/g1/strings/0x409/product $&#123;ro.product.model&#125;</span><br><span class="line">    mkdir /config/usb_gadget/g1/functions/ffs.adb</span><br><span class="line">    write /config/usb_gadget/g1/os_desc/use 1</span><br><span class="line">    setprop sys.usb.configfs 1</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>配置完成后, <code>/config/usb_gadget/g1</code>目录下大致如下:</p>
@@ -359,7 +363,7 @@
 
         
   <div class="post-widgets">
-    <div class="wp_rating">
+    <div class="wpac-rating-container">
       <div id="wpac-rating"></div>
     </div>
   </div>
@@ -425,8 +429,9 @@
   <script src="https://embed.widgetpack.com/widget.js" async></script>
   <script class="next-config" data-name="rating" type="application/json">{"enable":true,"id":32167,"color":"#fc6423"}</script>
   <script src="/js/third-party/rating.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.10.3/dist/algoliasearch-lite.umd.js" integrity="sha256-G3d8uGe8RUBl42fj30KOUgKMV2LpwsJUI3fzfEiuHsY=" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.25.2/dist/instantsearch.production.min.js" integrity="sha256-h8iRwCCyeIDuVWtR9WwIJ+XJ8Z37SunCvilg+pnImD4=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.12.1/dist/algoliasearch-lite.umd.js" integrity="sha256-gOvJ6W+j+t/cgnnl9iUU3cb6F1WFQGDdtTXhfPjU4bc=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.39.0/dist/instantsearch.production.min.js" integrity="sha256-+ZlQZK9m82XOYGFZCIRrPOFh2kDdAGB6e7TjWGvoaSY=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+
 
 
 

@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width">
-<meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 5.4.0">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.1.0">
 
 
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
@@ -16,11 +15,12 @@
 
 
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.3/css/all.min.css" integrity="sha256-2H3fkXt6FEmrReK448mDVGKb3WW2ZZw35gI7vqHOE4Y=" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" integrity="sha256-jTIdiMuX/e3DGJUGwl3pKSxuc6YOuqtJYkM0bGQESA4=" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
 
-<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
-<meta name="description" content="Java将所有运行时的分配的对象保存到堆(heap)中，虚拟机通过诸如new,newarray,anewarray以及multianewarray等指令来分配对象，但并不会在代码中显式的释放这些内存区域，而是由虚拟机中自带的内存回收器(Garbage Collection，以下简称GC）来负责内存分配、压缩以及回收。GC的主要任务就是找到堆中那些不再被引用的内存对象，将其回收用于分配新的对象；同时">
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.10.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="Java将所有运行时的分配的对象保存到堆(heap)中，虚拟机通过诸如new,newarray,anewarray以及multianewarray等指令来分配对象，但并不会在代码中显式的释放这些内存区域，而是由虚拟机中自带的内存回收器(Garbage Collection，以下简称GC）来负责内存分配、压缩以及回收。GC的主要任务就是找到堆中那些不再被引用的内存对象，将其回收用于分配新的对象；同时">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Java中的垃圾回收机制">
 <meta property="og:url" content="https://sniffer.site/2018/02/23/Garbage-Collection-in-Java/index.html">
@@ -54,6 +54,7 @@
 
 
 
+
   <noscript>
     <link rel="stylesheet" href="/css/noscript.css">
   </noscript>
@@ -77,7 +78,7 @@
 
     <a href="/" class="brand" rel="start">
       <i class="logo-line"></i>
-      <h1 class="site-title">JasonWang's Blog</h1>
+      <p class="site-title">JasonWang's Blog</p>
       <i class="logo-line"></i>
     </a>
       <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
@@ -155,8 +156,7 @@
         <!--/noindex-->
 
         <div class="site-overview-wrap sidebar-panel">
-          <div class="site-overview">
-            <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
     <img class="site-author-image" itemprop="image" alt="Jason Wang"
       src="/images/gallaxy.jpg">
   <p class="site-author-name" itemprop="name">Jason Wang</p>
@@ -193,7 +193,6 @@
 
 
 
-          </div>
         </div>
       </div>
     </div>
@@ -233,11 +232,16 @@
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/gallaxy.jpg">
       <meta itemprop="name" content="Jason Wang">
-      <meta itemprop="description" content="关于编程,生活,工作">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Java中的垃圾回收机制 | JasonWang's Blog">
+      <meta itemprop="description" content="">
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
@@ -327,14 +331,14 @@
 <p>接下来看看各个回收器算法的具体差异以及使用方式：</p>
 <ul>
 <li><em><strong>seriral collector</strong></em>: 串行回收器是最简单的一种，其使用单个线程来处理堆内存，主要用于单核CPU以及堆空间较小的执行环境。在回收垃圾时，串行回收器会暂停所有程序，这使得它并不适用于服务器场景。JVM中可通过*-XX:+UseSerialGC*来使用串行回收器；</li>
-<li><em><strong>parallel/throughput collector</strong></em>: 并行回收器，对于服务器（多个CPU以及64-bit JVM）这是JVM默认使用的回收器。并行回收器使用多个线程并行的对堆内存进行扫描、标记以及去碎片，在最低程度上减少垃圾回收时程序暂停的时间。但并行回收器在执行minor/major(full) GC时，会暂停所有程序线程。因此，并行回收器比较适合于能够容忍一定时间暂停的场景。并行回收器对应的JVM参数为*-XX:+UseParallelGC*/<em>-XX:+UseParallelOldGC</em>(JDK 7之前的JVM使用）;</li>
-<li><em><strong>CMS collector</strong></em>:Concurrent mark sweep旨在减少full GC引起的长时间暂停，其使用多个线程标记、清理未被引用的对象。在Minor GC时，CMS依然会<em>stop the world</em>,但对于full GC，CMS会使用多个线程定时的扫描老一代内存空间，丢弃那些未被使用的对象。相比并行回收器，CMS大幅减少了程序暂停的时间，但在一定程度上增加了CPU负担，而且CMS并不会对堆空间进行压缩，这会导致大量内存碎片。开启CMS对应的参数为*-XX:+UseConcMarkSweepGC*`。如果系统的堆内存在4G以下，并且为了避免程序暂停允许GC分配更多的系统资源，可以考虑使用CMS回收器；</li>
+<li><em><strong>parallel&#x2F;throughput collector</strong></em>: 并行回收器，对于服务器（多个CPU以及64-bit JVM）这是JVM默认使用的回收器。并行回收器使用多个线程并行的对堆内存进行扫描、标记以及去碎片，在最低程度上减少垃圾回收时程序暂停的时间。但并行回收器在执行minor&#x2F;major(full) GC时，会暂停所有程序线程。因此，并行回收器比较适合于能够容忍一定时间暂停的场景。并行回收器对应的JVM参数为*-XX:+UseParallelGC*&#x2F;<em>-XX:+UseParallelOldGC</em>(JDK 7之前的JVM使用）;</li>
+<li><em><strong>CMS collector</strong></em>:Concurrent mark sweep旨在减少full GC引起的长时间暂停，其使用多个线程标记、清理未被引用的对象。在Minor GC时，CMS依然会<em>stop the world</em>,但对于full GC，CMS会使用多个线程定时的扫描老一代内存空间，丢弃那些未被使用的对象。相比并行回收器，CMS大幅减少了程序暂停的时间，但在一定程度上增加了CPU负担，而且CMS并不会对堆空间进行压缩，这会导致大量内存碎片。开启CMS对应的参数为*-XX:+UseConcMarkSweepGC*&#96;。如果系统的堆内存在4G以下，并且为了避免程序暂停允许GC分配更多的系统资源，可以考虑使用CMS回收器；</li>
 <li><em><strong>G1 collector</strong></em>:The Garbage first Collector(G1)在JDK7中引入，是为了更好的支持堆空间在4G以上的系统。G1回收器使用多个后台进程扫描堆空间，并把堆空间分割成1MB～32MB大小的区域。G1回收器会优先扫描包含了最多待回收对象的区域。这样能够减少GC后台线程完成扫描未被引用的对象之前将对象删除的几率，从而避免了GC进入”stop the world”,降低程序运行的效率。G1清理老一代空间对象时，将对象从一个区域复制到另一个区域，这样使得G1在正常情况下也可以进行内存的去碎片化处理。因此相比CMS来说，G1具有更少的碎片。G1对于的JVM参数为*-XX:+UseG1GC*；</li>
 </ul>
 <h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
 <li>Java Performance: the Definitive Guide</li>
 <li><a target="_blank" rel="noopener" href="https://plumbr.io/handbook/what-is-garbage-collection">https://plumbr.io/handbook/what-is-garbage-collection</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.cs.cmu.edu/~fp/courses/15411-f14/lectures/21-gc.pdf">https://www.cs.cmu.edu/~fp/courses/15411-f14/lectures/21-gc.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cs.cmu.edu/~fp/courses/15411-f14/lectures/21-gc.pdf">https://www.cs.cmu.edu/~fp&#x2F;courses&#x2F;15411-f14&#x2F;lectures&#x2F;21-gc.pdf</a></li>
 <li><a target="_blank" rel="noopener" href="https://betsol.com/2017/06/java-memory-management-for-java-virtual-machine-jvm/">https://betsol.com/2017/06/java-memory-management-for-java-virtual-machine-jvm/</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.cs.princeton.edu/picasso/mats/HotspotOverview.pdf">https://www.cs.princeton.edu/picasso/mats/HotspotOverview.pdf</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.infoq.com/articles/G1-One-Garbage-Collector-To-Rule-Them-All">https://www.infoq.com/articles/G1-One-Garbage-Collector-To-Rule-Them-All</a></li>
@@ -371,7 +375,7 @@
 
         
   <div class="post-widgets">
-    <div class="wp_rating">
+    <div class="wpac-rating-container">
       <div id="wpac-rating"></div>
     </div>
   </div>
@@ -437,8 +441,9 @@
   <script src="https://embed.widgetpack.com/widget.js" async></script>
   <script class="next-config" data-name="rating" type="application/json">{"enable":true,"id":32167,"color":"#fc6423"}</script>
   <script src="/js/third-party/rating.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.10.3/dist/algoliasearch-lite.umd.js" integrity="sha256-G3d8uGe8RUBl42fj30KOUgKMV2LpwsJUI3fzfEiuHsY=" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.25.2/dist/instantsearch.production.min.js" integrity="sha256-h8iRwCCyeIDuVWtR9WwIJ+XJ8Z37SunCvilg+pnImD4=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.12.1/dist/algoliasearch-lite.umd.js" integrity="sha256-gOvJ6W+j+t/cgnnl9iUU3cb6F1WFQGDdtTXhfPjU4bc=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.39.0/dist/instantsearch.production.min.js" integrity="sha256-+ZlQZK9m82XOYGFZCIRrPOFh2kDdAGB6e7TjWGvoaSY=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+
 
 
 

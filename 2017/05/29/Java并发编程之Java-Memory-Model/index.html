@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width">
-<meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 5.4.0">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.1.0">
 
 
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
@@ -16,11 +15,12 @@
 
 
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.3/css/all.min.css" integrity="sha256-2H3fkXt6FEmrReK448mDVGKb3WW2ZZw35gI7vqHOE4Y=" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" integrity="sha256-jTIdiMuX/e3DGJUGwl3pKSxuc6YOuqtJYkM0bGQESA4=" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
 
-<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","version":"8.7.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
-<meta name="description" content="在之前一篇文章里，讲到了利用synchronized关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在">
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.10.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在之前一篇文章里，讲到了利用synchronized关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Java并发编程之Java Memory Model">
 <meta property="og:url" content="https://sniffer.site/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/index.html">
@@ -51,6 +51,7 @@
 
 
 
+
   <noscript>
     <link rel="stylesheet" href="/css/noscript.css">
   </noscript>
@@ -74,7 +75,7 @@
 
     <a href="/" class="brand" rel="start">
       <i class="logo-line"></i>
-      <h1 class="site-title">JasonWang's Blog</h1>
+      <p class="site-title">JasonWang's Blog</p>
       <i class="logo-line"></i>
     </a>
       <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
@@ -152,8 +153,7 @@
         <!--/noindex-->
 
         <div class="site-overview-wrap sidebar-panel">
-          <div class="site-overview">
-            <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
     <img class="site-author-image" itemprop="image" alt="Jason Wang"
       src="/images/gallaxy.jpg">
   <p class="site-author-name" itemprop="name">Jason Wang</p>
@@ -190,7 +190,6 @@
 
 
 
-          </div>
         </div>
       </div>
     </div>
@@ -230,11 +229,16 @@
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/gallaxy.jpg">
       <meta itemprop="name" content="Jason Wang">
-      <meta itemprop="description" content="关于编程,生活,工作">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
       <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="Java并发编程之Java Memory Model | JasonWang's Blog">
+      <meta itemprop="description" content="">
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
@@ -284,8 +288,8 @@
 <blockquote>
 <p>每个CPU有自己独立的Register,Cache,但是共享Main Memory,各个不同的CPU之间通过总线（bus)来访问内存</p>
 <ul>
-<li> <a target="_blank" rel="noopener" href="https://csapp.cs.cmu.edu/2e/ch6-preview.pdf">Memory Hierarchy</a> </li>
-<li><a target="_blank" rel="noopener" href="https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html">https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html</a> </li>
+<li><a target="_blank" rel="noopener" href="https://csapp.cs.cmu.edu/2e/ch6-preview.pdf">Memory Hierarchy</a> </li>
+<li><a target="_blank" rel="noopener" href="https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html">https://www.cs.auckland.ac.nz/~jmor159&#x2F;363&#x2F;html&#x2F;mem_hierarchy.html</a></li>
 </ul>
 </blockquote>
 <p>除了上述硬件平台memory model之间的差异，JMM还需要考虑编译器以及CPU执行指令时对代码执行顺序进行重排(reordering)导致的共享数据不一致问题。</p>
@@ -303,7 +307,7 @@
 <li>Ordering（重排）: 在什么情况下，对任何线程而言，执行操作是可重排的</li>
 </ul>
 <blockquote>
-<p>JMM确保读写内存区域（除了long/double之外）是原子的；volatile long/double读写是原子的;</p>
+<p>JMM确保读写内存区域（除了long&#x2F;double之外）是原子的；volatile long&#x2F;double读写是原子的;</p>
 </blockquote>
 <p>一个线程执行的动作可被另一个线程检测到或者被直接影响到，则将该动作称为线程之间的动作(inter-thread action)，主要有以下几种：</p>
 <ul>
@@ -312,7 +316,7 @@
 <li>同步动作：<ul>
 <li>读取一个volatile变量；</li>
 <li>写一个volatile变量；</li>
-<li>Lock/unlock</li>
+<li>Lock&#x2F;unlock</li>
 <li>线程的启动与终止</li>
 </ul>
 </li>
@@ -346,21 +350,21 @@
 <li>在单个写线程、多个读线程一个变量时使用volatile；</li>
 </ul>
 <p>示例:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VolatileExample</span></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> x = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">volatile</span> <span class="keyword">boolean</span> v = <span class="keyword">false</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">writer</span><span class="params">()</span></span>&#123;</span><br><span class="line">		x = <span class="number">30</span>;</span><br><span class="line">		v = <span class="keyword">true</span>; <span class="comment">// JMM确保上述普通变量与volatile变量之间的操作不被重排序</span></span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">reader</span><span class="params">()</span></span>&#123;</span><br><span class="line">		<span class="keyword">if</span>(v == <span class="keyword">true</span>)&#123;</span><br><span class="line">			<span class="keyword">int</span> y = <span class="number">2</span>*x; <span class="comment">//  x = 30对其他任何读线程都是可见的</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">VolatileExample</span>&#123;</span><br><span class="line">	<span class="type">int</span> <span class="variable">x</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">volatile</span> <span class="type">boolean</span> <span class="variable">v</span> <span class="operator">=</span> <span class="literal">false</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">writer</span><span class="params">()</span>&#123;</span><br><span class="line">		x = <span class="number">30</span>;</span><br><span class="line">		v = <span class="literal">true</span>; <span class="comment">// JMM确保上述普通变量与volatile变量之间的操作不被重排序</span></span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">reader</span><span class="params">()</span>&#123;</span><br><span class="line">		<span class="keyword">if</span>(v == <span class="literal">true</span>)&#123;</span><br><span class="line">			<span class="type">int</span> <span class="variable">y</span> <span class="operator">=</span> <span class="number">2</span>*x; <span class="comment">//  x = 30对其他任何读线程都是可见的</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>| 有关更多volatile变量的使用方法，请参考<a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/java/library/j-jtp06197/index.html">Managing Volatility</a></p>
 <h2 id="final"><a href="#final" class="headerlink" title="final"></a><strong>final</strong></h2><p>关键词<code>final</code>确保变量是不可变的（尽管该变量所引用的对象可变），一旦一个变量声明为final,并被初始化一次，之后就不会被更改。因此，final变量无需做同步即可在多线程情况下使用：一个在对象构造完成之后，可见该对象的引用的线程保证可以看到该对象的<code>final</code>变量。 </p>
 <p>示例：一个线程调用<code>write()</code>,另一个调用<code>read()</code>,根据Happens-before Rule,由于变量f的写动作总是在对象构造完成之后，因此读线程总是可以看到<code>f.x = 3</code>,而由于<code>f.y</code>并非final变量，因此JMM并不保证读线程可以看到<code>f.y = 4</code>。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">FinalFieldExample</span></span>&#123;</span><br><span class="line">    <span class="keyword">final</span> <span class="keyword">int</span> x;</span><br><span class="line">    <span class="keyword">int</span> y;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> FinalFiledExample f;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">FinalFieldExample</span><span class="params">()</span></span>&#123;</span><br><span class="line">        x = <span class="number">3</span>;</span><br><span class="line">        y = <span class="number">2</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">write</span><span class="params">()</span></span>&#123;</span><br><span class="line">        f = <span class="keyword">new</span> FinalFieldExample();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">read</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(f != <span class="keyword">null</span>)&#123;</span><br><span class="line">            <span class="keyword">int</span> i = f.x; <span class="comment">// guaranteed to see 3</span></span><br><span class="line">            <span class="keyword">int</span> j = f.y; <span class="comment">// could see 0</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">FinalFieldExample</span>&#123;</span><br><span class="line">    <span class="keyword">final</span> <span class="type">int</span> x;</span><br><span class="line">    <span class="type">int</span> y;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> FinalFiledExample f;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">FinalFieldExample</span><span class="params">()</span>&#123;</span><br><span class="line">        x = <span class="number">3</span>;</span><br><span class="line">        y = <span class="number">2</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">write</span><span class="params">()</span>&#123;</span><br><span class="line">        f = <span class="keyword">new</span> <span class="title class_">FinalFieldExample</span>();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">read</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(f != <span class="literal">null</span>)&#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> f.x; <span class="comment">// guaranteed to see 3</span></span><br><span class="line">            <span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> f.y; <span class="comment">// could see 0</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
-<li><a target="_blank" rel="noopener" href="http://www.cs.umd.edu/~pugh/java/memoryModel/">[JMM refers] http://www.cs.umd.edu/~pugh/java/memoryModel/</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.cs.umd.edu/~pugh/java/memoryModel/">[JMM refers] http://www.cs.umd.edu/~pugh&#x2F;java&#x2F;memoryModel&#x2F;</a></li>
 <li><a target="_blank" rel="noopener" href="https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/">[Reordering] https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/library/j-jtp02244/index.html">[Fixing JMM] https://www.ibm.com/developerworks/library/j-jtp02244/index.html</a></li>
-<li><a target="_blank" rel="noopener" href="http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&cm_mc_sid_50200000=1494921172">[Doug Lee] http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&amp;cm_mc_sid_50200000=1494921172</a></li>
+<li><a target="_blank" rel="noopener" href="http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&cm_mc_sid_50200000=1494921172">[Doug Lee] http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid&#x3D;64655373050114725223524&amp;cm_mc_sid_50200000&#x3D;1494921172</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/library/j-jtp03304/">https://www.ibm.com/developerworks/library/j-jtp03304/</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html">https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html</a> </li>
-<li><a target="_blank" rel="noopener" href="http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/">http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html">https://www.cs.umd.edu/~pugh&#x2F;java&#x2F;memoryModel&#x2F;jsr-133-faq.html</a> </li>
+<li><a target="_blank" rel="noopener" href="http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/">http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec&#x2F;</a></li>
 </ul>
 
     </div>
@@ -395,7 +399,7 @@
 
         
   <div class="post-widgets">
-    <div class="wp_rating">
+    <div class="wpac-rating-container">
       <div id="wpac-rating"></div>
     </div>
   </div>
@@ -461,8 +465,9 @@
   <script src="https://embed.widgetpack.com/widget.js" async></script>
   <script class="next-config" data-name="rating" type="application/json">{"enable":true,"id":32167,"color":"#fc6423"}</script>
   <script src="/js/third-party/rating.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.10.3/dist/algoliasearch-lite.umd.js" integrity="sha256-G3d8uGe8RUBl42fj30KOUgKMV2LpwsJUI3fzfEiuHsY=" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.25.2/dist/instantsearch.production.min.js" integrity="sha256-h8iRwCCyeIDuVWtR9WwIJ+XJ8Z37SunCvilg+pnImD4=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.12.1/dist/algoliasearch-lite.umd.js" integrity="sha256-gOvJ6W+j+t/cgnnl9iUU3cb6F1WFQGDdtTXhfPjU4bc=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.39.0/dist/instantsearch.production.min.js" integrity="sha256-+ZlQZK9m82XOYGFZCIRrPOFh2kDdAGB6e7TjWGvoaSY=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+
 
 
 
