@@ -155,7 +155,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">87</span>
+          <span class="site-state-item-count">88</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -166,7 +166,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">187</span>
+        <span class="site-state-item-count">190</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -212,6 +212,107 @@
 
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/" class="post-title-link" itemprop="url">从NAPI说一说Linux内核数据的接收流程</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-05-12 18:01:22" itemprop="dateCreated datePublished" datetime="2020-05-12T18:01:22+08:00">2020-05-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/" class="post-meta-item leancloud_visitors" data-flag-title="从NAPI说一说Linux内核数据的接收流程" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+          <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/New_API">NAPI(New API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，网络驱动收到硬件中断后，通过poll(轮询)方式将传输过来的数据包统一处理， 在poll时通过禁止网络设备中断以减少硬件中断数量(<code>Interrupt Mitigation</code>)，从而实现更高的数据传输速率。</p>
+<p>基于NAPI接口， 一般的网络传输(接收)有如下几个步骤：</p>
+<ul>
+<li>网络设备驱动加载与初始化（配置IP等）</li>
+<li>数据包从网络侧发送到网卡(<code>Network Interface Controller</code>, NIC)</li>
+<li>通过<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Direct_memory_access">DMA(Direct Memory Access)</a>，将数据从网卡拷贝到内存的环形缓冲区(ring buffer)</li>
+<li>数据从网卡拷贝到内存后, NIC产生硬件中断告知内核有新的数据包达到</li>
+<li>内核收到中断后, 调用相应中断处理函数, 此时就会调用NAPI接口<code>__napi_schedule</code>开启poll线程（实际是触发一个软中断<code>NET_RX_SOFTIRQ</code>）(常规数据传输, 一般在处理NIC的中断时调用<code>netif_rx_action</code>处理网卡队列的数据）</li>
+<li><code>ksoftirqd</code>（每个CPU上都会启动一个软中断处理线程）收到软中断后被唤醒, 然后执行函数<code>net_rx_action</code>, 这个函数负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
+<li>解除网卡<code>ring buffer</code>中的DMA内存映射(unmapped), 数据由CPU负责处理, <code>netif_receive_skb</code>传递回内核协议栈</li>
+<li>如果内核支持数据包定向分发(<code>packet steering</code>)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行均衡, 这样可以获得更高的网络速率</li>
+<li>网络协议栈处理数据包，并将其发送到对应应用的<code>socket</code>接收缓冲区</li>
+</ul>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1042,97 +1143,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2019/07/15/TCP%E9%93%BE%E6%8E%A5%E5%BB%BA%E7%AB%8B%E4%B8%8E%E7%8A%B6%E6%80%81%E8%BF%81%E7%A7%BB/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/gallaxy.jpg">
-      <meta itemprop="name" content="Jason Wang">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="JasonWang's Blog">
-      <meta itemprop="description" content="关于编程,生活,工作">
-    </span>
-    
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | JasonWang's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/" class="post-title-link" itemprop="url">PPP拨号时拿到错误DNS的问题解析</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2019-07-05 17:56:32" itemprop="dateCreated datePublished" datetime="2019-07-05T17:56:32+08:00">2019-07-05</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
-        </span>
-    </span>
-
-  
-    <span id="/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/" class="post-meta-item leancloud_visitors" data-flag-title="PPP拨号时拿到错误DNS的问题解析" title="阅读次数">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">阅读次数：</span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-</div>
-
-        </div>
-      </header>
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>最近碰到一个PPP拨号拿到了假的DNS地址<code>10.11.12.13/14</code>, 之前也发生过一次, 但是一直没有有效的日志, 所以就简单粗暴的做了一个方案: 在PPP拨号进行网络参数协商时, 如果发现拿到了<code>10.11.12.13/14</code>这样的DNS地址就修改为指定的运营商DNS地址. 本来以为万事大吉了, 没想到运营商DNS一改, 问题又暴露了, 好在重现抓到了现场日志, 终于找到了原因. 网上看有原来也有不少人碰到了类似现象(<a target="_blank" rel="noopener" href="https://bugzilla.redhat.com/show_bug.cgi?id=467004#c31">https://bugzilla.redhat.com/show_bug.cgi?id=467004#c31</a>), 在这里简要的描述下整个问题的来龙去脉并给出几种可能的解决方案.</p>
-<p>在介绍这个问题的根因之前, 先来了解下PPP协议的一些基本概念.</p>
-<h2 id="PPP协议介绍"><a href="#PPP协议介绍" class="headerlink" title="PPP协议介绍"></a><strong>PPP协议介绍</strong></h2><p>PPP(Point-to-Point Protocol)是在SLIP(Serial Line Internet Protocol)的基础上发展而来, 其通过在终端与远端(remote peer)之间建立一个IPPP数据链路, 将终端设备接入网络. 早些年上网的时候, 把一个<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Asymmetric_digital_subscriber_line">ADSL</a> modem跟电脑连接后, 拿着运营商给的用户名与密码, 然后拨号接入互联网,这里边用到的协议就是<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Point-to-Point_Protocol_over_Ethernet">PPP</a>.</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>

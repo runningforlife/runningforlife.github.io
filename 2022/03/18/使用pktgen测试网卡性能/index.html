@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.1.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" integrity="sha256-jTIdiMuX/e3DGJUGwl3pKSxuc6YOuqtJYkM0bGQESA4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.10.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"utterances livere","storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="在优化网络性能时, 不可避免要对网络的带宽进行测试. 通常大家可能都会使用iperf来执行网络链路的图吞量测试, 但iperf只能测试TCP&#x2F;IP协议层的速度, 这个带宽数据跟TCP&#x2F;UDP协议的参数配置以及应用层缓冲区的大小都有关系. 有时, 我们希望直接测试网卡本身的实际吞吐量, 看看网卡实际的发包能力. Linux内核提供了pktgen工具用以产生数据包, 向网卡注入TCP&#x2F;UDP数据. 这">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用pktgen测试网卡性能">
+<meta property="og:url" content="https://sniffer.site/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="在优化网络性能时, 不可避免要对网络的带宽进行测试. 通常大家可能都会使用iperf来执行网络链路的图吞量测试, 但iperf只能测试TCP&#x2F;IP协议层的速度, 这个带宽数据跟TCP&#x2F;UDP协议的参数配置以及应用层缓冲区的大小都有关系. 有时, 我们希望直接测试网卡本身的实际吞吐量, 看看网卡实际的发包能力. Linux内核提供了pktgen工具用以产生数据包, 向网卡注入TCP&#x2F;UDP数据. 这">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-03-18T02:45:14.000Z">
+<meta property="article:modified_time" content="2022-03-22T10:13:09.637Z">
+<meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="网络性能">
+<meta property="article:tag" content="带宽测试">
+<meta property="article:tag" content="pktgen">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="https://sniffer.site/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sniffer.site/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/","path":"2022/03/18/使用pktgen测试网卡性能/","title":"使用pktgen测试网卡性能"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>使用pktgen测试网卡性能 | JasonWang's Blog</title>
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">JasonWang's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+        <li class="menu-item menu-item-materials"><a href="/materials/" rel="section"><i class="fa fa-book fa-fw"></i>资料</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container"></div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container">
+  <div class="algolia-stats"><hr></div>
+  <div class="algolia-hits"></div>
+  <div class="algolia-pagination"></div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E9%85%8D%E7%BD%AE-x2F-%E5%8A%A0%E8%BD%BD"><span class="nav-number">1.</span> <span class="nav-text">模块配置&#x2F;加载</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%84%9A%E6%9C%AC%E6%B5%8B%E8%AF%95"><span class="nav-number">2.</span> <span class="nav-text">脚本测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">3.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Jason Wang"
+      src="/images/gallaxy.jpg">
+  <p class="site-author-name" itemprop="name">Jason Wang</p>
+  <div class="site-description" itemprop="description">关于编程,生活,工作</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">88</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">25</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">190</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/runningforlife" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;runningforlife" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="http://weibo.com/u/2573460570" title="微博 → http:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;2573460570" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>微博</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:wlh2119@gmail.com" title="E-Mail → mailto:wlh2119@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/JasonSniffer" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;JasonSniffer" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/runningforlife" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="使用pktgen测试网卡性能 | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用pktgen测试网卡性能
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-03-18 10:45:14" itemprop="dateCreated datePublished" datetime="2022-03-18T10:45:14+08:00">2022-03-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/" class="post-meta-item leancloud_visitors" data-flag-title="使用pktgen测试网卡性能" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>在优化网络性能时, 不可避免要对网络的带宽进行测试. 通常大家可能都会使用<code>iperf</code>来执行网络链路的图吞量测试, 但<code>iperf</code>只能测试<code>TCP/IP</code>协议层的速度, 这个带宽数据跟<code>TCP/UDP</code>协议的参数配置以及应用层缓冲区的大小都有关系. 有时, 我们希望直接测试网卡本身的实际吞吐量, 看看网卡实际的发包能力. Linux内核提供了<code>pktgen</code>工具用以产生数据包, 向网卡注入<code>TCP/UDP</code>数据. 这里, 我们就来看下具体如何通过<code>pktgen</code>来测试网卡性能.</p>
+<h2 id="模块配置-x2F-加载"><a href="#模块配置-x2F-加载" class="headerlink" title="模块配置&#x2F;加载"></a><strong>模块配置&#x2F;加载</strong></h2><p><code>pktgen</code>在内核中是以模块的形式编译的, 使用之前确保内核配置了<code>CONFIG_NET_PKTGEN</code>; 如果<code>CONFIG_NET_PKTGEN</code>配置为<code>m</code>, 则使用时需要<code>modprobe pktgen</code>先加载模块. 模块加载完成后, 我们可以在<code>/proc/net/pktgen</code>下面看到有如下几个目录: </p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">~<span class="meta"># ls -al /proc/net/pktgen/</span></span><br><span class="line">total <span class="number">0</span></span><br><span class="line">dr-xr-xr-x <span class="number">2</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> .</span><br><span class="line">dr-xr-xr-x <span class="number">6</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> ..</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_0</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_1</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_2</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_3</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_4</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_5</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_6</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_7</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> pgctrl</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>其中<code>kpktgend_*</code>是内核数据包生产线程, 每个CPU都会启动一个相应的线程, 如果要添加某个测试网卡, 可以通过向该文件节点写入<code>add_device ethX</code>; <code>pgctrl</code>用于控制网卡性能测试状态需要在对应的线程执行网卡的吞吐量测试, 有<code>start</code>&#x2F;<code>stop</code>&#x2F;<code>reset</code>三种状态.</p>
+<blockquote>
+<p>更多<code>pktgen</code>的信息可以参考内核文档<code>pktgen.txt</code>以及源代码<code>pktgen.c</code></p>
+</blockquote>
+<h2 id="脚本测试"><a href="#脚本测试" class="headerlink" title="脚本测试"></a><strong>脚本测试</strong></h2><p>刚开始碰到<code>pktgen</code>测试网卡, 会被一堆参数搞得头晕, 好在内核的代码示例已经有了一些基本的脚本, 我们只需要根据自己的需要稍加改造就可以用起来了, 具体可以参考内核源码目录<code>samples/pktgen</code>. 下面贴了一段用于配置&#x2F;启动测试的脚本, 完整的代码示例可以参考<a target="_blank" rel="noopener" href="https://github.com/runningforlife/CodingExamples/blob/main/shell/pktgen_test.sh">pktgen_test.sh</a>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">pg_ctrl <span class="string">&quot;reset&quot;</span></span><br><span class="line"><span class="comment"># Config Start Here -------------------------------------</span></span><br><span class="line"><span class="keyword">for</span> (( thread = 0; thread &lt; <span class="variable">$THREADS</span>; ++thread )); <span class="keyword">do</span></span><br><span class="line">  PGDEV=<span class="variable">$&#123;DEV&#125;</span>@<span class="variable">$thread</span></span><br><span class="line">  <span class="built_in">echo</span> <span class="string">&quot;Removing all devices&quot;</span></span><br><span class="line">  pg_thread <span class="variable">$thread</span> <span class="string">&quot;rem_device_all&quot;</span></span><br><span class="line">  <span class="built_in">echo</span> <span class="string">&quot;Adding eth0&quot;</span></span><br><span class="line">  pg_thread <span class="variable">$thread</span> <span class="string">&quot;add_device <span class="variable">$PGDEV</span>&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Notice config queue to map to cpu (mirrors smp_processor_id())</span></span><br><span class="line">    <span class="comment"># It is beneficial to map IRQ /proc/irq/*/smp_affinity 1:1 to CPU number</span></span><br><span class="line">    pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;flag QUEUE_MAP_CPU&quot;</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># device config</span></span><br><span class="line">  CLONE_SKB=<span class="string">&quot;clone_skb 000000&quot;</span></span><br><span class="line">  <span class="comment">#PGDEV=/proc/net/pktgen/eth0</span></span><br><span class="line">  <span class="built_in">echo</span> <span class="string">&quot;Configuring <span class="variable">$PGDEV</span>&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;count 10000000&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;clone_skb 000000&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;pkt_size <span class="variable">$PKT_SIZE</span>&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;delay 0&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;dst <span class="variable">$DEST_IP</span>&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;dst_mac <span class="variable">$DEST_MAC</span>&quot;</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Time to run</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;Running... ctrl^C to stop&quot;</span></span><br><span class="line"><span class="built_in">trap</span> pg_stop SIGINT</span><br><span class="line"></span><br><span class="line">pg_ctrl <span class="string">&quot;start&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;Done&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Print results</span></span><br><span class="line"><span class="keyword">for</span> ((thread = 0; thread &lt; <span class="variable">$THREADS</span>; thread++)); <span class="keyword">do</span></span><br><span class="line">    dev=<span class="variable">$&#123;DEV&#125;</span>@<span class="variable">$&#123;thread&#125;</span></span><br><span class="line">    <span class="built_in">echo</span> <span class="string">&quot;Device: <span class="variable">$dev</span>&quot;</span></span><br><span class="line">    <span class="built_in">cat</span> /proc/net/pktgen/<span class="variable">$dev</span> | grep -A2 <span class="string">&quot;Result:&quot;</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这个脚本总体说来主要分为三个步骤:</p>
+<ul>
+<li><code>pg_ctrl &quot;reset&quot;</code>: 清除上一次测试状态</li>
+<li><code>pg_thread $thread &quot;add_device $PGDEV&quot;</code>: 配置测试的网卡</li>
+<li><code>pg_ctrl &quot;start&quot;</code>: 开启测试, 按<code>ctrl+C</code>后, 进程退出, 内核结束发包</li>
+</ul>
+<p>比如, 执行<code>./pktgen_test.sh -i enp0s31f6 -d 10.193.200.1 -m 31:b6:89:55:b3:8c -t 2</code>(使用两个内核线程发包), 测试结束后, 会打印出测试结果(实际查看<code>/proc/net/pktgen/enp0s31f6*</code>的结果会输出更多信息, 脚本里对输出做了过滤), 包括测试的时间&#x2F;是否出现错误以及吞吐量:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Device: enp0s31f6@<span class="number">0</span></span><br><span class="line">Result: OK: <span class="number">1662287</span>(c1662114+d172) usec, <span class="number">89218</span> (<span class="number">1024b</span>yte,<span class="number">0f</span>rags)</span><br><span class="line">  <span class="number">53671</span>pps <span class="number">439</span>Mb/sec (<span class="number">439672832b</span>ps) errors: <span class="number">0</span></span><br><span class="line">Device: enp0s31f6@<span class="number">1</span></span><br><span class="line">Result: OK: <span class="number">1606214</span>(c1605962+d252) usec, <span class="number">108442</span> (<span class="number">1024b</span>yte,<span class="number">0f</span>rags)</span><br><span class="line">  <span class="number">67514</span>pps <span class="number">553</span>Mb/sec (<span class="number">553074688b</span>ps) errors: <span class="number">0</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>从上面可以看到, 网卡的<code>PPS</code>(<code>Packet Per Second</code>)大约在<code>121185</code>(1.2Mpps), 带宽在<code>992Mb/s</code>, 这个速度已经比较接近于千兆网卡的理论吞吐量<code>1.5Mpps</code>(1000bps&#x2F;((64 + 20)*8))了(这里64B为以太网数据帧的最小尺寸, <code>46(pad) + 14(dmac,smac,type) + 4(CRC)</code>, 20B 为以太网帧前导和帧间距的大小).</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li>内核文档<code>Documentation/networking/pktgen.txt</code></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/blob/master/net/core/pktgen.c">pktgen内核源码</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/samples/pktgen">pktgen内核示例代码</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Jason Wang
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="https://sniffer.site/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/" title="使用pktgen测试网卡性能">https://sniffer.site/2022/03/18/使用pktgen测试网卡性能/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/%E7%BD%91%E7%BB%9C%E6%80%A7%E8%83%BD/" rel="tag"># 网络性能</a>
+              <a href="/tags/%E5%B8%A6%E5%AE%BD%E6%B5%8B%E8%AF%95/" rel="tag"># 带宽测试</a>
+              <a href="/tags/pktgen/" rel="tag"># pktgen</a>
+          </div>
+
+        
+  <div class="post-widgets">
+    <div class="wpac-rating-container">
+      <div id="wpac-rating"></div>
+    </div>
+  </div>
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/02/16/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dopenssh%E5%88%B0armv7%E7%B3%BB%E7%BB%9F/" rel="prev" title="如何移植openssh到ARM开发板">
+                  <i class="fa fa-chevron-left"></i> 如何移植openssh到ARM开发板
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+      <div class="tabs tabs-comment">
+        <ul class="nav-tabs">
+            <li class="tab"><a href="#comment-livere">livere</a></li>
+            <li class="tab"><a href="#comment-utterances">utterances</a></li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane livere" id="comment-livere">
+              <div class="comments" id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+            </div>
+            <div class="tab-pane utterances" id="comment-utterances">
+              <div class="comments utterances-container"></div>
+            </div>
+        </div>
+      </div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script src="https://embed.widgetpack.com/widget.js" async></script>
+  <script class="next-config" data-name="rating" type="application/json">{"enable":true,"id":32167,"color":"#fc6423"}</script>
+  <script src="/js/third-party/rating.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.12.1/dist/algoliasearch-lite.umd.js" integrity="sha256-gOvJ6W+j+t/cgnnl9iUU3cb6F1WFQGDdtTXhfPjU4bc=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.39.0/dist/instantsearch.production.min.js" integrity="sha256-+ZlQZK9m82XOYGFZCIRrPOFh2kDdAGB6e7TjWGvoaSY=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz","app_key":"nj66qROg1RNBE9qxvn1yTFMg","server_url":null,"security":false}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">false</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","js":{"url":"https://cdn.jsdelivr.net/npm/mathjax@3.2.0/es5/tex-mml-chtml.js","integrity":"sha256-r+3itOMtGGjap0x+10hu6jW/gZCzxHsoKrOd7gyRSGY="}}</script>
+<script src="/js/third-party/math/mathjax.js"></script>
+
+
+<script src="/js/third-party/comments/livere.js"></script>
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"runningforlife/utterances-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>

@@ -155,7 +155,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">87</span>
+          <span class="site-state-item-count">88</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -166,7 +166,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">187</span>
+        <span class="site-state-item-count">190</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -212,6 +212,113 @@
 
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/" class="post-title-link" itemprop="url">使用pktgen测试网卡性能</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-03-18 10:45:14" itemprop="dateCreated datePublished" datetime="2022-03-18T10:45:14+08:00">2022-03-18</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/" class="post-meta-item leancloud_visitors" data-flag-title="使用pktgen测试网卡性能" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>在优化网络性能时, 不可避免要对网络的带宽进行测试. 通常大家可能都会使用<code>iperf</code>来执行网络链路的图吞量测试, 但<code>iperf</code>只能测试<code>TCP/IP</code>协议层的速度, 这个带宽数据跟<code>TCP/UDP</code>协议的参数配置以及应用层缓冲区的大小都有关系. 有时, 我们希望直接测试网卡本身的实际吞吐量, 看看网卡实际的发包能力. Linux内核提供了<code>pktgen</code>工具用以产生数据包, 向网卡注入<code>TCP/UDP</code>数据. 这里, 我们就来看下具体如何通过<code>pktgen</code>来测试网卡性能.</p>
+<h2 id="模块配置-x2F-加载"><a href="#模块配置-x2F-加载" class="headerlink" title="模块配置&#x2F;加载"></a><strong>模块配置&#x2F;加载</strong></h2><p><code>pktgen</code>在内核中是以模块的形式编译的, 使用之前确保内核配置了<code>CONFIG_NET_PKTGEN</code>; 如果<code>CONFIG_NET_PKTGEN</code>配置为<code>m</code>, 则使用时需要<code>modprobe pktgen</code>先加载模块. 模块加载完成后, 我们可以在<code>/proc/net/pktgen</code>下面看到有如下几个目录: </p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">~<span class="meta"># ls -al /proc/net/pktgen/</span></span><br><span class="line">total <span class="number">0</span></span><br><span class="line">dr-xr-xr-x <span class="number">2</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> .</span><br><span class="line">dr-xr-xr-x <span class="number">6</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> ..</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_0</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_1</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_2</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_3</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_4</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_5</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_6</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> kpktgend_7</span><br><span class="line">-rw------- <span class="number">1</span> root root <span class="number">0</span> Mar <span class="number">22</span> <span class="number">10</span>:<span class="number">57</span> pgctrl</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>其中<code>kpktgend_*</code>是内核数据包生产线程, 每个CPU都会启动一个相应的线程, 如果要添加某个测试网卡, 可以通过向该文件节点写入<code>add_device ethX</code>; <code>pgctrl</code>用于控制网卡性能测试状态需要在对应的线程执行网卡的吞吐量测试, 有<code>start</code>&#x2F;<code>stop</code>&#x2F;<code>reset</code>三种状态.</p>
+<blockquote>
+<p>更多<code>pktgen</code>的信息可以参考内核文档<code>pktgen.txt</code>以及源代码<code>pktgen.c</code></p>
+</blockquote>
+<h2 id="脚本测试"><a href="#脚本测试" class="headerlink" title="脚本测试"></a><strong>脚本测试</strong></h2><p>刚开始碰到<code>pktgen</code>测试网卡, 会被一堆参数搞得头晕, 好在内核的代码示例已经有了一些基本的脚本, 我们只需要根据自己的需要稍加改造就可以用起来了, 具体可以参考内核源码目录<code>samples/pktgen</code>. 下面贴了一段用于配置&#x2F;启动测试的脚本, 完整的代码示例可以参考<a target="_blank" rel="noopener" href="https://github.com/runningforlife/CodingExamples/blob/main/shell/pktgen_test.sh">pktgen_test.sh</a>.</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">pg_ctrl <span class="string">&quot;reset&quot;</span></span><br><span class="line"><span class="comment"># Config Start Here -------------------------------------</span></span><br><span class="line"><span class="keyword">for</span> (( thread = 0; thread &lt; <span class="variable">$THREADS</span>; ++thread )); <span class="keyword">do</span></span><br><span class="line">  PGDEV=<span class="variable">$&#123;DEV&#125;</span>@<span class="variable">$thread</span></span><br><span class="line">  <span class="built_in">echo</span> <span class="string">&quot;Removing all devices&quot;</span></span><br><span class="line">  pg_thread <span class="variable">$thread</span> <span class="string">&quot;rem_device_all&quot;</span></span><br><span class="line">  <span class="built_in">echo</span> <span class="string">&quot;Adding eth0&quot;</span></span><br><span class="line">  pg_thread <span class="variable">$thread</span> <span class="string">&quot;add_device <span class="variable">$PGDEV</span>&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Notice config queue to map to cpu (mirrors smp_processor_id())</span></span><br><span class="line">    <span class="comment"># It is beneficial to map IRQ /proc/irq/*/smp_affinity 1:1 to CPU number</span></span><br><span class="line">    pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;flag QUEUE_MAP_CPU&quot;</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># device config</span></span><br><span class="line">  CLONE_SKB=<span class="string">&quot;clone_skb 000000&quot;</span></span><br><span class="line">  <span class="comment">#PGDEV=/proc/net/pktgen/eth0</span></span><br><span class="line">  <span class="built_in">echo</span> <span class="string">&quot;Configuring <span class="variable">$PGDEV</span>&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;count 10000000&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;clone_skb 000000&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;pkt_size <span class="variable">$PKT_SIZE</span>&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;delay 0&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;dst <span class="variable">$DEST_IP</span>&quot;</span></span><br><span class="line">  pg_set <span class="variable">$PGDEV</span> <span class="string">&quot;dst_mac <span class="variable">$DEST_MAC</span>&quot;</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Time to run</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;Running... ctrl^C to stop&quot;</span></span><br><span class="line"><span class="built_in">trap</span> pg_stop SIGINT</span><br><span class="line"></span><br><span class="line">pg_ctrl <span class="string">&quot;start&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;Done&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Print results</span></span><br><span class="line"><span class="keyword">for</span> ((thread = 0; thread &lt; <span class="variable">$THREADS</span>; thread++)); <span class="keyword">do</span></span><br><span class="line">    dev=<span class="variable">$&#123;DEV&#125;</span>@<span class="variable">$&#123;thread&#125;</span></span><br><span class="line">    <span class="built_in">echo</span> <span class="string">&quot;Device: <span class="variable">$dev</span>&quot;</span></span><br><span class="line">    <span class="built_in">cat</span> /proc/net/pktgen/<span class="variable">$dev</span> | grep -A2 <span class="string">&quot;Result:&quot;</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这个脚本总体说来主要分为三个步骤:</p>
+<ul>
+<li><code>pg_ctrl &quot;reset&quot;</code>: 清除上一次测试状态</li>
+<li><code>pg_thread $thread &quot;add_device $PGDEV&quot;</code>: 配置测试的网卡</li>
+<li><code>pg_ctrl &quot;start&quot;</code>: 开启测试, 按<code>ctrl+C</code>后, 进程退出, 内核结束发包</li>
+</ul>
+<p>比如, 执行<code>./pktgen_test.sh -i enp0s31f6 -d 10.193.200.1 -m 31:b6:89:55:b3:8c -t 2</code>(使用两个内核线程发包), 测试结束后, 会打印出测试结果(实际查看<code>/proc/net/pktgen/enp0s31f6*</code>的结果会输出更多信息, 脚本里对输出做了过滤), 包括测试的时间&#x2F;是否出现错误以及吞吐量:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Device: enp0s31f6@<span class="number">0</span></span><br><span class="line">Result: OK: <span class="number">1662287</span>(c1662114+d172) usec, <span class="number">89218</span> (<span class="number">1024b</span>yte,<span class="number">0f</span>rags)</span><br><span class="line">  <span class="number">53671</span>pps <span class="number">439</span>Mb/sec (<span class="number">439672832b</span>ps) errors: <span class="number">0</span></span><br><span class="line">Device: enp0s31f6@<span class="number">1</span></span><br><span class="line">Result: OK: <span class="number">1606214</span>(c1605962+d252) usec, <span class="number">108442</span> (<span class="number">1024b</span>yte,<span class="number">0f</span>rags)</span><br><span class="line">  <span class="number">67514</span>pps <span class="number">553</span>Mb/sec (<span class="number">553074688b</span>ps) errors: <span class="number">0</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>从上面可以看到, 网卡的<code>PPS</code>(<code>Packet Per Second</code>)大约在<code>121185</code>(1.2Mpps), 带宽在<code>992Mb/s</code>, 这个速度已经比较接近于千兆网卡的理论吞吐量<code>1.5Mpps</code>(1000bps&#x2F;((64 + 20)*8))了(这里64B为以太网数据帧的最小尺寸, <code>46(pad) + 14(dmac,smac,type) + 4(CRC)</code>, 20B 为以太网帧前导和帧间距的大小).</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li>内核文档<code>Documentation/networking/pktgen.txt</code></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/blob/master/net/core/pktgen.c">pktgen内核源码</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/samples/pktgen">pktgen内核示例代码</a></li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1055,107 +1162,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2021/04/29/%E4%BB%8EWifi%E7%83%AD%E7%82%B9%E5%8A%9F%E8%83%BD%E8%AF%B4%E4%B8%80%E8%AF%B4Android-Wifi%E6%A1%86%E6%9E%B6/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/gallaxy.jpg">
-      <meta itemprop="name" content="Jason Wang">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="JasonWang's Blog">
-      <meta itemprop="description" content="关于编程,生活,工作">
-    </span>
-    
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | JasonWang's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/" class="post-title-link" itemprop="url">Linux网络协议之数据发送流程</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2021-04-08 16:20:29" itemprop="dateCreated datePublished" datetime="2021-04-08T16:20:29+08:00">2021-04-08</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
-        </span>
-    </span>
-
-  
-    <span id="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/" class="post-meta-item leancloud_visitors" data-flag-title="Linux网络协议之数据发送流程" title="阅读次数">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">阅读次数：</span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-</div>
-
-        </div>
-      </header>
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>最近抽空学习下Linux网络协议栈, 读源码时总会前一天梳理完, 等两天再来看却发现又忘记的差不多, 只能再过一遍, 没有对协议栈构建一个系统性的框架. 于是想着要把看过的代码逻辑整理下来, 算是对这段时间学习的总结, 也方便后面的查阅.</p>
-<p>在之前的一篇有关网络协议的文章<a href="http://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">从NAPI说一说Linux内核数据的接收流程</a>简单的讲到了Linux的数据接收流程, 但主要是集中在数据链路层与设备驱动之间的交互, 并没有涉及到IP网络层以及TCP传输层的逻辑.对于Linux系统来说, TCP数据的传输大致要经历如下几个步骤:</p>
-<ul>
-<li>用户进程创建<code>socket</code>并创建相应数据的buffer, 通过<code>send</code>函数发送给服务端</li>
-<li>内核收到数据后, 将用户空间的buffer数据拷贝到内核协议栈</li>
-<li>内核协议栈需要经过TCP层(L4)&#x2F;IP层(L3)&#x2F;数据链路层(L2)最后发送到网卡</li>
-<li>CPU与网卡的数据传输一般通过<code>DMA</code>进行, 完成后网卡发送中断告知CPU, 此时内核会释放之前分配的buffer</li>
-</ul>
-<p>这篇文章, 我们着重来看下数据传输中内核部分的流程, 并梳理下Linux协议栈大致的结构与初始化步骤, 主要分为如下两个部分:</p>
-<ul>
-<li>Linux内核协议栈的初始化流程</li>
-<li>数据是如何从TCP传输层发送到设备驱动的</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>
