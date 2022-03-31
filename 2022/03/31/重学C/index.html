@@ -27,14 +27,14 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="断断续续看了Bjarne Stroustrup的’C++之旅(a tour of C++)’, 作者把很多原本看起来复杂的概念模型都讲的比较清晰, 也有不少好的代码示例, 有种拨云见雾的感觉. 于是想着写一篇文章来总结重新学习C++的一些经验, 主要阐述下现代C++(&gt;&#x3D;C++11)中那些容易让人混淆而觉得陌生的技术. 了解C++历史的人都知道, Bjarne Stroustrup是在Bel">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer.site/media/ntfs0/BlogImgs/evolution_of_c++.png">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/evolution_of_c%2B%2B.png">
 <meta property="article:published_time" content="2022-03-31T06:58:15.000Z">
-<meta property="article:modified_time" content="2022-03-31T07:00:29.790Z">
+<meta property="article:modified_time" content="2022-03-31T10:00:34.769Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="C++">
 <meta property="article:tag" content="编程语言">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer.site/media/ntfs0/BlogImgs/evolution_of_c++.png">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/evolution_of_c%2B%2B.png">
 
 
 <link rel="canonical" href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C/">
@@ -285,10 +285,10 @@
     
     <div class="post-body" itemprop="articleBody">
         <p>断断续续看了Bjarne Stroustrup的’C++之旅(<code>a tour of C++</code>)’, 作者把很多原本看起来复杂的概念模型都讲的比较清晰, 也有不少好的代码示例, 有种拨云见雾的感觉. 于是想着写一篇文章来总结重新学习C++的一些经验, 主要阐述下现代C++(<code>&gt;=C++11</code>)中那些容易让人混淆而觉得陌生的技术.</p>
-<p>了解C++历史的人都知道, <code>Bjarne Stroustrup</code>是在Bell实验室(就是Unix操作系统与C语言的地方)发明了C++, 初衷是在C中加入类(class)的概念, 增强C语言在系统编程上的效率与灵活性, 也正式因为这个原因, C++在1979年最初的名字是<code>带类的C</code>(c with class), 直到1984年才改名为<code>C++</code>. 到今天, <code>C++</code>的发展历经了快40年历史, 但真正一次大的标准修改是在2011年, 这个版本也称为<code>C++11</code>, 也是目前很多公司在使用的版本.接下来我们就来一起来回顾下现代C++中那些曾经让人<code>头疼</code>的技术吧.</p>
+<p>了解C++历史的人都知道, <code>Bjarne Stroustrup</code>是在Bell实验室(就是Unix操作系统与C语言诞生的地方)发明了C++, 初衷是在C中加入类(class)的概念, 增强C语言在系统编程上的效率与灵活性, 也正式因为这个原因, C++在1979年最初的名字是<code>带类的C</code>(c with class), 直到1984年才改名为<code>C++</code>. 到今天, <code>C++</code>的发展历经了快40年历史, 但真正一次大的标准修改是在2011年, 这个版本也称为<code>C++11</code>, 也是目前很多公司在使用的版本.接下来我们就来一起来回顾下现代C++中那些曾经让人<code>头疼</code>的技术吧.</p>
 <span id="more"></span>
 
-<p><img src="/media/ntfs0/BlogImgs/evolution_of_c++.png" alt="history_of_cpp"></p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/evolution_of_c%2B%2B.png" alt="history_of_cpp"></p>
 <h2 id="constants"><a href="#constants" class="headerlink" title="constants"></a><strong>constants</strong></h2><p>除了<code>const</code>之外, C++还引入了<code>constexpr</code>这个关键字. <code>const</code>的意思是这个变量不会被修改, 编译器在编译的时候会确保这一点: 如果尝试修改<code>const</code>的赋值, 则会提示错误. 而<code>constexpr</code>是说这个表达式会在编译的时候进行判定(不用等到运行时):</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"> <span class="function"><span class="type">int</span> <span class="title">sum</span><span class="params">(<span class="type">const</span> vector&lt;<span class="type">int</span>&gt;&amp; vi)</span> </span>&#123; <span class="keyword">return</span> <span class="number">0</span>;&#125;;  <span class="comment">//示例</span></span><br><span class="line"> <span class="function"><span class="keyword">constexpr</span> <span class="type">int</span> <span class="title">square</span><span class="params">(<span class="type">int</span> x)</span> </span>&#123; <span class="keyword">return</span> x * x;&#125;;</span><br><span class="line">	</span><br><span class="line"> <span class="keyword">constexpr</span> <span class="type">double</span> m1 = <span class="number">1.6</span> * <span class="built_in">square</span>(im);</span><br><span class="line"><span class="comment">//constexpr double m2 = 1.6 * square(var); // 不允许使用非const变量</span></span><br><span class="line">	</span><br><span class="line">vector&lt;<span class="type">int</span>&gt; vi = &#123;<span class="number">4</span>, <span class="number">58</span>, <span class="number">8</span> , <span class="number">9</span>&#125;; </span><br><span class="line"><span class="type">const</span> <span class="type">int</span> si = <span class="built_in">sum</span>(vi);</span><br><span class="line"><span class="comment">//constexpr int sii = sum(vi); // sum不是constexpr表达式</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
@@ -306,13 +306,13 @@
 <p>针对这种临时对象的拷贝, <code>C++11</code>中引入了<code>移动(move)</code>语义, 这样就可以支持对象之间数据的转移而不是拷贝了, 从而改善了程序的性能. 要让上述<code>String</code>对象支持<code>move</code>语义, 其实也很简单:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// move constructor</span></span><br><span class="line"><span class="built_in">String</span>(String &amp;&amp;str): <span class="built_in">data</span>(str.data) &#123;</span><br><span class="line"> str.data = <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// move assignment</span></span><br><span class="line">String&amp; <span class="keyword">operator</span>=(String&amp;&amp; rhs) &#123;</span><br><span class="line"> data = rhs.data;</span><br><span class="line"> rhs.data = <span class="literal">nullptr</span>;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<p>上述代码中<code>&amp;&amp;</code>表示一个右值引用(<code>rval refernece</code>), 就是说该引用跟一个右值绑定, 这通常有别于左值(赋值语句的左边), 由于右值引用无法进行赋值, 因此我们可以<code>偷取</code>它的值与资源. c++标准库中也有一个<code>move</code>函数可以用于操作右值引用(头文件<code>utility</code>):</p>
+<p>上述代码中<code>&amp;&amp;</code>表示一个右值引用(<code>rval refernece</code>), 就是说该引用跟一个右值绑定, 这通常有别于左值(赋值语句的左边), 由于右值引用无法进行赋值, 因此我们可以<code>偷取</code>它的值与资源. C++标准库中也有一个<code>move</code>函数可以用于操作右值引用(头文件<code>utility</code>):</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">String <span class="title">s1</span><span class="params">(<span class="string">&quot;gaga&quot;</span>)</span></span>;</span><br><span class="line">String s2 = s1; <span class="comment">// copy</span></span><br><span class="line">String s3 = std::<span class="built_in">move</span>(s2); <span class="comment">// move</span></span><br><span class="line"></span><br><span class="line">std::set&lt;String&gt; ss;</span><br><span class="line">ss.<span class="built_in">insert</span>(std::<span class="built_in">move</span>(s1)); <span class="comment">// move</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>需要留意的时, 对于函数返回值不应该返回右值或使用<code>move()</code>要返回的值, 对于如下函数:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">String <span class="title">fcn</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="function">String <span class="title">s</span><span class="params">(<span class="string">&quot;hi, move&quot;</span>)</span></span>;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">return</span> s;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<p>c++会确保返回值按照如下规则进行:</p>
+<p>C++会确保返回值按照如下规则进行:</p>
 <ul>
 <li>如果<code>String</code>有move构造函数或者赋值函数, 编译器可能会忽略拷贝对象, 这种技术被称为返回值优化(<code>returned value optimization</code>), 在C++11之前就有了.</li>
 <li>否则就使用move构造函数返回对象</li>
@@ -348,7 +348,7 @@
 <p>上述表达式可以写成如下形式的函数对象(标准库中很多算法广泛使用了函数对象来扩展实现, 如<code>for_each</code>, <code>bind</code>):</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">CopyValue</span> &#123;</span><br><span class="line">	<span class="function"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span></span><br><span class="line"><span class="function">	<span class="keyword">auto</span> <span class="title">operator</span><span class="params">()</span> <span class="params">(T x)</span> <span class="type">const</span> </span>&#123; <span class="keyword">return</span> x + x; &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<h2 id="智能指针-smart-pointers"><a href="#智能指针-smart-pointers" class="headerlink" title="智能指针(smart pointers)"></a><strong>智能指针(smart pointers)</strong></h2><p>长期以来, C被大家所诟病的一个缺陷就是指针引发的一系列内存管理问题, 比如空指针, 内存泄漏等, C++虽然通过引入了<code>引用(reference</code>)在一定程度上避免了指针带来的困扰, 但并没有从根源上解决指针所引发的资源管理问题. 现代C++普遍采用[<code>RAII(Resource Acquisition Is Initialization)</code>]原则(<a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/cpp/cpp/object-lifetime-and-resource-management-modern-cpp?view=msvc-170);%E4%BB%8EC++11%E5%BC%80%E5%A7%8B">https://docs.microsoft.com/en-us/cpp/cpp/object-lifetime-and-resource-management-modern-cpp?view=msvc-170);从C++11开始</a>, C++引入了智能指针(smart pointers)避免内存泄漏: <code>unique_ptr</code>&#x2F;<code>shared_ptr</code>, 用以替换之前的<code>auto_ptr</code>. </p>
+<h2 id="智能指针-smart-pointers"><a href="#智能指针-smart-pointers" class="headerlink" title="智能指针(smart pointers)"></a><strong>智能指针(smart pointers)</strong></h2><p>长期以来, C被大家所诟病的一个缺陷就是指针引发的一系列内存管理问题, 比如空指针, 内存泄漏等, C++虽然通过引入了<code>引用(reference</code>)在一定程度上避免了指针带来内存管理的困扰, 但并没有从根源上解决指针所引发的资源管理问题. 现代C++普遍采用<a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/cpp/cpp/object-lifetime-and-resource-management-modern-cpp?view=msvc-170"><code>RAII(Resource Acquisition Is Initialization)</code></a>原则;从C++11开始, 标准库引入了智能指针(smart pointers)避免内存泄漏: <code>unique_ptr</code>&#x2F;<code>shared_ptr</code>, 用以替换之前的<code>auto_ptr</code>. </p>
 <ul>
 <li><code>unique_ptr</code>: 表示一个唯一的所属关系, 始终只有一个指针指向该对象</li>
 <li><code>shared_ptr</code>: 表示一个共有的所属关系, 可以有多个指针共享对象资源</li>
@@ -375,6 +375,7 @@
 </ul>
 <p>更多有关标注库的算法可以参考<a target="_blank" rel="noopener" href="https://book.douban.com/subject/10440485/">The C++ Standard Library, 2nd Edition</a>.</p>
 <h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li><a target="_blank" rel="noopener" href="https://book.douban.com/subject/25720141/">A Tour of C++</a></li>
 <li><a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/cpp/cpp/welcome-back-to-cpp-modern-cpp?redirectedfrom=MSDN&view=msvc-170">Modern C++</a></li>
 <li><a target="_blank" rel="noopener" href="http://mindhacks.cn/2012/08/27/modern-cpp-practices/">C++11（及现代C++风格）和快速迭代式开发</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.boost.org/doc/libs/1_78_0/libs/libraries.htm">Boost库参考资料</a></li>
