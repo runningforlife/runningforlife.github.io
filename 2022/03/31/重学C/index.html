@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#222"><meta name="generator" content="Hexo 6.1.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" integrity="sha256-jTIdiMuX/e3DGJUGwl3pKSxuc6YOuqtJYkM0bGQESA4=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css" integrity="sha256-PR7ttpcvz8qrF57fur/yAx1qXMFJeJFiA6pSzWi0OIE=" crossorigin="anonymous">
+
+<script class="next-config" data-name="main" type="application/json">{"hostname":"sniffer.site","root":"/","images":"/images","scheme":"Gemini","darkmode":false,"version":"8.10.1","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"utterances livere","storage":true,"lazyload":false,"nav":null},"stickytabs":false,"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"algolia":{"appID":"1POSCBVZ02","apiKey":"bf09f0197d475fa69488099407011316","indexName":"getstarted_actors","hits":{"per_page":10}}}</script><script src="/js/config.js"></script>
+
+    <meta name="description" content="断断续续看了Bjarne Stroustrup的’C++之旅(a tour of C++)’, 作者把很多原本看起来复杂的概念模型都讲的比较清晰, 也有不少好的代码示例, 有种拨云见雾的感觉. 于是想着写一篇文章来总结重新学习C++的一些经验, 主要阐述下现代C++(&gt;&#x3D;C++11)中那些容易让人混淆而觉得陌生的技术. 了解C++历史的人都知道, Bjarne Stroustrup是在Bel">
+<meta property="og:type" content="article">
+<meta property="og:title" content="重学C++">
+<meta property="og:url" content="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="断断续续看了Bjarne Stroustrup的’C++之旅(a tour of C++)’, 作者把很多原本看起来复杂的概念模型都讲的比较清晰, 也有不少好的代码示例, 有种拨云见雾的感觉. 于是想着写一篇文章来总结重新学习C++的一些经验, 主要阐述下现代C++(&gt;&#x3D;C++11)中那些容易让人混淆而觉得陌生的技术. 了解C++历史的人都知道, Bjarne Stroustrup是在Bel">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://sniffer.site/media/ntfs0/BlogImgs/evolution_of_c++.png">
+<meta property="article:published_time" content="2022-03-31T06:58:15.000Z">
+<meta property="article:modified_time" content="2022-03-31T07:00:29.790Z">
+<meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="编程语言">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://sniffer.site/media/ntfs0/BlogImgs/evolution_of_c++.png">
+
+
+<link rel="canonical" href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C/">
+
+
+
+<script class="next-config" data-name="page" type="application/json">{"sidebar":"","isHome":false,"isPost":true,"lang":"zh-CN","comments":true,"permalink":"https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C/","path":"2022/03/31/重学C/","title":"重学C++"}</script>
+
+<script class="next-config" data-name="calendar" type="application/json">""</script>
+<title>重学C++ | JasonWang's Blog</title>
+  
+
+
+
+
+
+  <noscript>
+    <link rel="stylesheet" href="/css/noscript.css">
+  </noscript>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏" role="button">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <p class="site-title">JasonWang's Blog</p>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">本色做人，角色做事</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home"><a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a></li>
+        <li class="menu-item menu-item-about"><a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a></li>
+        <li class="menu-item menu-item-archives"><a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a></li>
+        <li class="menu-item menu-item-materials"><a href="/materials/" rel="section"><i class="fa fa-book fa-fw"></i>资料</a></li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container"></div>
+  <span class="popup-btn-close" role="button">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container">
+  <div class="algolia-stats"><hr></div>
+  <div class="algolia-hits"></div>
+  <div class="algolia-pagination"></div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle" role="button">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <div class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#constants"><span class="nav-number">1.</span> <span class="nav-text">constants</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%95%E7%94%A8%E4%B8%8E%E5%8F%B3%E5%80%BC"><span class="nav-number">2.</span> <span class="nav-text">引用与右值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#lamda%E8%A1%A8%E8%BE%BE%E5%BC%8F%E4%B8%8E%E5%87%BD%E6%95%B0%E5%AF%B9%E8%B1%A1"><span class="nav-number">3.</span> <span class="nav-text">lamda表达式与函数对象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88-smart-pointers"><span class="nav-number">4.</span> <span class="nav-text">智能指针(smart pointers)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B1%BB%E5%9E%8B%E6%8E%A8%E6%96%AD-auto-x2F-decltype"><span class="nav-number">5.</span> <span class="nav-text">类型推断(auto&#x2F;decltype)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%87%E5%87%86%E5%BA%93"><span class="nav-number">6.</span> <span class="nav-text">标准库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="nav-number">7.</span> <span class="nav-text">参考资料</span></a></li></ol></div>
+        </div>
+        <!--/noindex-->
+
+        <div class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Jason Wang"
+      src="/images/gallaxy.jpg">
+  <p class="site-author-name" itemprop="name">Jason Wang</p>
+  <div class="site-description" itemprop="description">关于编程,生活,工作</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        <a href="/archives/">
+          <span class="site-state-item-count">89</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+          <a href="/categories/">
+        <span class="site-state-item-count">21</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+          <a href="/tags/">
+        <span class="site-state-item-count">192</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/runningforlife" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;runningforlife" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="http://weibo.com/u/2573460570" title="微博 → http:&#x2F;&#x2F;weibo.com&#x2F;u&#x2F;2573460570" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i>微博</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:wlh2119@gmail.com" title="E-Mail → mailto:wlh2119@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://twitter.com/JasonSniffer" title="Twitter → https:&#x2F;&#x2F;twitter.com&#x2F;JasonSniffer" rel="noopener" target="_blank"><i class="fab fa-twitter fa-fw"></i>Twitter</a>
+      </span>
+  </div>
+
+
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top" role="button" aria-label="返回顶部">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+  <a href="https://github.com/runningforlife" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="重学C++ | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          重学C++
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-03-31 14:58:15" itemprop="dateCreated datePublished" datetime="2022-03-31T14:58:15+08:00">2022-03-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/C/" itemprop="url" rel="index"><span itemprop="name">C++</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/03/31/%E9%87%8D%E5%AD%A6C/" class="post-meta-item leancloud_visitors" data-flag-title="重学C++" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>断断续续看了Bjarne Stroustrup的’C++之旅(<code>a tour of C++</code>)’, 作者把很多原本看起来复杂的概念模型都讲的比较清晰, 也有不少好的代码示例, 有种拨云见雾的感觉. 于是想着写一篇文章来总结重新学习C++的一些经验, 主要阐述下现代C++(<code>&gt;=C++11</code>)中那些容易让人混淆而觉得陌生的技术.</p>
+<p>了解C++历史的人都知道, <code>Bjarne Stroustrup</code>是在Bell实验室(就是Unix操作系统与C语言的地方)发明了C++, 初衷是在C中加入类(class)的概念, 增强C语言在系统编程上的效率与灵活性, 也正式因为这个原因, C++在1979年最初的名字是<code>带类的C</code>(c with class), 直到1984年才改名为<code>C++</code>. 到今天, <code>C++</code>的发展历经了快40年历史, 但真正一次大的标准修改是在2011年, 这个版本也称为<code>C++11</code>, 也是目前很多公司在使用的版本.接下来我们就来一起来回顾下现代C++中那些曾经让人<code>头疼</code>的技术吧.</p>
+<span id="more"></span>
+
+<p><img src="/media/ntfs0/BlogImgs/evolution_of_c++.png" alt="history_of_cpp"></p>
+<h2 id="constants"><a href="#constants" class="headerlink" title="constants"></a><strong>constants</strong></h2><p>除了<code>const</code>之外, C++还引入了<code>constexpr</code>这个关键字. <code>const</code>的意思是这个变量不会被修改, 编译器在编译的时候会确保这一点: 如果尝试修改<code>const</code>的赋值, 则会提示错误. 而<code>constexpr</code>是说这个表达式会在编译的时候进行判定(不用等到运行时):</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"> <span class="function"><span class="type">int</span> <span class="title">sum</span><span class="params">(<span class="type">const</span> vector&lt;<span class="type">int</span>&gt;&amp; vi)</span> </span>&#123; <span class="keyword">return</span> <span class="number">0</span>;&#125;;  <span class="comment">//示例</span></span><br><span class="line"> <span class="function"><span class="keyword">constexpr</span> <span class="type">int</span> <span class="title">square</span><span class="params">(<span class="type">int</span> x)</span> </span>&#123; <span class="keyword">return</span> x * x;&#125;;</span><br><span class="line">	</span><br><span class="line"> <span class="keyword">constexpr</span> <span class="type">double</span> m1 = <span class="number">1.6</span> * <span class="built_in">square</span>(im);</span><br><span class="line"><span class="comment">//constexpr double m2 = 1.6 * square(var); // 不允许使用非const变量</span></span><br><span class="line">	</span><br><span class="line">vector&lt;<span class="type">int</span>&gt; vi = &#123;<span class="number">4</span>, <span class="number">58</span>, <span class="number">8</span> , <span class="number">9</span>&#125;; </span><br><span class="line"><span class="type">const</span> <span class="type">int</span> si = <span class="built_in">sum</span>(vi);</span><br><span class="line"><span class="comment">//constexpr int sii = sum(vi); // sum不是constexpr表达式</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>如果一个函数要在<code>constexpr</code>表达式中使用, 则必须要以<code>constexpr</code>开头, 并且函数的实现需要足够简单: 只由一个返回值的表达式组成.</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="type">int</span> <span class="title">square</span><span class="params">(<span class="type">int</span> x)</span> </span>&#123; <span class="keyword">return</span> x * x;&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>由于在编译时就完成了计算, 使用<code>constexpr</code>通常可以改善性能, 但据<code>c++ standar library: a tutorial and refernce</code>里边提到的, 引入<code>constexpr</code>是为了解决C++98<code>numeric_limits</code>标准库中的一个bug:<code>std::numeric_limits&lt;short&gt;::max()</code> 无法在常量表达式中使用.</p>
+<h2 id="引用与右值"><a href="#引用与右值" class="headerlink" title="引用与右值"></a><strong>引用与右值</strong></h2><p>C++针对C中的指针引入了<code>引用(reference)</code>的概念, 引用类似于指针, 其通过<code>&amp;</code>进行声明, 但实际使用的时候无需在通过<code>*</code>来引用对象, 更重要的是引用一旦被初始化就不能再被修改, 引用其他的对象.</p>
+<p>引用对于不管理资源的对象来说, 一般不会有什么问题, 但涉及到大量的数据&#x2F;内存时(比如容器), 单纯的拷贝会变得低效. 有时, 我们只希望在不同对象之间<code>移动(move)</code>数据而不是拷贝, 以避免产生不必要的临时对象. 比如我们有一个<code>String</code>类, 包含了一个字符数组:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">String</span> &#123;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	 <span class="built_in">String</span>(): <span class="built_in">data</span>(<span class="keyword">new</span> <span class="type">char</span>[<span class="number">1</span>]) &#123;</span><br><span class="line">		 data[<span class="number">0</span>] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="built_in">String</span>(<span class="type">const</span> <span class="type">char</span>* str): <span class="built_in">data</span>(<span class="keyword">new</span> <span class="type">char</span>[<span class="built_in">strlen</span>(str) + <span class="number">1</span>]) &#123;</span><br><span class="line">		 <span class="keyword">if</span> (str != <span class="literal">nullptr</span>) &#123;</span><br><span class="line">			 <span class="built_in">strncpy</span>(data, str, <span class="built_in">strlen</span>(str));</span><br><span class="line">			 data[<span class="built_in">strlen</span>(str)] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">		 &#125;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="built_in">String</span>(<span class="type">const</span> String&amp; str): <span class="built_in">data</span>(<span class="keyword">new</span> <span class="type">char</span>[str.<span class="built_in">size</span>() + <span class="number">1</span>]) &#123;</span><br><span class="line">		 <span class="built_in">strncpy</span>(data, str.<span class="built_in">c_str</span>(), str.<span class="built_in">size</span>());</span><br><span class="line">		 data[str.<span class="built_in">size</span>()] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 String&amp; <span class="keyword">operator</span>=(String &amp;rhs) &#123;</span><br><span class="line">		 <span class="built_in">swap</span>(rhs);</span><br><span class="line">		 <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 ~<span class="built_in">String</span>() &#123;</span><br><span class="line">		 <span class="keyword">delete</span>[] data;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="function"><span class="type">size_t</span> <span class="title">size</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">		 <span class="keyword">return</span> <span class="built_in">strlen</span>(data);</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">     <span class="function"><span class="type">char</span>* <span class="title">c_str</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">		 <span class="keyword">return</span> data;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="function"><span class="type">void</span> <span class="title">swap</span><span class="params">(String &amp;rhs)</span> </span>&#123;</span><br><span class="line">		 std::<span class="built_in">swap</span>(data, rhs.data);</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="type">char</span>* data;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>比如我们要往一个容器中插入对象, 那么每次实际容器中实际得到的都是一个拷贝的对象, 这就导致了不必要的内存拷贝, 如果对象本身很大(占用较大内存), 则拷贝会消耗更多的时间.</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">String <span class="title">s</span><span class="params">(<span class="string">&quot;agaga&quot;</span>)</span></span>;</span><br><span class="line">std::set&lt;String&gt; ss;</span><br><span class="line">ss.<span class="built_in">insert</span>(s); <span class="comment">// get a copy of s</span></span><br><span class="line"> </span><br></pre></td></tr></table></figure>
+
+<p>针对这种临时对象的拷贝, <code>C++11</code>中引入了<code>移动(move)</code>语义, 这样就可以支持对象之间数据的转移而不是拷贝了, 从而改善了程序的性能. 要让上述<code>String</code>对象支持<code>move</code>语义, 其实也很简单:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// move constructor</span></span><br><span class="line"><span class="built_in">String</span>(String &amp;&amp;str): <span class="built_in">data</span>(str.data) &#123;</span><br><span class="line"> str.data = <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// move assignment</span></span><br><span class="line">String&amp; <span class="keyword">operator</span>=(String&amp;&amp; rhs) &#123;</span><br><span class="line"> data = rhs.data;</span><br><span class="line"> rhs.data = <span class="literal">nullptr</span>;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>上述代码中<code>&amp;&amp;</code>表示一个右值引用(<code>rval refernece</code>), 就是说该引用跟一个右值绑定, 这通常有别于左值(赋值语句的左边), 由于右值引用无法进行赋值, 因此我们可以<code>偷取</code>它的值与资源. c++标准库中也有一个<code>move</code>函数可以用于操作右值引用(头文件<code>utility</code>):</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">String <span class="title">s1</span><span class="params">(<span class="string">&quot;gaga&quot;</span>)</span></span>;</span><br><span class="line">String s2 = s1; <span class="comment">// copy</span></span><br><span class="line">String s3 = std::<span class="built_in">move</span>(s2); <span class="comment">// move</span></span><br><span class="line"></span><br><span class="line">std::set&lt;String&gt; ss;</span><br><span class="line">ss.<span class="built_in">insert</span>(std::<span class="built_in">move</span>(s1)); <span class="comment">// move</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>需要留意的时, 对于函数返回值不应该返回右值或使用<code>move()</code>要返回的值, 对于如下函数:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">String <span class="title">fcn</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="function">String <span class="title">s</span><span class="params">(<span class="string">&quot;hi, move&quot;</span>)</span></span>;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">return</span> s;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>c++会确保返回值按照如下规则进行:</p>
+<ul>
+<li>如果<code>String</code>有move构造函数或者赋值函数, 编译器可能会忽略拷贝对象, 这种技术被称为返回值优化(<code>returned value optimization</code>), 在C++11之前就有了.</li>
+<li>否则就使用move构造函数返回对象</li>
+<li>如果没有move构造函数, 则使用拷贝构造函数返回拷贝对象</li>
+<li>否则就会抛出编译时异常</li>
+</ul>
+<h2 id="lamda表达式与函数对象"><a href="#lamda表达式与函数对象" class="headerlink" title="lamda表达式与函数对象"></a><strong>lamda表达式与函数对象</strong></h2><p>C++11引入了<code>lambda</code>表达式; <code>lambda</code>表达式可以用于创建简单的函数对象(<code>function object</code>), 构建匿名函数, 其返回的对象被称为闭包对象(<code>closure object</code>). 一般来说, <code>lambda</code>表达式由如下三个部分组成:</p>
+<ul>
+<li><p>捕获列表(<code>caputure list</code>): <code>[]</code> , 一个对象被捕获以后就可以在<code>lambda</code>函数内部使用(值复制或者引用的形式), <code>=</code>用于值的形式捕获所有本地变量;<code>&amp;</code>则表示以引用的形式捕获所有本地变量. 如果需要指定捕获的变量, 则需要在符号后面加上对应变量的名字, 如<code>=a</code>, <code>&amp;a</code>等. 不指定捕获符号则默认的捕获是值形式.</p>
+</li>
+<li><p>参数列表(<code>parameter list</code>): <code>()</code>, 参数列表与普通函数完全一致, 如果没有参数, 可以选择直接忽略表达式中的<code>()</code>(只有C++14以上的版本支持)</p>
+</li>
+<li><p>函数体(<code>function body</code>): <code>&#123;&#125;</code>表示函数体, 这与普通函数是一样的.</p>
+</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">[=(&amp;)] ()&#123;&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><code>lambda</code>表达式源自于<code>lambda calculus</code>, 是<code>Alonzo Church</code>在1930s用于研究逻辑与计算时使用的数学形式语言, 这也是函数式编程语言<code>LISP</code>的基础.</p>
+</blockquote>
+<p>比如实现判断一个数值是否大于<code>10</code>的<code>lamda</code>表达式, 可以这么做:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> a = <span class="number">10</span>;</span><br><span class="line">[=a](<span class="type">int</span> x) &#123; <span class="keyword">return</span> x &gt; a; &#125;;</span><br><span class="line"></span><br><span class="line">[&amp;a](<span class="type">int</span> x) &#123; <span class="keyword">return</span> x &gt; a; &#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>默认情况下, 未被显式指定捕获本地变量都无法在表达式函内使用, 但可以隐式的在函数体内捕获这些变量:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> a = <span class="number">1</span>;</span><br><span class="line"><span class="type">int</span> b = <span class="number">2</span>;</span><br><span class="line"></span><br><span class="line">[=]() &#123; <span class="keyword">return</span> a + b; &#125;; <span class="comment">// a and b caputured by value</span></span><br><span class="line"></span><br><span class="line">[&amp;]() &#123; <span class="keyword">return</span> a + b; &#125;; <span class="comment">// a and b caputured by reference</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>如果同时使用了两种形式的捕获, 显式捕获会覆盖默认的捕获:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> a  = <span class="number">0</span>;</span><br><span class="line"><span class="type">int</span> b = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">[=, &amp;b] () &#123;</span><br><span class="line">	a = <span class="number">2</span>; <span class="comment">// Illegal, a is caputured by value and lamda is not mutable </span></span><br><span class="line">	b = <span class="number">3</span>; <span class="comment">// OK , b is caputured by value</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>需要注意的是, <code>lambda</code>表达式可以使用泛型参数, 这个在本质上是等同于函数式对象, 不妨来看个示例: </p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">auto</span> copy = [] (<span class="keyword">auto</span> x) &#123; <span class="keyword">return</span> x + x; &#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> i = <span class="built_in">copy</span>(<span class="number">2</span>); <span class="comment">// i = 4</span></span><br><span class="line">std::string s = <span class="built_in">copy</span>(<span class="string">&quot;hi&quot;</span>); <span class="comment">// s = &quot;hihi&quot;</span></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>上述表达式可以写成如下形式的函数对象(标准库中很多算法广泛使用了函数对象来扩展实现, 如<code>for_each</code>, <code>bind</code>):</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">CopyValue</span> &#123;</span><br><span class="line">	<span class="function"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span></span><br><span class="line"><span class="function">	<span class="keyword">auto</span> <span class="title">operator</span><span class="params">()</span> <span class="params">(T x)</span> <span class="type">const</span> </span>&#123; <span class="keyword">return</span> x + x; &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="智能指针-smart-pointers"><a href="#智能指针-smart-pointers" class="headerlink" title="智能指针(smart pointers)"></a><strong>智能指针(smart pointers)</strong></h2><p>长期以来, C被大家所诟病的一个缺陷就是指针引发的一系列内存管理问题, 比如空指针, 内存泄漏等, C++虽然通过引入了<code>引用(reference</code>)在一定程度上避免了指针带来的困扰, 但并没有从根源上解决指针所引发的资源管理问题. 现代C++普遍采用[<code>RAII(Resource Acquisition Is Initialization)</code>]原则(<a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/cpp/cpp/object-lifetime-and-resource-management-modern-cpp?view=msvc-170);%E4%BB%8EC++11%E5%BC%80%E5%A7%8B">https://docs.microsoft.com/en-us/cpp/cpp/object-lifetime-and-resource-management-modern-cpp?view=msvc-170);从C++11开始</a>, C++引入了智能指针(smart pointers)避免内存泄漏: <code>unique_ptr</code>&#x2F;<code>shared_ptr</code>, 用以替换之前的<code>auto_ptr</code>. </p>
+<ul>
+<li><code>unique_ptr</code>: 表示一个唯一的所属关系, 始终只有一个指针指向该对象</li>
+<li><code>shared_ptr</code>: 表示一个共有的所属关系, 可以有多个指针共享对象资源</li>
+</ul>
+<p>标准库中提供了接口用于方便的创建<code>unique_ptr</code>&#x2F;<code>shared_ptr</code>:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">std::unique_ptr&lt;X&gt; up &#123; <span class="keyword">new</span> X &#125;; <span class="comment">// or</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// since C++14</span></span><br><span class="line">std::unique_ptr&lt;X&gt; up = std::<span class="built_in">make_unique</span>&lt;X&gt;(); </span><br><span class="line"><span class="comment">// move unique_ptr to another</span></span><br><span class="line">std::unique_ptr&lt;X&gt; up1 = std::<span class="built_in">move</span>(up); <span class="comment">// now up is undefined</span></span><br><span class="line"></span><br><span class="line">std::shared_ptr&lt;X&gt; sp &#123;<span class="keyword">new</span> X&#125;; <span class="comment">// or</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// since C++14</span></span><br><span class="line">std::shared_ptr&lt;X&gt; sp = std::<span class="built_in">make_shared</span>&lt;X&gt;();</span><br><span class="line"></span><br><span class="line"><span class="function">std::shared_ptr&lt;X&gt; <span class="title">sp1</span><span class="params">(sp)</span></span>; <span class="comment">// shared with sp1</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="类型推断-auto-x2F-decltype"><a href="#类型推断-auto-x2F-decltype" class="headerlink" title="类型推断(auto&#x2F;decltype)"></a><strong>类型推断(auto&#x2F;decltype)</strong></h2><p>C++11引入了<code>auto</code>关键字用于告诉编译器对变量, 函数以及模板类进行推断, 从而避免让用户自己显式的声明类型. 比如, 相比写一堆嵌套的模板实例类型, 使用<code>auto</code>可以简化声明:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">map&lt;<span class="type">int</span>,list&lt;string&gt;&gt;::iterator i = m.<span class="built_in">begin</span>(); <span class="comment">// C-style</span></span><br><span class="line"><span class="keyword">auto</span> i = m.<span class="built_in">begin</span>(); <span class="comment">// modern C++</span></span><br><span class="line"></span><br><span class="line"><span class="comment">//using auto to simplify code</span></span><br><span class="line"><span class="keyword">for</span> (std::vector&lt;<span class="type">int</span>&gt;::const_iterator itr = myvec.<span class="built_in">cbegin</span>(); itr != myvec.<span class="built_in">cend</span>(); ++itr)</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">auto</span> itr = myvec.<span class="built_in">cbegin</span>(); itr != myvec.<span class="built_in">cend</span>(); ++itr)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>另外, C++11还增加了一个关键字<code>decltype</code>, 用于在编译的时候获取某个变量或者表达式的类型, 例如:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> a = <span class="number">5</span></span><br><span class="line"><span class="keyword">decltype</span>(a) c = <span class="number">3</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>不过需要注意的是, <code>decltype</code>推断出来的类型与<code>auto</code>的实际类型可能有差异(示例来自<a href="%60https://en.wikipedia.org/wiki/C++11%60">wikipedia</a>):</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;vector&gt;</span></span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="function"><span class="type">const</span> std::vector&lt;<span class="type">int</span>&gt; <span class="title">v</span><span class="params">(<span class="number">1</span>)</span></span>;</span><br><span class="line">	<span class="keyword">auto</span> a = v[<span class="number">0</span>];        <span class="comment">// a has type int</span></span><br><span class="line">	<span class="keyword">decltype</span>(v[<span class="number">0</span>]) b = <span class="number">1</span>; <span class="comment">// b has type const int&amp;, the return type of</span></span><br><span class="line">						<span class="comment">//   std::vector&lt;int&gt;::operator[](size_type) const</span></span><br><span class="line">	<span class="keyword">auto</span> c = <span class="number">0</span>;           <span class="comment">// c has type int</span></span><br><span class="line">	<span class="keyword">auto</span> d = c;           <span class="comment">// d has type int</span></span><br><span class="line">	<span class="keyword">decltype</span>(c) e;        <span class="comment">// e has type int, the type of the entity named by c</span></span><br><span class="line">	<span class="keyword">decltype</span>((c)) f = c;  <span class="comment">// f has type int&amp;, because (c) is an lvalue</span></span><br><span class="line">	<span class="keyword">decltype</span>(<span class="number">0</span>) g;        <span class="comment">// g has type int, because 0 is an rvalue</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="标准库"><a href="#标准库" class="headerlink" title="标准库"></a><strong>标准库</strong></h2><p>C++标准库中已经实现了大量通用的算法, 包括查找, 排序, 过滤以及随机算法等, 如果你正瞅着自己实现某个算法时, 可以直接看看标准库的算法. 举几个例子:</p>
+<ul>
+<li><code>for_each</code>: 可以利用迭代器<code>iterator</code>很方便的对容器进行遍历操作</li>
+<li><code>transform</code>: 对容器元素根据某个特定规则进行变换</li>
+<li><code>find_if</code>: 根据某个函数对象对进行搜索查找</li>
+<li><code>sort</code>&#x2F;<code>lower_bound</code>: 排序&#x2F;搜索算法</li>
+</ul>
+<p>更多有关标注库的算法可以参考<a target="_blank" rel="noopener" href="https://book.douban.com/subject/10440485/">The C++ Standard Library, 2nd Edition</a>.</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li><a target="_blank" rel="noopener" href="https://docs.microsoft.com/en-us/cpp/cpp/welcome-back-to-cpp-modern-cpp?redirectedfrom=MSDN&view=msvc-170">Modern C++</a></li>
+<li><a target="_blank" rel="noopener" href="http://mindhacks.cn/2012/08/27/modern-cpp-practices/">C++11（及现代C++风格）和快速迭代式开发</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.boost.org/doc/libs/1_78_0/libs/libraries.htm">Boost库参考资料</a></li>
+<li><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/388242/the-definitive-c-book-guide-and-list">C++必读书籍系列-从入门到高级</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>Jason Wang
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C/" title="重学C++">https://sniffer.site/2022/03/31/重学C/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/" rel="tag"># 编程语言</a>
+          </div>
+
+        
+  <div class="post-widgets">
+    <div class="wpac-rating-container">
+      <div id="wpac-rating"></div>
+    </div>
+  </div>
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/" rel="prev" title="如何用pktgen测试网卡性能?">
+                  <i class="fa fa-chevron-left"></i> 如何用pktgen测试网卡性能?
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+      <div class="tabs tabs-comment">
+        <ul class="nav-tabs">
+            <li class="tab"><a href="#comment-livere">livere</a></li>
+            <li class="tab"><a href="#comment-utterances">utterances</a></li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane livere" id="comment-livere">
+              <div class="comments" id="lv-container" data-id="city" data-uid="MTAyMC8yOTM5NS81OTYz"></div>
+            </div>
+            <div class="tab-pane utterances" id="comment-utterances">
+              <div class="comments utterances-container"></div>
+            </div>
+        </div>
+      </div>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 2016 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Jason Wang</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_pv">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js" integrity="sha256-XL2inqUJaslATFnHdJOi9GfQ60on8Wx1C2H8DYiN1xY=" crossorigin="anonymous"></script>
+<script src="/js/comments.js"></script><script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script src="https://embed.widgetpack.com/widget.js" async></script>
+  <script class="next-config" data-name="rating" type="application/json">{"enable":true,"id":32167,"color":"#fc6423"}</script>
+  <script src="/js/third-party/rating.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.12.1/dist/algoliasearch-lite.umd.js" integrity="sha256-gOvJ6W+j+t/cgnnl9iUU3cb6F1WFQGDdtTXhfPjU4bc=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.39.0/dist/instantsearch.production.min.js" integrity="sha256-+ZlQZK9m82XOYGFZCIRrPOFh2kDdAGB6e7TjWGvoaSY=" crossorigin="anonymous"></script><script src="/js/third-party/search/algolia-search.js"></script>
+
+
+
+
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+  <script class="next-config" data-name="leancloud_visitors" type="application/json">{"enable":true,"app_id":"rVKgtmJD3PpeVCLXgI3MrnXk-gzGzoHsz","app_key":"nj66qROg1RNBE9qxvn1yTFMg","server_url":null,"security":false}</script>
+  <script src="/js/third-party/statistics/lean-analytics.js"></script>
+
+
+  
+
+  <script class="next-config" data-name="enableMath" type="application/json">false</script><script class="next-config" data-name="mathjax" type="application/json">{"enable":true,"tags":"none","js":{"url":"https://cdn.jsdelivr.net/npm/mathjax@3.2.0/es5/tex-mml-chtml.js","integrity":"sha256-r+3itOMtGGjap0x+10hu6jW/gZCzxHsoKrOd7gyRSGY="}}</script>
+<script src="/js/third-party/math/mathjax.js"></script>
+
+
+<script src="/js/third-party/comments/livere.js"></script>
+<script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"runningforlife/utterances-comment","issue_term":"pathname","theme":"github-light"}</script>
+<script src="/js/third-party/comments/utterances.js"></script>
+
+</body>
+</html>
