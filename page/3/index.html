@@ -155,7 +155,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">89</span>
+          <span class="site-state-item-count">90</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -166,7 +166,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">192</span>
+        <span class="site-state-item-count">193</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -206,6 +206,102 @@
 
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/" class="post-title-link" itemprop="url">由Policy Routing引发的一个奇怪问题</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-06-03 14:05:32" itemprop="dateCreated datePublished" datetime="2020-06-03T14:05:32+08:00">2020-06-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Android/" itemprop="url" rel="index"><span itemprop="name">Android</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/" class="post-meta-item leancloud_visitors" data-flag-title="由Policy Routing引发的一个奇怪问题" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯<eth0>, 不具备上外网的能力;一个用于外网通讯<eth1>, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过<eth0>与内网的其他设备上的服务建立TCP链接, 但是网络却一直可以ping通; 而另外的一个开发板上却不存在这个问题. </p>
+<p>开始我有点不相信竟然会有这样的问题, 但事实摆在面前, 我也不好抵赖, 于是自己找来一个板子, 看了下, 才逐渐找到答案. 问题的根源在于Android配置的策略路由<Policy Routing>规则隐含了一个针对系统默认网络的<code>fwmark</code>规则, 要解决问题, 只要我们将包含了<eth0>内网路由表的路由规则的优先级提升到高于Android隐含的这条规则即可. 虽然找到了解决方案, 但是还是决定花点时间把整个事情的来龙去脉都理清楚. </p>
+<p>大致分如下几个部分来讲一讲这个问题:</p>
+<ul>
+<li>介绍下什么是Policy Routing&lt;策略路由&gt;</li>
+<li>分析具体的问题, 并给出方案</li>
+<li>从源代码角度来分析下, 为何TCP无法建立, 但ping却可以</li>
+</ul>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1031,97 +1127,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/gallaxy.jpg">
-      <meta itemprop="name" content="Jason Wang">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="JasonWang's Blog">
-      <meta itemprop="description" content="关于编程,生活,工作">
-    </span>
-    
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | JasonWang's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/" class="post-title-link" itemprop="url">聊一聊TCP协议</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2019-07-30 14:01:35" itemprop="dateCreated datePublished" datetime="2019-07-30T14:01:35+08:00">2019-07-30</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
-        </span>
-    </span>
-
-  
-    <span id="/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/" class="post-meta-item leancloud_visitors" data-flag-title="聊一聊TCP协议" title="阅读次数">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">阅读次数：</span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-</div>
-
-        </div>
-      </header>
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>TCP(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Transmission_Control_Protocol">Transmission Control Protocol</a>)即传输控制协议, 位于TCP&#x2F;IP协议栈的第三层传输层, 与UDP不同的是, TCP号称提供有链接的(connection-oriented), 可靠的(reliable)字节流服务, 很多其他应用层协议如HTTP&#x2F;SMTP&#x2F;MQTT都是基于TCP协议实现.</p>
-<p>这篇文章我们就从定义的角度来看一看TCP协议的具体工作原理. 首先看下有链接的(<code>connection-oriented</code>)具体含义.</p>
-<p>TCP在发送数据之前, 第一件事情就是要在通信的双方建立一个通信的链路, 这个有点像日常生活中的打电话: A向B发起通话请求, B确认后双方建立通信链接才能正式通话. TCP也一样, 在发送任何数据之前必须要建立链接(connection), 这个建立通信链接的过程就是我们常说的”三次握手”；同样, 如果要想结束通信, 也需要有一个挥手的过程(四次挥手).有关TCP链接的建立与关闭可以参考之前的一篇文章(<a href="http://sniffer.site/2019/07/15/TCP%E9%93%BE%E6%8E%A5%E5%BB%BA%E7%AB%8B%E4%B8%8E%E7%8A%B6%E6%80%81%E8%BF%81%E7%A7%BB/">TCP的链接建立与状态迁移</a>). 那么, TCP建立链接主要完成哪几件事情了?</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>
