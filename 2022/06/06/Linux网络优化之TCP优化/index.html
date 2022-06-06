@@ -28,7 +28,7 @@
 <meta property="og:description" content="TCP(Transmision Control Protocol)即传输控制协议, 位于TCP&#x2F;IP协议栈的第三层(L3), 是一种提供了可靠连接的字节流协议; TCP是目前使用最为广泛的协议之一, HTTP&#x2F;MQTT&#x2F;FTP等诸多应用层协议都是基于TCP实现的, 更多关于TCP协议相关的具体内容可以参考标准文档RFC793以及早前写的一篇聊一聊TCP协议.  在上一">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-06-06T05:43:24.000Z">
-<meta property="article:modified_time" content="2022-06-06T05:45:57.149Z">
+<meta property="article:modified_time" content="2022-06-06T05:53:47.023Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="TCP">
@@ -298,8 +298,7 @@
 <p>如果这个值为<code>1</code>, 则表示开启了该选项(看4.4的内核版本已经默认打开了)；如果没有打开, 要开启该选项, 只需要通过下述命令打开即可:</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sudo sysctl -w net.ipv4.tcp_window_scaling=1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<h2 id="调整TCP窗口大小"><a href="#调整TCP窗口大小" class="headerlink" title="调整TCP窗口大小"></a><strong>调整TCP窗口大小</strong></h2><p>为:</p>
-<p>现在开启了窗口缩放选项, 我们就可以根据<code>BDP</code>来计算给定理论带宽与延迟情况下, 对应的TCP窗口大小了. 还是以<code>1Gbps</code>网络为例, 假设延迟(可以通过ping来大致判断)为<code>3ms</code>, 那么对应的窗口大小应</p>
+<h2 id="调整TCP窗口大小"><a href="#调整TCP窗口大小" class="headerlink" title="调整TCP窗口大小"></a><strong>调整TCP窗口大小</strong></h2><p>现在开启了窗口缩放选项, 我们就可以根据<code>BDP</code>来计算给定理论带宽与延迟情况下, 对应的TCP窗口大小了. 还是以<code>1Gbps</code>网络为例, 假设延迟(可以通过ping来大致判断)为<code>3ms</code>, 那么对应的窗口大小应</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">窗口大小 = (理论带宽 * 延迟)/8bit</span><br><span class="line">       = (1000Mbps * 0.03)/8bit</span><br><span class="line">       = 3750000b</span><br><span class="line">       = 3.6Mb</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>就是说至少需要将TCP窗口的大小设置为<code>3.6Mb</code>大小才能确保实际吞吐量达到网络的理论带宽. 在Linux中, 一般需要设置如下几个参数来设定TCP窗口大小:</p>
