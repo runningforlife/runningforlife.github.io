@@ -28,7 +28,7 @@
 <meta property="og:description" content="在看Linux内核代码时，经常会遇到各种锁(lock)的使用。对于像spin_lock_irq&#x2F;spin_lock_irqsave的区别感到困惑，每次都要重新查一下资料。遂决定写一篇文章记录下内核中使用到的锁，以及使用的场景。 与应用中的锁类似，内核中的锁也只是为了保护某个内核数据结构或者内存区域在多个执行路径时不被破坏，确保数据的一致性。Linux内核作为应用层服务的提供者，一方面要为">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2020-10-23T02:21:25.000Z">
-<meta property="article:modified_time" content="2021-09-14T06:03:22.864Z">
+<meta property="article:modified_time" content="2022-06-23T09:59:07.486Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="mutex">
 <meta property="article:tag" content="Spin Lock">
@@ -146,7 +146,7 @@
       <div class="sidebar-panel-container">
         <!--noindex-->
         <div class="post-toc-wrap sidebar-panel">
-            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Semaphore-%E4%BF%A1%E5%8F%B7%E9%87%8F%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">Semaphore(信号量）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#spin-lock-%E8%87%AA%E6%97%8B%E9%94%81"><span class="nav-number">2.</span> <span class="nav-text">spin lock(自旋锁)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">3.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Semaphore-%E4%BF%A1%E5%8F%B7%E9%87%8F%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">Semaphore(信号量）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#spin-lock-%E8%87%AA%E6%97%8B%E9%94%81"><span class="nav-number">2.</span> <span class="nav-text">spin lock(自旋锁)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Mutex-%E4%BA%92%E6%96%A5%E9%94%81"><span class="nav-number">3.</span> <span class="nav-text">Mutex(互斥锁)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Atomic-%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C"><span class="nav-number">4.</span> <span class="nav-text">Atomic(原子操作)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Readers-Writer-Lock-%E8%AF%BB%E5%86%99%E9%94%81"><span class="nav-number">5.</span> <span class="nav-text">Readers-Writer Lock(读写锁)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Seqlock-%E5%BA%8F%E5%88%97%E9%94%81"><span class="nav-number">6.</span> <span class="nav-text">Seqlock(序列锁)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Read-Copy-Update-RCU"><span class="nav-number">7.</span> <span class="nav-text">Read-Copy-Update(RCU)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="nav-number">8.</span> <span class="nav-text">参考文献</span></a></li></ol></div>
         </div>
         <!--/noindex-->
 
@@ -287,6 +287,9 @@
 <li>Spin Lock(自旋锁）</li>
 <li>Mutex(互斥锁）</li>
 <li>Atomic(原子操作）</li>
+<li>Readers-Writer Lock(读写锁，包括rw_semaphore&#x2F;rwlock)</li>
+<li>Seqlock(序列锁)</li>
+<li>Read-Copy-Update(RCU)(读&#x2F;拷贝-更新)</li>
 </ul>
 <h2 id="Semaphore-信号量）"><a href="#Semaphore-信号量）" class="headerlink" title="Semaphore(信号量）"></a><strong>Semaphore(信号量）</strong></h2><p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Semaphore_(programming)"><code>semaphore</code></a>是很常见的同步资源访问的方法，可以用于多个资源的访问控制;一般用于多个内核路径试图控制某个数据的并发访问，内核中对应的头文件在<code>linux/semaphore.h</code>:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">semaphore</span> &#123;</span><br><span class="line">  <span class="type">raw_spinlock_t</span>		lock;</span><br><span class="line">  <span class="type">unsigned</span> <span class="type">int</span>		count;</span><br><span class="line">  <span class="keyword">struct</span> <span class="title class_">list_head</span>	wait_list;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
@@ -303,7 +306,6 @@
 </li>
 <li><code>up</code>: 释放锁，可以在任何执行路径执行该方法，即使未执行过<code>down</code>也可以进行锁的释放</li>
 </ul>
-<p>互斥锁的使用与<code>semaphore</code>比较类似，具体的使用可以参考源码<code>kernel/mutex.c</code>.</p>
 <h2 id="spin-lock-自旋锁"><a href="#spin-lock-自旋锁" class="headerlink" title="spin lock(自旋锁)"></a><strong>spin lock(自旋锁)</strong></h2><p><code>spin lock</code>是内核中最常用的同步方法，通常用于多个CPU执行路径尝试访问同一个内存数据时的同步并且执行任务不能休眠的场景。与其他如<code>semaphore</code>不同的是，<code>spin lock</code>不会让锁等待者进入休眠状态，而是执行一个简单的循环等待，如果此时锁被释放，则会尝试获取锁，这样就避免了上下文切换，从而提升效率。一般如果锁等待的时间如果超过系统上下文切换的时间，使用<code>spin lock</code>则会较少任务的等待时间，改善系统性能。</p>
 <p>除此之外，在某些特殊的场景比如在中断上下文与内核执行路径上共享数据时，就不能使用如<code>semaphore</code>这类会时执行任务休眠的同步锁，因为内核一旦在处理中断时，发生进程调度，则可能发生中断无法被处理的情况。同样地，在处理中断时，也不能使用<code>spin lock</code>以防止类似的情况;因此，在中断处理上下文中，使用<code>spin lock</code>时要将本地中断禁止。另外，在可能发生内核抢占(<code>kernel preemption</code>)的时候，如果被抢占任务执有<code>spin lock</code>，就可能导致该锁一直未被释放。总结来说，使用<code>spin lock</code>要注意如下几个原则:</p>
 <ul>
@@ -319,8 +321,85 @@
 <li><code>spin_lock_irqsave</code>： 获取锁时禁止本地中断</li>
 </ul>
 <p>上述几个函数的实现都在<code>kernel/locking/spinlock.c</code>中，如果不希望获取锁失败时等待，则可以通过<code>spin_trylock*</code>来实现。</p>
+<h2 id="Mutex-互斥锁"><a href="#Mutex-互斥锁" class="headerlink" title="Mutex(互斥锁)"></a><strong>Mutex(互斥锁)</strong></h2><p>互斥锁（<code>Mutex</code>）是提供了一种资源互斥访问的机制，确保多个使用者顺序访问共享的数据。作为可睡眠（阻塞）的锁，其与二元的信号量（<code>semaphore</code>）类似，其在2006年时引入内核，想比较而言，互斥锁提供了更为简单清晰的接口，并且代码更为紧凑。具体的使用可以参考源码<code>linux/mutex.h</code>&#x2F;<code>kernel/mutex.c</code>以及内核文档<code>Documentation/locking/mutex-design.txt</code>:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">mutex</span> &#123;</span></span><br><span class="line">  <span class="type">atomic_long_t</span>		owner;</span><br><span class="line">  <span class="type">spinlock_t</span>		wait_lock;</span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span>	<span class="title">wait_list</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>互斥锁的语义确保了:</p>
+<ul>
+<li>任何时候只有一个任务（进程）持有锁</li>
+<li>只有锁的持有者可以释放锁(<code>unlock</code>)</li>
+<li>不允许多次<code>unlock</code>一把锁以及递归的(<code>recursively</code>)获取&#x2F;释放锁</li>
+<li>持有锁时任务（进程）不可退出&#x2F;被锁保护的内存不可能被释放</li>
+<li>互斥锁不可用于硬件&#x2F;软件中断的情况，如<code>tasklets</code>&#x2F;<code>timers</code></li>
+</ul>
+<p>互斥锁提供了多种接口，很方便使用:</p>
+<ul>
+<li><code>DEFINE_MUTEX(name)</code>&#x2F;<code>mutex_init(mutex)</code>：静态&#x2F;动态初始化锁</li>
+<li><code>mutex_lock</code>&#x2F;<code>mutex_trylock</code>&#x2F;<code>mutex_lock_nested</code>: 不可中断地获取锁</li>
+<li><code>mutex_lock_interruptible_nested</code>&#x2F;<code>mutex_lock_interruptible</code>： 可中断获取锁</li>
+<li><code>mutex_unlock</code>： 释放锁</li>
+<li><code>mutex_is_locked</code>: 锁是否被持有</li>
+</ul>
+<h2 id="Atomic-原子操作"><a href="#Atomic-原子操作" class="headerlink" title="Atomic(原子操作)"></a><strong>Atomic(原子操作)</strong></h2><p>原子操作具有不可中断性，即其指令在完成之前不会被任何任务所中断，这样可以确保在多任务&#x2F;多CPU状态下满足内存数据操作的一致性与顺序性。有关多任务下内存操作的一致性问题可以参考<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Memory_barrier">Memory Barrier</a>以及<a href="https://sniffer.site/2017/06/11/java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">Java中的原子操作</a>, 内核中也有相关的文档「<code>Documentation/memory-barriers.txt</code>」。</p>
+<p>内核中支持<code>atomic_t</code>&#x2F;<code>atomic64_t</code>&#x2F;<code>atomic_long_t</code>三个数据类型的原子操作, 并提供了一系列的通用接口:</p>
+<ul>
+<li><code>atomic_read/atomic_set</code>: 读取&#x2F;设置某个原子数</li>
+<li><code>atomic_&#123;add,sub,inc,dec&#125;</code>：算术操作</li>
+<li><code>atomic_xchg</code>&#x2F;<code>atomic_cmpxchg</code>： 数值交换</li>
+</ul>
+<p>有关原子操作接口使用的细节可以参考<code>include/linux/atomic.h</code>以及Linux内核文档<code>Documentation/core-api/atomic_ops.rst</code>&#x2F;<code>Documentation/atomic_t.txt</code>。</p>
+<h2 id="Readers-Writer-Lock-读写锁"><a href="#Readers-Writer-Lock-读写锁" class="headerlink" title="Readers-Writer Lock(读写锁)"></a><strong>Readers-Writer Lock(读写锁)</strong></h2><p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock">读写锁(RWL)</a>是为了解决多个读&#x2F;写任务时出现的数据不一致问题： 任何时候只允许一个<code>Writer</code>持有锁，但允许多个<code>Reader</code>持有锁，同时可以实现写锁(<code>Writer</code>持有的锁)降级为读锁(<code>Reader</code>持有的锁)。Linux内核中有两种类型的读写锁， <code>rwlock_t</code>&#x2F;<code>rw_semaphore</code>:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// include/linux/rwlock_types.h</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">	<span class="type">arch_rwlock_t</span> raw_lock;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_GENERIC_LOCKBREAK</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> break_lock;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125; <span class="type">rwlock_t</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/linux/rwsem.h</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">rw_semaphore</span> &#123;</span></span><br><span class="line">	<span class="type">atomic_long_t</span> count;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">wait_list</span>;</span></span><br><span class="line">	<span class="type">raw_spinlock_t</span> wait_lock;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_RWSEM_SPIN_ON_OWNER</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">optimistic_spin_queue</span> <span class="title">osq</span>;</span> <span class="comment">/* spinner MCS lock */</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Write owner. Used as a speculative check to see</span></span><br><span class="line"><span class="comment">	 * if the owner is running on the cpu.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> *<span class="title">owner</span>;</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><code>rwlock_t</code>的实现可以参考<code>locking/spinlock.c</code>;<code>rw_semaphore</code>可以参考<code>locking/rwsem.c</code>。这里以<code>rw_semaphore</code>为例说明读写锁的接口:</p>
+<ul>
+<li><code>DECLARE_RWSEM(name)</code>&#x2F;<code>init_rwsem(sem)</code>: 初始化锁的两种方式</li>
+<li><code>down_read/down_read_trylock</code>: 获取读锁</li>
+<li><code>down_write/down_write_trylock</code>: 获取写锁</li>
+<li><code>up_read</code>: 释放读锁</li>
+<li><code>up_write</code>: 释放写锁</li>
+<li><code>downgrade_write</code>: 降级写锁为读锁</li>
+</ul>
+<p>Linux内核中读写锁都是公平的，这样确保<code>Writer</code>不会被饿死，具体可以参考内核文档<code>Documentation/spinlocks.rst</code>以及<a target="_blank" rel="noopener" href="https://docs.kernel.org/locking/locktypes.html">锁类型</a>。</p>
+<h2 id="Seqlock-序列锁"><a href="#Seqlock-序列锁" class="headerlink" title="Seqlock(序列锁)"></a><strong>Seqlock(序列锁)</strong></h2><p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Seqlock">序列锁</a>类似于读写锁, 主要用于解决读写锁中<code>writer</code>容易被饿死的问题（<code>writer</code>必须等待<code>reader</code>释放锁后才可以持有到锁）。对于序列锁而言，<code>writer</code>的优先级更高，从而可以确保被保护的变量可以快速得到更新。每次<code>writer</code>获取锁时，会对<code>seqcount</code>加一，释放时同样加一，而<code>reader</code>获取锁时，如果<code>seqcount</code>时奇数（<code>writer</code>正持有锁，尝试修改数据），则不断重试，否则获取到锁，进入临界区读取数据。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// include/linux/seqlock.h</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">seqcount</span> <span class="title">seqcount</span>;</span></span><br><span class="line">	<span class="type">spinlock_t</span> lock;</span><br><span class="line">&#125; <span class="type">seqlock_t</span>;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>由于<code>reader</code>需要等待<code>writer</code>完成变量更新，因此在写操作频繁的情况下，<code>reader</code>的性能可能下降。所以，相比读写锁，序列锁(<code>seqlock</code>)更合适于读频繁，写操作很少但需要高效快速的情形。有关序列锁的更详细介绍可以参考<a target="_blank" rel="noopener" href="http://www.wowotech.net/kernel_synchronization/seqlock.html">Linux内核同步机制之（六）：Seqlock
+</a>以及<a target="_blank" rel="noopener" href="https://lwn.net/Articles/22818/">LWN上的一篇简单的使用说明</a>。</p>
+<h2 id="Read-Copy-Update-RCU"><a href="#Read-Copy-Update-RCU" class="headerlink" title="Read-Copy-Update(RCU)"></a><strong>Read-Copy-Update(RCU)</strong></h2><p>不管是读写锁还是序列锁，都是尝试解决<code>reader</code>&#x2F;<code>writer</code>之间并行的数据一致性问题，但由于它们都是基于锁的同步，因此会消耗不必要的CPU周期。<code>Read-Copy-Update(RCU)</code>通过一种无需依赖锁的同步方法实现了多个<code>reader</code>&#x2F;<code>writer</code>时的数据一致性问题， 其可以实现链表&#x2F;树&#x2F;哈希表等多种链表数据结构的同步(序列锁无法实现链表结构的数据同步)。<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Read-copy-update"><code>RCU</code>实现的基本原理</a>如下：</p>
+<ul>
+<li><p>对<code>Writer</code>来说: </p>
+<ul>
+<li>创建一个新的链表结构</li>
+<li>Copy(拷贝)旧的数据结构到新的链表结构中，并通过一个指针指向旧的链表结构</li>
+<li>修改新结构中的数据</li>
+<li>更新链表中的指针，使其指向新的结构体</li>
+<li>等待一段时间，确保所有<code>reader</code>没有再使用旧的数据结构(<code>synchronize_rcu</code>)</li>
+<li>唤醒后，删除旧的链表结构，完成更新</li>
+</ul>
+</li>
+<li><p>对<code>reader</code>来说:</p>
+<ul>
+<li>通过<code>rcu_read_lock</code>进入临界区，访问链表结构</li>
+<li>多个<code>reader</code>可以同时访问结构体</li>
+<li>通过<code>rcu_read_unlock</code>结束临界区的访问</li>
+</ul>
+</li>
+</ul>
+<p>总的来说<code>RCU</code>的优势在于多个<code>reader</code>可以同时访问数据（即使此时<code>writer</code>正在更新数据），而且无需持有任何锁，从而减少了CPU的消耗，提升了系统性能的伸缩性(<code>scalibility</code>, 性能不会随着CPU数量的增多而降低，见<a target="_blank" rel="noopener" href="http://www2.rdrop.com/users/paulmck/RCU/RCU.TU-Dresden.2012.05.15a.pdf">what is RCU</a>)。正是这种特性，使的<code>RCU</code>特别适合于多个<code>reader</code>，单个或者多个<code>writer</code>写操作并不频繁的场景(存在多个<code>writer</code>时需要使用锁保护)。</p>
+<p>有关<code>RCU</code>的更多使用与原理的细节可以参考如下几篇文章:</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/262464/">What is RCU, Fundamentally</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/263130/">What is RCU? Part 2: Usage</a></li>
+<li><a target="_blank" rel="noopener" href="https://www4.cs.fau.de/Lehre/WS16/PS_KVBK/papers/paper-bewermeyer.pdf">Applications of RCU</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.wowotech.net/kernel_synchronization/461.html">RCU概述</a></li>
+</ul>
+<p>另外也可以参考Linux源码(<code>include/linux/rcupdate.h</code>)和内核文档<a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/RCU/rcu.txt">RCU.txt</a>。</p>
 <h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
 <li><a target="_blank" rel="noopener" href="https://static.lwn.net/images/pdf/LDD3/ch05.pdf">https://static.lwn.net/images/pdf/LDD3/ch05.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="https://0xax.gitbooks.io/linux-insides/content/SyncPrim/linux-sync-5.html">https://0xax.gitbooks.io/linux-insides/content/SyncPrim/linux-sync-5.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/htmldocs/kernel-locking/index.html">https://www.kernel.org/doc/htmldocs/kernel-locking/index.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.kernel.org/locking/locktypes.html">https://docs.kernel.org/locking/locktypes.html</a></li>
 </ul>
 
     </div>
