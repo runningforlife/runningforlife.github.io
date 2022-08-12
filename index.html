@@ -276,39 +276,14 @@
 <li>高速网卡会在短时间内产生大量中断，导致CPU频繁发生上下文切换，性能收到影响，进而影响网络吞吐</li>
 </ul>
 <p>针对<code>10Gbps/100Gbps</code>等高速网卡中存在的延迟与带宽受限问题，<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Intel在2010年提出了<code>DPDK(Data Plane Development Kit)</code>基于用户空间的解决方案</a>，并开源了实现方案, 目前<code>DPDK</code>支持包括Intel&#x2F;ARM等多个芯片架构的指令集; 同样是Intel的工程师在2018年提出了<code>XDP(eXpress Data Path)</code>，与<code>DPDK</code>不一样的是，<code>XDP</code>基于现有内核<code>socket</code>接口，与<code>eBPF</code>相结合实现网卡与用户空间的数据传输，从而避免了内核协议栈的处理延迟。</p>
-<p>下面我们来简单看下<code>DPDK</code>与<code>XDP</code>的实现原理。</p>
-<blockquote>
-<p>本文主要是简要介绍基本原理，收集一些参考资料</p>
-</blockquote>
-<h2 id="DPDK-Data-Plane-Development-Kit"><a href="#DPDK-Data-Plane-Development-Kit" class="headerlink" title="DPDK(Data Plane Development Kit)"></a><strong>DPDK(Data Plane Development Kit)</strong></h2><p><code>DPDK</code>是由一系列开源库组成的用于网络加速的工具集，其提供了数据平面(<code>data-plane</code>)以及用户空间基于poll模式的网卡驱动，以跳过内核<code>TCP/IP</code>协议栈， 加速网络数据的传输。<code>DPDK</code>为如<code>PowerPC</code>&#x2F;<code>Arm</code>&#x2F;<code>x86</code>等多个平台提供了一个框架，用于高速网络情况的数据处理，常用在数据中心节点之间的数据传输。</p>
-<p><img src="https://www.accton.com/wp-content/uploads/2018/07/linux-kernel-w-DPDK-800x524.png" alt="DPDK in linux kernel"></p>
-<p>有关更多<code>DPDK</code>实现原理与细节可以参考如下资料:</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Wikipedia DPDK</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/725254/">Network Acceleration with DPDK</a></li>
-<li><a target="_blank" rel="noopener" href="https://doc.dpdk.org/guides/linux_gsg/index.html">Linux development Guide</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.cse.iitb.ac.in/~mythili/os/anno_slides/DPDK_deep_dive_slides.pdf">Deep-dive into DPDK</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.intel.com/content/www/us/en/developer/articles/code-sample/introduction-to-the-dpdk-sample-applications.html">DPDK Sample Applications</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/DPDK/dpdk">DPDK source code</a></li>
-</ul>
-<h2 id="XDP-eXpress-Data-Path"><a href="#XDP-eXpress-Data-Path" class="headerlink" title="XDP(eXpress Data Path)"></a><strong>XDP(eXpress Data Path)</strong></h2><p><code>XDP</code>方案与<code>DPDK</code>类似，都是尝试跳过内核协议栈从而加速数据包的处理，只不过<code>XDP</code>是基于内核已有的<code>socket</code>接口来实现，其增加了一个<code>AF_XDP</code>的地址类型，用户进程可以通过<code>AF_XDP</code>的接口来实现与内核的交互， 比如映射接收数据包的共享内存，加载接收网卡数据包的<code>BPF</code>内核程序(有关内核BFP可以参考<a href="https://sniffer.site/2019/11/07/bpf%E4%B8%8Eebpf/">BPF与eBPF</a>)。</p>
-<p><img src="https://www.iovisor.org/wp-content/uploads/sites/8/2016/09/xdp-packet-processing-768x420.png" alt="XDP"></p>
-<p>从<code>XDP</code>的实现原理来说，相比于<code>DPDK</code>， <code>XDP</code>更贴近Linux内核，因而使用起来更为方便，而且其总体性能可以接近于<code>DPDK</code>。有关<code>XDP</code>实现原理与细节可以参考如下资料:</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://www.iovisor.org/technology/xdp">Introduction to XDP</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/750845/">Accelerating networking with AF_XDP</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/html/v4.18/networking/af_xdp.html">Kernel networking-XDP</a></li>
-<li><a target="_blank" rel="noopener" href="https://blog.cloudflare.com/l4drop-xdp-ebpf-based-ddos-mitigations/">DDos Mitigations based on XDP</a></li>
-<li><a target="_blank" rel="noopener" href="https://developers.redhat.com/blog/2021/04/01/get-started-with-xdp">Get started with XDP</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/750293/">AF_XDP kernel patch</a></li>
-</ul>
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="https://www.iovisor.org/technology/xdp">Introduction to XDP</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.accton.com/Technology-Brief/intel-dpdk-performance-on-the-sau5081i-server/">Intel® DPDK Performance on the SAU5081I Server</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/725254/">Network acceleration with DPDK</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/750845/">Accelerating networking with AF_XDP</a></li>
-</ul>
-
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
