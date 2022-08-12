@@ -155,7 +155,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">91</span>
+          <span class="site-state-item-count">92</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -166,7 +166,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">192</span>
+        <span class="site-state-item-count">194</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -206,6 +206,125 @@
 
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/" class="post-title-link" itemprop="url">Linux网络优化之DPDK与XDP</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-08-12 13:45:40" itemprop="dateCreated datePublished" datetime="2022-08-12T13:45:40+08:00">2022-08-12</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/" class="post-meta-item leancloud_visitors" data-flag-title="Linux网络优化之DPDK与XDP" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>在前面的一篇文章<a href="https://sniffer.site/2022/04/13/linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8B%E9%93%BE%E8%B7%AF%E5%B1%82%E4%BC%98%E5%8C%96/">Linux网络优化之链路层优化</a>中，我们已经看到，随着网卡速率超过<code>1Gbps</code>，增加到<code>10Gbps/100Gbps</code>时，CPU已经很难处理如此大量的数据包了。总结来说，主要有如下瓶颈：</p>
+<ul>
+<li>内核协议栈处理在<code>L3(IP)/L4(TCP)</code>的数据处理上，消耗了比较多的时间，会导致网络延迟与传输受限</li>
+<li>高速网卡会在短时间内产生大量中断，导致CPU频繁发生上下文切换，性能收到影响，进而影响网络吞吐</li>
+</ul>
+<p>针对<code>10Gbps/100Gbps</code>等高速网卡中存在的延迟与带宽受限问题，<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Intel在2010年提出了<code>DPDK(Data Plane Development Kit)</code>基于用户空间的解决方案</a>，并开源了实现方案, 目前<code>DPDK</code>支持包括Intel&#x2F;ARM等多个芯片架构的指令集; 同样是Intel的工程师在2018年提出了<code>XDP(eXpress Data Path)</code>，与<code>DPDK</code>不一样的是，<code>XDP</code>基于现有内核<code>socket</code>接口，与<code>eBPF</code>相结合实现网卡与用户空间的数据传输，从而避免了内核协议栈的处理延迟。</p>
+<p>下面我们来简单看下<code>DPDK</code>与<code>XDP</code>的实现原理。</p>
+<blockquote>
+<p>本文主要是简要介绍基本原理，收集一些参考资料</p>
+</blockquote>
+<h2 id="DPDK-Data-Plane-Development-Kit"><a href="#DPDK-Data-Plane-Development-Kit" class="headerlink" title="DPDK(Data Plane Development Kit)"></a><strong>DPDK(Data Plane Development Kit)</strong></h2><p><code>DPDK</code>是由一系列开源库组成的用于网络加速的工具集，其提供了数据平面(<code>data-plane</code>)以及用户空间基于poll模式的网卡驱动，以跳过内核<code>TCP/IP</code>协议栈， 加速网络数据的传输。<code>DPDK</code>为如<code>PowerPC</code>&#x2F;<code>Arm</code>&#x2F;<code>x86</code>等多个平台提供了一个框架，用于高速网络情况的数据处理，常用在数据中心节点之间的数据传输。</p>
+<p><img src="https://www.accton.com/wp-content/uploads/2018/07/linux-kernel-w-DPDK-800x524.png" alt="DPDK in linux kernel"></p>
+<p>有关更多<code>DPDK</code>实现原理与细节可以参考如下资料:</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Wikipedia DPDK</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/725254/">Network Acceleration with DPDK</a></li>
+<li><a target="_blank" rel="noopener" href="https://doc.dpdk.org/guides/linux_gsg/index.html">Linux development Guide</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cse.iitb.ac.in/~mythili/os/anno_slides/DPDK_deep_dive_slides.pdf">Deep-dive into DPDK</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.intel.com/content/www/us/en/developer/articles/code-sample/introduction-to-the-dpdk-sample-applications.html">DPDK Sample Applications</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/DPDK/dpdk">DPDK source code</a></li>
+</ul>
+<h2 id="XDP-eXpress-Data-Path"><a href="#XDP-eXpress-Data-Path" class="headerlink" title="XDP(eXpress Data Path)"></a><strong>XDP(eXpress Data Path)</strong></h2><p><code>XDP</code>方案与<code>DPDK</code>类似，都是尝试跳过内核协议栈从而加速数据包的处理，只不过<code>XDP</code>是基于内核已有的<code>socket</code>接口来实现，其增加了一个<code>AF_XDP</code>的地址类型，用户进程可以通过<code>AF_XDP</code>的接口来实现与内核的交互， 比如映射接收数据包的共享内存，加载接收网卡数据包的<code>BPF</code>内核程序(有关内核BFP可以参考<a href="https://sniffer.site/2019/11/07/bpf%E4%B8%8Eebpf/">BPF与eBPF</a>)。</p>
+<p><img src="https://www.iovisor.org/wp-content/uploads/sites/8/2016/09/xdp-packet-processing-768x420.png" alt="XDP"></p>
+<p>从<code>XDP</code>的实现原理来说，相比于<code>DPDK</code>， <code>XDP</code>更贴近Linux内核，因而使用起来更为方便，而且其总体性能可以接近于<code>DPDK</code>。有关<code>XDP</code>实现原理与细节可以参考如下资料:</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.iovisor.org/technology/xdp">Introduction to XDP</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/750845/">Accelerating networking with AF_XDP</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/html/v4.18/networking/af_xdp.html">Kernel networking-XDP</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.cloudflare.com/l4drop-xdp-ebpf-based-ddos-mitigations/">DDos Mitigations based on XDP</a></li>
+<li><a target="_blank" rel="noopener" href="https://developers.redhat.com/blog/2021/04/01/get-started-with-xdp">Get started with XDP</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/750293/">AF_XDP kernel patch</a></li>
+</ul>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li><a target="_blank" rel="noopener" href="https://www.iovisor.org/technology/xdp">Introduction to XDP</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.accton.com/Technology-Brief/intel-dpdk-performance-on-the-sau5081i-server/">Intel® DPDK Performance on the SAU5081I Server</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/725254/">Network acceleration with DPDK</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/750845/">Accelerating networking with AF_XDP</a></li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -364,7 +483,7 @@
 <ul>
 <li>Linux网络优化之数据链路层优化: 数据链路层<code>L2</code>的优化, 如何从收发两个方面优化网卡吞吐量</li>
 <li>Linux网络优化之TCP优化: 以TCP协议为例, 说明<code>L3</code>协议栈优化</li>
-<li>Linux网络优化之高速网络优化: 基于<code>DPDK/XDP</code>解决C100K的高并发访问</li>
+<li>Linux网络优化之高速网络优化: 基于<code>DPDK/XDP</code>解决高速网络传输延迟问题</li>
 <li>Linux网络优化之AVB: 介绍以太网中用于音视频传输的低时延<code>TSN/AVB</code>协议</li>
 </ul>
 <p>这篇文章主要讲第一个话题: Linux是如何在数据链路层<code>L2</code>对网络数据的接收与发送进行优化的. </p>
@@ -1019,100 +1138,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/gallaxy.jpg">
-      <meta itemprop="name" content="Jason Wang">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="JasonWang's Blog">
-      <meta itemprop="description" content="关于编程,生活,工作">
-    </span>
-    
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | JasonWang's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/" class="post-title-link" itemprop="url">ARP cache不更新导致的网络问题</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2021-09-28 14:35:36" itemprop="dateCreated datePublished" datetime="2021-09-28T14:35:36+08:00">2021-09-28</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE/" itemprop="url" rel="index"><span itemprop="name">网络协议</span></a>
-        </span>
-    </span>
-
-  
-    <span id="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/" class="post-meta-item leancloud_visitors" data-flag-title="ARP cache不更新导致的网络问题" title="阅读次数">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">阅读次数：</span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-</div>
-
-        </div>
-      </header>
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>最近碰到了一个很奇怪的问题, Android系统(Linux内核4.15)唤醒后, SoC(高通平台)跟TBox(Telematics Box)TCP的连接会偶发变慢, 需要等超过10s才能连接上. 发送ping包给TBox, 通过<code>strace</code>看进程一直提示<code>EAGAIN</code>的错误.从字面意义来说<code>EAGAIN</code>(<code>Resource temporarily unavailable</code>)是内核告知ping进程当前没有可用的数据包可以接收. 可是, 问题来了:</p>
-<ul>
-<li>为什么ping一直会收到<code>EAGAIN</code>的错误? 内核在什么时候会返回该错误?</li>
-<li>为什么ping收不到数据包, TBox回包到底去了哪里?</li>
-</ul>
-<p>幸亏好这个问题比较容易重现, 折腾了两天才最终把问题的的来龙去脉搞清楚. 接下来就来看看这个问题的现象以及背后发生的根因, 最后给出几个相应的对策.</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>
