@@ -155,7 +155,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">92</span>
+          <span class="site-state-item-count">93</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -166,7 +166,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">194</span>
+        <span class="site-state-item-count">196</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -206,6 +206,175 @@
 
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/" class="post-title-link" itemprop="url">如何通过QEMU启动Linux系统</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-08-27 20:00:03" itemprop="dateCreated datePublished" datetime="2022-08-27T20:00:03+08:00">2022-08-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/" class="post-meta-item leancloud_visitors" data-flag-title="如何通过QEMU启动Linux系统" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>看Linux驱动相关的代码， 却没有一个好的调试环境可以跟踪内核相关的调用流程。于是，想着用QEMU虚拟机来搭建一个Linux系统。花了大半天时间，终于能够启动一个简单的Linux系统了。中间踩了不少坑，找了不少资料，这里简单总结下整个过程。</p>
+<blockquote>
+<p>以下操作都是基于Ubuntu 18.04 x86_64平台</p>
+</blockquote>
+<p>最开始参考了<a target="_blank" rel="noopener" href="https://yuankun.me/posts/running-raw-linux-kernel-in-qemu/">如何使用QEMU跑内核</a>，使用系统自带的QEMU工具，结果提示如下错误:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">qemu-system-aarch64 rom check and register reset failed</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>怀疑是QEMU的版本太低导致，于是只好又重新编译QEMU源码，最后总算大功告成。总的说来，大致要做的事情有这么几个:</p>
+<ul>
+<li>编译Linux内核，利用busybox来生成一个小的rootfs（关于什么是rootfs，可以参考<a target="_blank" rel="noopener" href="https://tldp.org/LDP/sag/html/root-fs.html">The rootfs FS</a>)</li>
+<li>编译QEMU，确保正常配置ARM64架构的虚拟环境</li>
+<li>一切就绪，通过<code>qemu-system-aarch64</code>跑起来虚拟机来</li>
+</ul>
+<h2 id="编译Linux内核"><a href="#编译Linux内核" class="headerlink" title="编译Linux内核"></a><strong>编译Linux内核</strong></h2><p>交叉编译Linux内核，需要确保系统中存在必须的编译环境与工具:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sudo apt-get install build-essential</span><br><span class="line">sudo apt-get install binutils-multiarch</span><br><span class="line">sudo apt-get install ncurses-dev</span><br><span class="line"></span><br><span class="line">sudo apt-get install gcc-aarch64-linux-gnu</span><br><span class="line"></span><br><span class="line">```   </span><br><span class="line"></span><br><span class="line">拷贝源码`git <span class="built_in">clone</span> https://github.com/torvalds/linux`， 进入对应目录, 执行:</span><br><span class="line"></span><br><span class="line">```bash</span><br><span class="line"><span class="comment">#创建编译目录，用于输出产物</span></span><br><span class="line"><span class="built_in">mkdir</span> build</span><br><span class="line"></span><br><span class="line">make distclean</span><br><span class="line">make O=./build ARCH=arm64 defconfig</span><br><span class="line"></span><br><span class="line"><span class="comment">#如果需要编辑某些config，可以使用menuconfig来配置</span></span><br><span class="line">make O=./build ARCH=arm64 nconfig</span><br><span class="line"></span><br><span class="line"><span class="comment">#编译</span></span><br><span class="line">make O=./build ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j8</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>编译成功后，会在<code>arch/arm64/boot</code>下面生成内核镜像:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">-rw-rw-r-- 1 jason jason 36M Aug 25 14:20 <span class="built_in">arch</span>/arm64/boot/Image</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这个就是后面用于跑Linux内核的镜像文件。</p>
+<h2 id="编译Qemu源码"><a href="#编译Qemu源码" class="headerlink" title="编译Qemu源码"></a><strong>编译Qemu源码</strong></h2><p>编译QEMU比较方便，先下载源码:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">git <span class="built_in">clone</span> https://github.com/qemu/qemu</span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> qemu</span><br><span class="line"></span><br><span class="line"><span class="built_in">mkdir</span> build</span><br><span class="line"><span class="built_in">cd</span> build</span><br><span class="line">../configure</span><br><span class="line">make -j16</span><br><span class="line"></span><br><span class="line">make install</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>编译大概会持续十几分钟的样子，最后记得编译完成后执行<code>make install</code>, 否则在最后启动虚拟机时会提示:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">qemu-system-aarch64: failed to find romfile <span class="string">&quot;efi-virtio.rom&quot;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="编译Busybox-制作rootfs"><a href="#编译Busybox-制作rootfs" class="headerlink" title="编译Busybox,制作rootfs"></a><strong>编译Busybox,制作rootfs</strong></h2><p>编译Busybox稍微麻烦一点，需要编辑配置列表，确保生成的是静态库形式的执行文件, 大概有这么几个步骤:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="built_in">mkdir</span> build</span><br><span class="line"></span><br><span class="line">make O=../build/ ARCH=arm64 defconfig</span><br><span class="line"></span><br><span class="line"><span class="comment">#通过菜单配置config</span></span><br><span class="line">make O=../build/ ARCH=arm64 menuconfig</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/busybox_menuconfig.png" alt="busybox menuconfig"></p>
+<p>菜单配置的方式与Linux内核的配置类似，按下<code>/</code>可以直接搜索你要设置的选项; 如果觉得菜单配置比较麻烦，也可以通过直接编辑生成的<code>.config</code>来配置选项编译为静态的方式:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">CONFIG_STATIC=y</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>完成配置后，执行编译:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j16</span><br><span class="line">make install</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在<code>busybox/_install</code>下面可以看到编译的产物。有了busybox我们就可以制作一个简单的rootfs文件系统了。对于busybox的系统来说，大致的启动顺序如下:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">/sbin/init --&gt; /etc/inittab --&gt; /etc/init.d/rcS --&gt; /etc/fstab</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>进入<code>busybox/_install</code>目录可以看到当前生成的目录结构:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">4.0K	./proc</span><br><span class="line">1.9M	./bin</span><br><span class="line">16K	./etc</span><br><span class="line">4.0K	./tmp</span><br><span class="line">4.0K	./root</span><br><span class="line">4.0K	./sys</span><br><span class="line">4.0K	./home</span><br><span class="line">4.0K	./var</span><br><span class="line">4.0K	./lib</span><br><span class="line">4.0K	./mnt</span><br><span class="line">12K	./usr</span><br><span class="line">4.0K	./sbin</span><br><span class="line">12K	./dev</span><br><span class="line">34M	./</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>制作一个rootfs，可以按照如下几个步骤操作:</p>
+<ul>
+<li>创建目录</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># 创建必要的目录</span></span><br><span class="line"><span class="built_in">mkdir</span> -p dev etc home lib mnt proc root sys tmp var</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>生成启动所需的文件</p>
+<ul>
+<li>etc&#x2F;inittab: 将如下内容写入到该文件</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">::sysinit:/etc/init.d/rcS</span><br><span class="line">::respawn:-/bin/sh</span><br><span class="line">::askfirst:-/bin/sh</span><br><span class="line">::cttlaltdel:/bin/umount -a -r</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>编辑完成后，修改文件权限: <code>chmod 0755 etc/inittab</code></p>
+<ul>
+<li>etc&#x2F;init.d: 系统初始化脚本，可以用于创建设备以及执行文件系统挂载等操作</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="built_in">mkdir</span> -p etc/init.d/</span><br><span class="line"></span><br><span class="line"><span class="comment">#编辑rcS文件,输入如下内容</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#!/bin/sh</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;mount pseudo sys&quot;</span></span><br><span class="line"></span><br><span class="line">mount -t proc none /proc</span><br><span class="line">mount -t sysfs none /sys</span><br><span class="line"><span class="built_in">echo</span> /sbin/mdev &gt; /proc/sys/kernel/hotplug</span><br><span class="line">/sbin/mdev -s</span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;init rc done&quot;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>为了确保该文件正常执行，需要修改权限<code>chmod 0755 etc/init.d/rcS</code>. 如果除了上述<code>proc/sys</code>文件系统外，还有其他需要挂载的设备，可以放在<code>etc/fstab</code>中:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">temps/tmp  rpoc  defaults 0 0</span><br><span class="line">none /tmp  ramfs defaults 0 0</span><br><span class="line">mdev /dev  ramfs defaults 0 0</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>创建特殊文件节点</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="built_in">cd</span> dev</span><br><span class="line">sudo <span class="built_in">mknod</span> console c 5 1</span><br><span class="line">sudo <span class="built_in">mknod</span> null c 1 3</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>将该目录的文件打包成rootfs压缩文件</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">find . | cpio -o -H newc &gt; rootfs.cpio </span><br><span class="line">gzip -c rootfs.cpio &gt; rootfs.cpio.gz</span><br><span class="line"></span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>到这里，所有的准备工作就绪了，就下来可以测试下虚拟机是否正常能跑起来了.</p>
+<h2 id="QEMU跑起来"><a href="#QEMU跑起来" class="headerlink" title="QEMU跑起来"></a><strong>QEMU跑起来</strong></h2><p>执行如下命令，启动Linux虚拟机(具体的参数可以通过<code>qemu-system-aarch64 -h</code>查看)</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">qemu-system-aarch64 \</span><br><span class="line">    -machine virt \</span><br><span class="line">    -cpu cortex-a57 \</span><br><span class="line">    -nographic -smp 1 \</span><br><span class="line">    -kernel ./Image \</span><br><span class="line">    -initrd ./rootfs.cpio.gz \</span><br><span class="line">    -append <span class="string">&quot;rdinit=/linuxrc console=ttyAMA0&quot;</span> \</span><br><span class="line">    -s <span class="comment"># 开启GDB TCP调试口</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>正常启动的话，可以看到内核加载的日志以及一个虚拟的终端设备:</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qemu-virt-linux.png" alt="Qemu Virt linux"></p>
+<p>有了这个虚拟环境，无论是驱动开发，还是学习Linux内核都会方便很多了。</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li><a target="_blank" rel="noopener" href="https://yuankun.me/posts/running-raw-linux-kernel-in-qemu/">https://yuankun.me/posts/running-raw-linux-kernel-in-qemu/</a></li>
+<li><a target="_blank" rel="noopener" href="https://ops.tips/notes/booting-linux-on-qemu/">https://ops.tips/notes/booting-linux-on-qemu/</a></li>
+<li><a target="_blank" rel="noopener" href="https://gts3.org/2017/cross-kernel.html">https://gts3.org/2017/cross-kernel.html</a></li>
+<li><a target="_blank" rel="noopener" href="http://events17.linuxfoundation.org/sites/events/files/slides/Shuah_Khan_cross_compile_linux.pdf">http://events17.linuxfoundation.org/sites/events/files/slides/Shuah_Khan_cross_compile_linux.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="https://android.googlesource.com/platform/external/syzkaller/+/HEAD/docs/linux/setup_linux-host_qemu-vm_arm64-kernel.md">https://android.googlesource.com/platform/external/syzkaller/+/HEAD/docs/linux/setup_linux-host_qemu-vm_arm64-kernel.md</a></li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1045,96 +1214,6 @@
 
 
 
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/gallaxy.jpg">
-      <meta itemprop="name" content="Jason Wang">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="JasonWang's Blog">
-      <meta itemprop="description" content="关于编程,生活,工作">
-    </span>
-    
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | JasonWang's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/" class="post-title-link" itemprop="url">什么是GARP</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2021-10-09 15:30:19" itemprop="dateCreated datePublished" datetime="2021-10-09T15:30:19+08:00">2021-10-09</time>
-    </span>
-
-  
-    <span id="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/" class="post-meta-item leancloud_visitors" data-flag-title="什么是GARP" title="阅读次数">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">阅读次数：</span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-</div>
-
-        </div>
-      </header>
-    
-    <div class="post-body" itemprop="articleBody">
-          <p><code>ARP(Address Resolution Protocol)</code>即地址解析协议, 用于将网络层L3的IP地址转换成数据链路层的L2地址(MAC地址), 常用在诸如以太网, 无线网络等局域网中, 但对如点对点(P2P)网络, 组播与多播IP地址, 都无需使用<code>ARP</code>协议.</p>
-<p>一般来说, L3-L2地址的转换通常被成为邻区协议(<code>neighboring protocol</code>), 这种发现邻居节点(<code>neighbor</code>)的协议被统称为邻居发现协议(<code>Neighbor Discovery Protocol</code>, <code>ND</code>). <code>ARP</code>可以看作是<code>ND</code>的ipv4版本(参考<a target="_blank" rel="noopener" href="https://www.rfc-editor.org/rfc/rfc826.txt">RFC826</a>), 在ipv6中则直接称为<code>ND</code>(参考<a target="_blank" rel="noopener" href="https://www.rfc-editor.org/rfc/rfc4861">RFC4861</a>).</p>
-<blockquote>
-<p>邻居节点(<code>neighbor</code>)指的是跟主机在同一局域网(<code>LAN</code>)的其他节点</p>
-</blockquote>
-<p><code>ND</code>协议有两种消息类型:</p>
-<ul>
-<li><code>Solicitation Request</code>(也称为<code>Neighbor Solicitation</code>): 用于主机发送消息到网络中查询是否有主机拥有某个L3的IP地址, 该消息可以是单播, 组播或者广播形式.</li>
-<li><code>Solicitation Reply</code>(又称为<code>Neighbor Advertisement</code>): 收到<code>Solicitation Request</code>包时发出的回应包(有可能是HOST本身发出的, 也有可能是<code>ARP</code>代理服务器发送的)</li>
-</ul>
-<p>那么, 什么是<code>Gratuitous ARP</code>(简称<code>GARP</code>, 免费ARP)了? 简单来说, <code>GARP</code>是一种用于告知网络中其他节点某些特定信息的ARP请求包, 但无须其他节点发送回应包, 常用于如下<a target="_blank" rel="noopener" href="http://www.embeddedlinux.org.cn/linux_net/0596002556/understandlni-CHP-28-SECT-3.html#understandlni-CHP-28-SECT-3">三种情况</a>:</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
   <nav class="pagination">
     <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><span class="space">&hellip;</span><a class="page-number" href="/page/10/">10</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
   </nav>
@@ -1199,9 +1278,9 @@
 <script src="/js/third-party/math/mathjax.js"></script>
 
 
-<script src="/js/third-party/comments/livere.js"></script>
 <script class="next-config" data-name="utterances" type="application/json">{"enable":true,"repo":"runningforlife/utterances-comment","issue_term":"pathname","theme":"github-light"}</script>
 <script src="/js/third-party/comments/utterances.js"></script>
+<script src="/js/third-party/comments/livere.js"></script>
 
 </body>
 </html>
