@@ -155,7 +155,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">93</span>
+          <span class="site-state-item-count">94</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -166,7 +166,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">196</span>
+        <span class="site-state-item-count">199</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -206,6 +206,113 @@
 
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/" class="post-title-link" itemprop="url">理解Android eBPF</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2021-11-26 15:34:45" itemprop="dateCreated datePublished" datetime="2021-11-26T15:34:45+08:00">2021-11-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+        </span>
+          ，
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Linux/Android/" itemprop="url" rel="index"><span itemprop="name">Android</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/" class="post-meta-item leancloud_visitors" data-flag-title="理解Android eBPF" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>Android从9.0版本开始全面支持eBPF(<code>extended Berkeley Packet Filters</code>), 其主要用在流量统计上, 也可以用来监控CPU&#x2F;IO&#x2F;内存等模块的状态.简单来说, <code>eBPF</code>可以与内核的<code>kprobe</code>&#x2F;<code>tracepoints</code>&#x2F;<code>skfilter</code>等模块相结合, 将eBPF的函数hook到内核事件从而监控相应的系统状态.</p>
+<p>Android为eBPF提供了许多封装的库, 并提供了eBPF加载器<code>bpfloader</code>:</p>
+<ul>
+<li><code>bpfloader</code>: 位于<code>/system/bpf/bpfloader</code>, 系统启动时负责加载位于<code>/system/etc/bpf</code> 中的eBPF目标文件</li>
+<li><code>libbpf_android</code>: 位于<code>/system/bpf/libbpf_android</code>提供创建bpf容器&#x2F;加载bpf目标文件的接口</li>
+<li><code>libbpf</code>: 位于<code>/external/bcc</code>, 封装了bpf的系统调用, 提供如attach&#x2F;deattach程序的接口</li>
+<li><code>libnetdbpf</code>: 位于<code>/system/netd/libnetdbpf</code>, 实现了netd流量统计功能的函数</li>
+</ul>
+<p>目前在Android(Q)上有两处eBPF的代码: 一个是<code>/system/netd/bpf_progs/netd.c</code>, 主要是用于流量统计；一个是<code>/system/bpfprogs/time_in_state.c</code>用于监控CPU运行频率以及上下文切换的耗时.</p>
+<p>接下来我们就从三个部分来深入理解下Android是如何利用eBPF的:</p>
+<ul>
+<li>eBPF程序与目标文件格式</li>
+<li>Android eBPF加载与执行流程</li>
+<li>Android如何基于eBPF实现流量统计</li>
+</ul>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1049,102 +1156,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2021/01/03/%E4%B8%8D%E5%BE%97%E4%B8%8D%E8%AF%B4%E7%9A%842020/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/gallaxy.jpg">
-      <meta itemprop="name" content="Jason Wang">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="JasonWang's Blog">
-      <meta itemprop="description" content="关于编程,生活,工作">
-    </span>
-    
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | JasonWang's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/" class="post-title-link" itemprop="url">MAC与PHY调试遇到的那些坑</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2020-12-31 10:31:14" itemprop="dateCreated datePublished" datetime="2020-12-31T10:31:14+08:00">2020-12-31</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/%E6%B1%BD%E8%BD%A6%E7%94%B5%E5%AD%90/" itemprop="url" rel="index"><span itemprop="name">汽车电子</span></a>
-        </span>
-    </span>
-
-  
-    <span id="/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/" class="post-meta-item leancloud_visitors" data-flag-title="MAC与PHY调试遇到的那些坑" title="阅读次数">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">阅读次数：</span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-</div>
-
-        </div>
-      </header>
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>这次新平台采用了与之前不同的以太网方案， MAC是内置在SoC(System On Chip)上，而PHY采用了Marvell的一款100Mps的车规级的芯片，MAC&#x2F;PHY的驱动都要重新开发适配，工作难度比之前预想的要大了很多，完成时间比预想的慢了近一个星期。不过，往后看，这种直接与硬件打交道的经验很能锻炼人，在一定程度改善了我对系统的认知与理解。这篇文章重点在梳理总结下车在以太网MAC&#x2F;PHY遇到的一些问题，以及Linux下MAC&#x2F;PHY驱动的一些基本流程。</p>
-<p>大致分为如下几个部分：</p>
-<ul>
-<li>MAC&#x2F;PHY的基础知识</li>
-<li>Linux下MAC&#x2F;PHY驱动的加载流程</li>
-<li>PHY驱动的开发与适配</li>
-<li>车载以太网MAC&#x2F;PHY调试的一些经验总结</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>

@@ -155,7 +155,7 @@
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
         <a href="/archives/">
-          <span class="site-state-item-count">93</span>
+          <span class="site-state-item-count">94</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -166,7 +166,7 @@
       </div>
       <div class="site-state-item site-state-tags">
           <a href="/tags/">
-        <span class="site-state-item-count">196</span>
+        <span class="site-state-item-count">199</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -206,6 +206,166 @@
 
 
     <div class="main-inner index posts-expand">
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
+    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2022/09/30/%E5%A6%82%E4%BD%95%E7%94%A8FFMPEG%E5%9C%A8Android%E4%B8%8A%E5%81%9A%E8%A7%86%E9%A2%91%E8%A7%A3%E7%A0%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/gallaxy.jpg">
+      <meta itemprop="name" content="Jason Wang">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="JasonWang's Blog">
+      <meta itemprop="description" content="关于编程,生活,工作">
+    </span>
+    
+    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
+      <meta itemprop="name" content="undefined | JasonWang's Blog">
+      <meta itemprop="description" content="">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          <a href="/2022/09/30/%E5%A6%82%E4%BD%95%E7%94%A8FFMPEG%E5%9C%A8Android%E4%B8%8A%E5%81%9A%E8%A7%86%E9%A2%91%E8%A7%A3%E7%A0%81/" class="post-title-link" itemprop="url">如何用FFmpeg在Android上实现音视频解码</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-09-30 17:44:43" itemprop="dateCreated datePublished" datetime="2022-09-30T17:44:43+08:00">2022-09-30</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Android/" itemprop="url" rel="index"><span itemprop="name">Android</span></a>
+        </span>
+    </span>
+
+  
+    <span id="/2022/09/30/%E5%A6%82%E4%BD%95%E7%94%A8FFMPEG%E5%9C%A8Android%E4%B8%8A%E5%81%9A%E8%A7%86%E9%A2%91%E8%A7%A3%E7%A0%81/" class="post-meta-item leancloud_visitors" data-flag-title="如何用FFmpeg在Android上实现音视频解码" title="阅读次数">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span class="leancloud-visitors-count"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+    
+    <div class="post-body" itemprop="articleBody">
+          <p>最近开发投屏功能，需要对<code>H.264</code>视频数据流进行解码，然后显示出来。Android原生的<code>MediaCodec</code>虽然使用了硬件解码，但是延迟较大（超过300ms），无法满足要求。于是研究了下如何基于<a target="_blank" rel="noopener" href="https://ffmpeg.org/">FFMPEG</a>来做视频流的软解码。这里对整个过程做简要的总结，看下如何在<code>Android Studio</code>中完成<code>FFMPEG</code>的视频解码: </p>
+<ul>
+<li>简单介绍下FFMPEG框架</li>
+<li>如何利用交叉编译生成所需要的FFMPEG共享库, 以及如何进行<code>Android Studio</code>的配置</li>
+<li>FFMPEG解码H264的大致调用流程</li>
+</ul>
+<h2 id="FFMPEG框架介绍"><a href="#FFMPEG框架介绍" class="headerlink" title="FFMPEG框架介绍"></a><strong>FFMPEG框架介绍</strong></h2><p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/FFmpeg">FFmpeg， Fast Forward mpeg的简称</a>是音视频编解码开源框架的标杆，支持常见音视频格式的编解码，如<code>H.264</code>&#x2F;<code>AAC</code>&#x2F;<code>H.265</code>&#x2F;<code>MP4</code>等，也支持不同格式之间的转码，同时还支持流媒体协议如<code>RTSP</code>&#x2F;<code>RTMP</code>。目前，不少视频网站如<code>Youtube</code>&#x2F;<code>Bilibili</code>等都是通过<code>FFmpeg</code>来实现音视频的处理的。</p>
+<p>按功能模块划分，<code>FFmpeg</code>大致分为如下几个部分:</p>
+<ul>
+<li><code>libavcodec</code>: 包含了所有音视频编解码的核心代码</li>
+<li><code>libavdevice</code>: 用于操作内部、外部音视频设备，以达到硬件加速&#x2F;显示&#x2F;加速等功能</li>
+<li><code>libavfilter</code>: 音视频滤波器的开发，如宽高比、裁剪、格式化、非格式化、伸缩等</li>
+<li><code>libavformat</code>： 用于解析各种不同的音视频封装格式</li>
+<li><code>libavutil</code>： 包含公共的工具函数，如算术运算、字符操作等</li>
+<li><code>libswresample</code>： 原始音频格式转码</li>
+<li><code>libswscale</code>： 用于视频场景比例缩放、色彩映射转换、图像颜色空间或格式转换,如RGB565&#x2F;RGB888等与 YUV420等之间的转换。</li>
+</ul>
+<p>同时，<code>FFmpeg</code>源码中包含了<code>ffprobe</code>(用于分析音视频数据流)&#x2F;<code>ffplay</code>(基于<a target="_blank" rel="noopener" href="https://www.libsdl.org/">SDL</a>的播放器)&#x2F;<code>ffmpeg</code>(视频转换工具)等常用的工具。初次使用<code>FFmepg</code>接口时，可以参考源码中的示例<code>doc/examples</code>, 里面给出了很多常见接口的使用方法。</p>
+<p>更多有关<code>FFmpeg</code>的资料，可以参考:</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/leixiaohua1020/category_1360795.html?spm=1001.2014.3001.5482">雷霄骅(leixiaohua1020)的专栏</a></li>
+<li><a target="_blank" rel="noopener" href="https://ffmpeg.org/">FFmpeg官方网站</a></li>
+</ul>
+<p>下面我们就来看下如何在<code>Ubuntu</code>环境中交叉编译<code>FFmpeg</code>到基于Android的<code>ARM64</code>平台架构上。</p>
+<blockquote>
+<p>我使用的编译环境是 Ubuntu 18.04 + Android ndk 22.1.7171670</p>
+</blockquote>
+<h2 id="交叉编译FFmpeg到Android平台"><a href="#交叉编译FFmpeg到Android平台" class="headerlink" title="交叉编译FFmpeg到Android平台"></a><strong>交叉编译FFmpeg到Android平台</strong></h2><p>首先通过<code>git</code>下载<code>FFmpeg</code>源码, 为确保功能稳定，编译使用的是最近发布版本分支<code>release/5.1</code>的代码: </p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">git clone https://github.com/FFmpeg/FFmpeg</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">切换到5.1分支</span></span><br><span class="line">git checkout -b rel_5.1 origin/release/5.1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>下载完后，可以通过<code>./configure -h</code>来查看各种编译配置:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Usage: configure [options]</span><br><span class="line">Options: [defaults in brackets after descriptions]</span><br><span class="line"></span><br><span class="line">Help options:</span><br><span class="line">  --help                   print this message</span><br><span class="line">  --quiet                  Suppress showing informative output</span><br><span class="line">  --list-decoders          show all available decoders</span><br><span class="line">  --list-encoders          show all available encoders</span><br><span class="line">  --list-hwaccels          show all available hardware accelerators</span><br><span class="line">  --list-demuxers          show all available demuxers</span><br><span class="line">  --list-muxers            show all available muxers</span><br><span class="line">  --list-parsers           show all available parsers</span><br><span class="line">  --list-protocols         show all available protocols</span><br><span class="line">  --list-bsfs              show all available bitstream filters</span><br><span class="line">  --list-indevs            show all available input devices</span><br><span class="line">  --list-outdevs           show all available output devices</span><br><span class="line">  --list-filters           show all available filters</span><br><span class="line"></span><br><span class="line">Standard options:</span><br><span class="line">  --logfile=FILE           log tests and output to FILE [ffbuild/config.log]</span><br><span class="line">  --disable-logging        do not log configure debug information</span><br><span class="line">  --fatal-warnings         fail if any configure warning is generated</span><br><span class="line">  --prefix=PREFIX          install in PREFIX [/usr/local]</span><br><span class="line">  --bindir=DIR             install binaries in DIR [PREFIX/bin]</span><br><span class="line">  --datadir=DIR            install data files in DIR [PREFIX/share/ffmpeg]</span><br><span class="line">  --docdir=DIR             install documentation in DIR [PREFIX/share/doc/ffmpeg]</span><br><span class="line">  --libdir=DIR             install libs in DIR [PREFIX/lib]</span><br><span class="line">  --shlibdir=DIR           install shared libs in DIR [LIBDIR]</span><br><span class="line">  --incdir=DIR             install includes in DIR [PREFIX/include]</span><br><span class="line">  --mandir=DIR             install man page in DIR [PREFIX/share/man]</span><br><span class="line">  --pkgconfigdir=DIR       install pkg-config files in DIR [LIBDIR/pkgconfig]</span><br><span class="line">  --enable-rpath           use rpath to allow installing libraries in paths</span><br><span class="line">                           not part of the dynamic linker search path</span><br><span class="line">                           use rpath when linking programs (USE WITH CARE)</span><br><span class="line">  --install-name-dir=DIR   Darwin directory name for installed targets</span><br><span class="line"></span><br><span class="line">Licensing options:</span><br><span class="line">  --enable-gpl             allow use of GPL code, the resulting libs</span><br><span class="line">                           and binaries will be under GPL [no]</span><br><span class="line">  --enable-version3        upgrade (L)GPL to version 3 [no]</span><br><span class="line">  --enable-nonfree         allow use of nonfree code, the resulting libs</span><br><span class="line">                           and binaries will be unredistributable [no]</span><br><span class="line"></span><br><span class="line">Configuration options:</span><br><span class="line">  --disable-static         do not build static libraries [no]</span><br><span class="line">  --enable-shared          build shared libraries [no]</span><br><span class="line">  --enable-small           optimize for size instead of speed</span><br><span class="line">  --disable-runtime-cpudetect disable detecting CPU capabilities at runtime (smaller binary)</span><br><span class="line">  --enable-gray            enable full grayscale support (slower color)</span><br><span class="line">  --disable-swscale-alpha  disable alpha channel support in swscale</span><br><span class="line">  --disable-all            disable building components, libraries and programs</span><br><span class="line">  --disable-autodetect     disable automatically detected external libraries [no]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>接下来，为了便于编译，我们需要写一个编译脚本<code>build_android.sh</code>，用于配置交叉编译的参数与环境变量(这里只编译了64位系统的库，如果要编译32位的库，修改下ARCH、CPU变量即可: <code>ARCH=arm; CPU=armv7-a</code>):</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">!/bin/bash</span></span><br><span class="line">export NDK=/xxx/AndroidSDK/ndk/22.1.7171670</span><br><span class="line">TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64</span><br><span class="line"></span><br><span class="line">function build_android</span><br><span class="line">&#123;</span><br><span class="line">./configure \</span><br><span class="line">--prefix=$PREFIX \</span><br><span class="line">--disable-postproc \</span><br><span class="line">--disable-debug \</span><br><span class="line">--disable-symver \</span><br><span class="line">--disable-static \</span><br><span class="line">--enable-shared \</span><br><span class="line">--disable-doc \</span><br><span class="line">--disable-ffmpeg \</span><br><span class="line">--cross-prefix=$CROSS_PREFIX \</span><br><span class="line">--target-os=android \</span><br><span class="line">--arch=$ARCH \</span><br><span class="line">--cpu=$CPU \</span><br><span class="line">--cc=$CC \</span><br><span class="line">--cxx=$CXX \</span><br><span class="line">--enable-cross-compile \</span><br><span class="line">--enable-gpl \</span><br><span class="line">--sysroot=$SYSROOT \</span><br><span class="line">--extra-cflags=&quot;-Os -fpic $OPTIMIZE_CFLAGS&quot; \</span><br><span class="line"><span class="meta prompt_">#</span><span class="language-bash">--extra-ldflags=<span class="string">&quot;<span class="variable">$ADDI_LDFLAGS</span>&quot;</span></span></span><br><span class="line"></span><br><span class="line">make clean</span><br><span class="line">make -j4</span><br><span class="line">make install</span><br><span class="line"></span><br><span class="line">echo &quot;============== build android arm64-v8a success ==============&quot;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">arm64-v8a</span></span><br><span class="line">ARCH=arm64</span><br><span class="line">CPU=armv8-a</span><br><span class="line">API=26</span><br><span class="line">CC=$TOOLCHAIN/bin/aarch64-linux-android$API-clang</span><br><span class="line">CXX=$TOOLCHAIN/bin/aarch64-linux-android$API-clang++</span><br><span class="line">SYSROOT=$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot</span><br><span class="line">CROSS_PREFIX=$TOOLCHAIN/bin/aarch64-linux-android-</span><br><span class="line">PREFIX=$(pwd)/android/$CPU</span><br><span class="line">OPTIMIZE_CFLAGS=&quot;-march=$CPU&quot;</span><br><span class="line">ADDI_LDFLAGS=&quot;LDFLAGS=&#x27;-Wl,-z,relro -Wl,-z,now -pie&quot;</span><br><span class="line"></span><br><span class="line">echo $CC</span><br><span class="line"></span><br><span class="line">build_android</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>执行<code>chmod a+x ./build_android.sh; ./build_android.sh</code>就开始了编译。编译成功后，会有一个<code>android/armv8-a</code>的文件夹，里边包含了交叉编译生成的静态与动态库:</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">./android/armv8-a</span></span><br><span class="line"></span><br><span class="line">bin --&gt; 常用的工具，如`ffmpeg`, `ffprobe`</span><br><span class="line">lib --&gt; 共享库，如`libavcodec`,`libavformat`, `libswscale`等</span><br><span class="line">include --&gt; 包含所有开发所需的头文件</span><br><span class="line">share --&gt; 包含了相关示例与文档</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>实际开发时，我们只需要用到<code>include</code>&#x2F;<code>lib</code>两个目录中的文件即可。</p>
+<h2 id="将共享库集成到Android-Studio"><a href="#将共享库集成到Android-Studio" class="headerlink" title="将共享库集成到Android Studio"></a><strong>将共享库集成到Android Studio</strong></h2><p>最开始配置的时候，把编译好的库放到<code>src/main/jniLibs/armv8-a</code>目录下面，编译虽然正常，但是运行时却找不到对应的库。只好新建一个目录<code>libs</code>将头文件跟预编译的库放在这里(参考<a target="_blank" rel="noopener" href="https://developer.android.com/studio/projects/configure-cmake">配置CMAKE</a>):</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/as-ffmpeg-config.png" alt="FFmpeg config"></p>
+<p>然后在<code>CMakeLists.txt</code>里添加对应的库与头文件:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="built_in">set</span>(ffmpeg_lib_dir ../../../../libs/arm64-v8a)</span><br><span class="line"><span class="built_in">set</span>(ffmpeg_head_dir ../../../../libs/arm64-v8a/include)</span><br><span class="line"></span><br><span class="line"><span class="built_in">add_library</span>( avcodec</span><br><span class="line">        SHARED</span><br><span class="line">        IMPORTED)</span><br><span class="line"><span class="built_in">set_target_properties</span>(avcodec</span><br><span class="line">        PROPERTIES IMPORTED_LOCATION</span><br><span class="line">        $&#123;ffmpeg_lib_dir&#125;/libavcodec.so)</span><br><span class="line"></span><br><span class="line"><span class="built_in">add_library</span>( avformat</span><br><span class="line">        SHARED</span><br><span class="line">        IMPORTED)</span><br><span class="line"><span class="built_in">set_target_properties</span>(avformat</span><br><span class="line">        PROPERTIES IMPORTED_LOCATION</span><br><span class="line">        $&#123;ffmpeg_lib_dir&#125;/libavformat.so)</span><br><span class="line"></span><br><span class="line"><span class="built_in">add_library</span>( avutil</span><br><span class="line">        SHARED</span><br><span class="line">        IMPORTED)</span><br><span class="line"><span class="built_in">set_target_properties</span>(avutil</span><br><span class="line">        PROPERTIES IMPORTED_LOCATION</span><br><span class="line">        $&#123;ffmpeg_lib_dir&#125;/libavutil.so)</span><br><span class="line"></span><br><span class="line"><span class="built_in">add_library</span>( swscale</span><br><span class="line">        SHARED</span><br><span class="line">        IMPORTED)</span><br><span class="line"><span class="built_in">set_target_properties</span>(swscale</span><br><span class="line">        PROPERTIES IMPORTED_LOCATION</span><br><span class="line">        $&#123;ffmpeg_lib_dir&#125;/libswscale.so)</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"><span class="built_in">include_directories</span>(libs/arm64-v8a/include)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>开发使用的Android Studio的版本是<code>4.2.1</code>。</p>
+</blockquote>
+<p>配置完成就可以基于<code>FFmpeg</code>的接口开发了。下面我们简单来看看如何用<code>FFmpeg</code>解码<code>H264</code>的视频流。</p>
+<h2 id="FFmpeg解码H264视频流"><a href="#FFmpeg解码H264视频流" class="headerlink" title="FFmpeg解码H264视频流"></a><strong>FFmpeg解码H264视频流</strong></h2><p>关于如何利用<code>FFmpeg</code>来解码音视频文件，网络上有很多参考资料了，比如:</p>
+<ul>
+<li>[FFmpeg官网参考代码]<a target="_blank" rel="noopener" href="https://ffmpeg.org/doxygen/trunk/decode_video_8c-example.html">https://ffmpeg.org/doxygen/trunk/decode_video_8c-example.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.sobyte.net/post/2022-03/android-ffmpeg/">基于Android的FFmpeg完整参考示例</a></li>
+</ul>
+<p>解码从网络端接收到的视频流，大致流程基本一致， 主要分为几个关键的步骤:</p>
+<ul>
+<li>初始化<code>FFmpeg</code>解码器, 如找到对应的解码器，配置解码器:</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">mVideoDecoder = <span class="built_in">avcodec_find_decoder</span>(AV_CODEC_ID_H264);</span><br><span class="line"><span class="keyword">if</span> (mVideoDecoder == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">    <span class="built_in">LOGE</span>(<span class="string">&quot;%s: fail to find h264 decoder&quot;</span>, __func__ );</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">mVCodecCtx = <span class="built_in">avcodec_alloc_context3</span>(mVideoDecoder);</span><br><span class="line"><span class="keyword">if</span> (mVCodecCtx == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">    <span class="built_in">LOGE</span>(<span class="string">&quot;%s: fail to create codec context&quot;</span>, __func__ );</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">mVCodecCtx-&gt;flags |= AV_CODEC_FLAG_LOW_DELAY;</span><br><span class="line"><span class="comment">//mVCodecCtx-&gt;flags |= AV_CODEC_FLAG2_FAST;</span></span><br><span class="line"></span><br><span class="line">mVCodecCtx-&gt;width = mVideoW;</span><br><span class="line">mVCodecCtx-&gt;height = mVideoH;</span><br><span class="line">mVCodecCtx-&gt;bit_rate = IDecoder::BIT_RATE;</span><br><span class="line">mVCodecCtx-&gt;framerate = <span class="built_in">av_make_q</span>(IDecoder::FRAME_RATE, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (<span class="built_in">avcodec_open2</span>(mVCodecCtx, mVideoDecoder, <span class="literal">nullptr</span>) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="built_in">LOGE</span>(<span class="string">&quot;%s: Fail to open codec: %s&quot;</span>, __func__ , <span class="built_in">strerror</span>(errno));</span><br><span class="line">    <span class="built_in">avcodec_free_context</span>(&amp;mVCodecCtx);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>将接收到的<code>H264</code>数据流分片NAL(<code>Network Abstraction Layer</code>)后，放入队列</li>
+<li>解码线程从队列中取出数据包，然后解码;解码的过程大致分为四个步骤：<ul>
+<li>发送待解码的数据报给解码器<code>avcodec_send_packet</code></li>
+<li>从解码器接收解码后的包<code>avcodec_receive_frame</code></li>
+<li>将解码的包从<code>YUV</code>格式转换为<code>RGB</code>格式</li>
+<li>将<code>RGB</code>格式的视频帧拷贝到<code>Surface</code>进行渲染</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">FFmpegDecoder::doDecode</span><span class="params">(h264_decode_struct *packet)</span> </span>&#123;</span><br><span class="line">    AVPacket *raw_packet = mDecoderResources-&gt;avPacket;</span><br><span class="line">    <span class="keyword">if</span> (raw_packet != <span class="literal">nullptr</span>) &#123;</span><br><span class="line">        raw_packet-&gt;data = packet-&gt;data;</span><br><span class="line">        raw_packet-&gt;size = packet-&gt;data_len;</span><br><span class="line">        raw_packet-&gt;pts = packet-&gt;pts;</span><br><span class="line">        <span class="comment">/* send raw packet to decode */</span></span><br><span class="line">        <span class="type">int</span> res = <span class="built_in">avcodec_send_packet</span>(mCodecCtx, raw_packet);</span><br><span class="line">        <span class="keyword">if</span> (res &lt; <span class="number">0</span> &amp;&amp; res != <span class="built_in">AVERROR</span>(EAGAIN)) &#123;</span><br><span class="line">            <span class="built_in">LOGE</span>(<span class="string">&quot;%s: Could not send video packet&quot;</span>, __func__ );</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* decode frame */</span></span><br><span class="line">        AVFrame *frame = mDecoderResources-&gt;decodeFrame;</span><br><span class="line">        res = <span class="built_in">avcodec_receive_frame</span>(mCodecCtx, frame);</span><br><span class="line">        <span class="keyword">if</span> (!res) &#123;</span><br><span class="line">            <span class="built_in">LOGD</span>(<span class="string">&quot;%s: decoded frame pts = %lld, pixel-format = %d, picture-type = %d&quot;</span>, __func__ , (<span class="type">long</span> <span class="type">long</span>)frame-&gt;pts, frame-&gt;format, frame-&gt;pict_type);</span><br><span class="line">            <span class="keyword">if</span> (frame-&gt;width != mVideoW || frame-&gt;height != mVideoH) &#123;</span><br><span class="line">                <span class="built_in">LOGE</span>(<span class="string">&quot;%s: video size changed, drop frame&quot;</span>, __func__ );</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">             * render to Surface</span></span><br><span class="line"><span class="comment">             * decoded frame is YUV format which need to transform to RGB before rendering</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            AVFrame *rgb_frame = mDecoderResources-&gt;rgbFrame;</span><br><span class="line"></span><br><span class="line">            <span class="built_in">av_image_fill_arrays</span>(rgb_frame-&gt;data, rgb_frame-&gt;linesize, mDecodeOutBuf, AV_PIX_FMT_RGBA,</span><br><span class="line">                                 mVideoW, mVideoH, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">struct</span> <span class="title class_">SwsContext</span> *data_convert_ctx = <span class="built_in">sws_getContext</span>(mVideoW, mVideoH, mCodecCtx-&gt;pix_fmt,</span><br><span class="line">                                                                 mVideoW, mVideoH, AV_PIX_FMT_RGBA,</span><br><span class="line">                                                                 SWS_BICUBIC, <span class="literal">nullptr</span>, <span class="literal">nullptr</span>, <span class="literal">nullptr</span>);</span><br><span class="line">            <span class="comment">/* from YUV to RGA */</span></span><br><span class="line">            res = <span class="built_in">sws_scale</span>(data_convert_ctx, (<span class="type">const</span> <span class="type">uint8_t</span> * <span class="type">const</span> *) frame-&gt;data, frame-&gt;linesize, <span class="number">0</span>,</span><br><span class="line">                            mVideoH, rgb_frame-&gt;data, rgb_frame-&gt;linesize);</span><br><span class="line">            <span class="keyword">if</span> (res &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">sws_freeContext</span>(data_convert_ctx);</span><br><span class="line">                <span class="built_in">LOGE</span>(<span class="string">&quot;%s: Fail to scale frame : %s&quot;</span>, __func__ , <span class="built_in">strerror</span>(errno));</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">/* render to screen */</span></span><br><span class="line">                res = <span class="built_in">ANativeWindow_lock</span>(mNativeWin, mWindowBuf, <span class="literal">nullptr</span>);</span><br><span class="line">                <span class="keyword">if</span> (res &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                    <span class="built_in">LOGE</span>(<span class="string">&quot;%s: Fail to lock window&quot;</span>, __func__ );</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="type">uint8_t</span> *bits = (<span class="type">uint8_t</span> *) mWindowBuf-&gt;bits;</span><br><span class="line">                    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; mVideoH; ++i) &#123;</span><br><span class="line">                        <span class="built_in">memcpy</span>(bits + i * mWindowBuf-&gt;stride * <span class="number">4</span>,</span><br><span class="line">                               mDecodeOutBuf + i * rgb_frame-&gt;linesize[<span class="number">0</span>],</span><br><span class="line">                               rgb_frame-&gt;linesize[<span class="number">0</span>]);</span><br><span class="line">                    &#125;</span><br><span class="line">                    <span class="built_in">ANativeWindow_unlockAndPost</span>(mNativeWin);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="built_in">sws_freeContext</span>(data_convert_ctx);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">LOGE</span>(<span class="string">&quot;%s: fail to receive frame %d&quot;</span>, __func__ , res);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>相比Android原生的<code>MediaCodec</code>硬解码，<code>FFmpeg</code>解码效率提升了很多，延迟从原来的<code>400+ms</code>减少到了<code>100ms</code>左右，改善明细。但是由于使用了CPU进行解码操作，系统的负载与CPU使用率都会有所升高。因此，在进行高清视频的解码时硬解码会更合适。</p>
+<p>总结下来，<code>FFmpeg</code>框架确实十分强大，也有比较完善的生态社区，可以说是搞音视频开发必不可少的利器。</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
+<li><a target="_blank" rel="noopener" href="https://www.sobyte.net/post/2022-03/android-ffmpeg/">https://www.sobyte.net/post/2022-03/android-ffmpeg/</a></li>
+<li><a target="_blank" rel="noopener" href="https://trac.ffmpeg.org/wiki/CompilationGuide/Android">https://trac.ffmpeg.org/wiki/CompilationGuide/Android</a></li>
+<li><a target="_blank" rel="noopener" href="https://yumichan.net/video-processing/video-compression/introduction-to-h264-nal-unit/">https://yumichan.net/video-processing/video-compression/introduction-to-h264-nal-unit/</a></li>
+</ul>
+
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
 
     
 
@@ -1017,113 +1177,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2021/12/31/%E6%84%9F%E6%82%9F2021/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-
-    <footer class="post-footer">
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-</div>
-
-
-
-
-    
-
-
-<div class="post-block">
-  
-  
-
-  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="">
-    <link itemprop="mainEntityOfPage" href="https://sniffer.site/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/gallaxy.jpg">
-      <meta itemprop="name" content="Jason Wang">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="JasonWang's Blog">
-      <meta itemprop="description" content="关于编程,生活,工作">
-    </span>
-    
-    <span hidden itemprop="post" itemscope itemtype="http://schema.org/CreativeWork">
-      <meta itemprop="name" content="undefined | JasonWang's Blog">
-      <meta itemprop="description" content="">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          <a href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/" class="post-title-link" itemprop="url">理解Android eBPF</a>
-        </h2>
-
-        <div class="post-meta-container">
-          <div class="post-meta">
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-calendar"></i>
-      </span>
-      <span class="post-meta-item-text">发表于</span>
-
-      <time title="创建时间：2021-11-26 15:34:45" itemprop="dateCreated datePublished" datetime="2021-11-26T15:34:45+08:00">2021-11-26</time>
-    </span>
-    <span class="post-meta-item">
-      <span class="post-meta-item-icon">
-        <i class="far fa-folder"></i>
-      </span>
-      <span class="post-meta-item-text">分类于</span>
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
-        </span>
-          ，
-        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-          <a href="/categories/Linux/Android/" itemprop="url" rel="index"><span itemprop="name">Android</span></a>
-        </span>
-    </span>
-
-  
-    <span id="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/" class="post-meta-item leancloud_visitors" data-flag-title="理解Android eBPF" title="阅读次数">
-      <span class="post-meta-item-icon">
-        <i class="far fa-eye"></i>
-      </span>
-      <span class="post-meta-item-text">阅读次数：</span>
-      <span class="leancloud-visitors-count"></span>
-    </span>
-</div>
-
-        </div>
-      </header>
-    
-    <div class="post-body" itemprop="articleBody">
-          <p>Android从9.0版本开始全面支持eBPF(<code>extended Berkeley Packet Filters</code>), 其主要用在流量统计上, 也可以用来监控CPU&#x2F;IO&#x2F;内存等模块的状态.简单来说, <code>eBPF</code>可以与内核的<code>kprobe</code>&#x2F;<code>tracepoints</code>&#x2F;<code>skfilter</code>等模块相结合, 将eBPF的函数hook到内核事件从而监控相应的系统状态.</p>
-<p>Android为eBPF提供了许多封装的库, 并提供了eBPF加载器<code>bpfloader</code>:</p>
-<ul>
-<li><code>bpfloader</code>: 位于<code>/system/bpf/bpfloader</code>, 系统启动时负责加载位于<code>/system/etc/bpf</code> 中的eBPF目标文件</li>
-<li><code>libbpf_android</code>: 位于<code>/system/bpf/libbpf_android</code>提供创建bpf容器&#x2F;加载bpf目标文件的接口</li>
-<li><code>libbpf</code>: 位于<code>/external/bcc</code>, 封装了bpf的系统调用, 提供如attach&#x2F;deattach程序的接口</li>
-<li><code>libnetdbpf</code>: 位于<code>/system/netd/libnetdbpf</code>, 实现了netd流量统计功能的函数</li>
-</ul>
-<p>目前在Android(Q)上有两处eBPF的代码: 一个是<code>/system/netd/bpf_progs/netd.c</code>, 主要是用于流量统计；一个是<code>/system/bpfprogs/time_in_state.c</code>用于监控CPU运行频率以及上下文切换的耗时.</p>
-<p>接下来我们就从三个部分来深入理解下Android是如何利用eBPF的:</p>
-<ul>
-<li>eBPF程序与目标文件格式</li>
-<li>Android eBPF加载与执行流程</li>
-<li>Android如何基于eBPF实现流量统计</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/#more" rel="contents">
                 阅读全文 &raquo;
               </a>
             </div>
