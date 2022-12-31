@@ -28,7 +28,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/evolution_of_c%2B%2B.png">
 <meta property="article:published_time" content="2022-03-31T06:58:15.000Z">
-<meta property="article:modified_time" content="2022-12-14T07:17:32.200Z">
+<meta property="article:modified_time" content="2022-12-23T23:48:40.073Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="C++">
 <meta property="article:tag" content="编程语言">
@@ -532,13 +532,13 @@
 <h2 id="constants"><a href="#constants" class="headerlink" title="constants"></a><strong>constants</strong></h2><p>除了<code>const</code>之外, C++还引入了<code>constexpr</code>这个关键字. <code>const</code>的意思是这个变量不会被修改, 编译器在编译的时候会确保这一点: 如果尝试修改<code>const</code>的赋值, 则会提示错误. 而<code>constexpr</code>是说这个表达式会在编译的时候进行判定(不用等到运行时):</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"> <span class="function"><span class="type">int</span> <span class="title">sum</span><span class="params">(<span class="type">const</span> vector&lt;<span class="type">int</span>&gt;&amp; vi)</span> </span>&#123; <span class="keyword">return</span> <span class="number">0</span>;&#125;;  <span class="comment">//示例</span></span><br><span class="line"> <span class="function"><span class="keyword">constexpr</span> <span class="type">int</span> <span class="title">square</span><span class="params">(<span class="type">int</span> x)</span> </span>&#123; <span class="keyword">return</span> x * x;&#125;;</span><br><span class="line">	</span><br><span class="line"> <span class="keyword">constexpr</span> <span class="type">double</span> m1 = <span class="number">1.6</span> * <span class="built_in">square</span>(im);</span><br><span class="line"><span class="comment">//constexpr double m2 = 1.6 * square(var); // 不允许使用非const变量</span></span><br><span class="line">	</span><br><span class="line">vector&lt;<span class="type">int</span>&gt; vi = &#123;<span class="number">4</span>, <span class="number">58</span>, <span class="number">8</span> , <span class="number">9</span>&#125;; </span><br><span class="line"><span class="type">const</span> <span class="type">int</span> si = <span class="built_in">sum</span>(vi);</span><br><span class="line"><span class="comment">//constexpr int sii = sum(vi); // sum不是constexpr表达式</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<p>如果一个函数要在<code>constexpr</code>表达式中使用, 则必须要以<code>constexpr</code>开头, 并且函数的实现需要足够简单: 只由一个返回值的表达式组成.</p>
+<p>如果一个函数要在<code>constexpr</code>表达式中使用, 则必须要以<code>constexpr</code>开头, 并且函数的实现需要足够简单: 只由一个返回值的表达式组成，且不能调用任何其他非<code>constexpr</code>的函数.</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="type">int</span> <span class="title">square</span><span class="params">(<span class="type">int</span> x)</span> </span>&#123; <span class="keyword">return</span> x * x;&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>由于在编译时就完成了计算, 使用<code>constexpr</code>通常可以改善性能, 但据<code>c++ standar library: a tutorial and refernce</code>里边提到的, 引入<code>constexpr</code>是为了解决C++98<code>numeric_limits</code>标准库中的一个bug:<code>std::numeric_limits&lt;short&gt;::max()</code> 无法在常量表达式中使用.</p>
 <h2 id="引用与右值"><a href="#引用与右值" class="headerlink" title="引用与右值"></a><strong>引用与右值</strong></h2><p>C++针对C中的指针引入了<code>引用(reference)</code>的概念, 引用类似于指针, 其通过<code>&amp;</code>进行声明, 但实际使用的时候无需在通过<code>*</code>来引用对象, 更重要的是引用一旦被初始化就不能再被修改, 引用其他的对象.</p>
 <blockquote>
-<p>引用类似指针，但非指针;引用只是对象的别名。引用与指针存在三个区别: 1) 没有空引用(<code>null reference</code>) 2) 所有引用需要初始化  3) 一个引用永远指向它初始化的那个对象</p>
+<p>引用类似指针，但非指针;引用只是对象的别名。引用与指针存在三个区别: 1) 没有空引用(<code>null reference</code>),就是说引用始终指向一个有效的对象 2) 所有引用需要初始化  3) 一个引用永远指向它初始化的那个对象</p>
 </blockquote>
 <p>引用对于不管理资源的对象来说, 一般不会有什么问题, 但涉及到大量的数据&#x2F;内存时(比如容器), 单纯的拷贝会变得低效. 有时, 我们只希望在不同对象之间<code>移动(move)</code>数据而不是拷贝, 以避免产生不必要的临时对象. 比如我们有一个<code>String</code>类, 包含了一个字符数组:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">String</span> &#123;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	 <span class="built_in">String</span>(): <span class="built_in">data</span>(<span class="keyword">new</span> <span class="type">char</span>[<span class="number">1</span>]) &#123;</span><br><span class="line">		 data[<span class="number">0</span>] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="built_in">String</span>(<span class="type">const</span> <span class="type">char</span>* str): <span class="built_in">data</span>(<span class="keyword">new</span> <span class="type">char</span>[<span class="built_in">strlen</span>(str) + <span class="number">1</span>]) &#123;</span><br><span class="line">		 <span class="keyword">if</span> (str != <span class="literal">nullptr</span>) &#123;</span><br><span class="line">			 <span class="built_in">strncpy</span>(data, str, <span class="built_in">strlen</span>(str));</span><br><span class="line">			 data[<span class="built_in">strlen</span>(str)] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">		 &#125;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="built_in">String</span>(<span class="type">const</span> String&amp; str): <span class="built_in">data</span>(<span class="keyword">new</span> <span class="type">char</span>[str.<span class="built_in">size</span>() + <span class="number">1</span>]) &#123;</span><br><span class="line">		 <span class="built_in">strncpy</span>(data, str.<span class="built_in">c_str</span>(), str.<span class="built_in">size</span>());</span><br><span class="line">		 data[str.<span class="built_in">size</span>()] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 String&amp; <span class="keyword">operator</span>=(String &amp;rhs) &#123;</span><br><span class="line">		 <span class="built_in">swap</span>(rhs);</span><br><span class="line">		 <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 ~<span class="built_in">String</span>() &#123;</span><br><span class="line">		 <span class="keyword">delete</span>[] data;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="function"><span class="type">size_t</span> <span class="title">size</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">		 <span class="keyword">return</span> <span class="built_in">strlen</span>(data);</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">     <span class="function"><span class="type">char</span>* <span class="title">c_str</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">		 <span class="keyword">return</span> data;</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line">	 <span class="function"><span class="type">void</span> <span class="title">swap</span><span class="params">(String &amp;rhs)</span> </span>&#123;</span><br><span class="line">		 std::<span class="built_in">swap</span>(data, rhs.data);</span><br><span class="line">	 &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="type">char</span>* data;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
@@ -671,7 +671,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <p>原文链接：<a href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C++/">https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C++/</a>
             <p>发表日期：<a href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C++/">March 31st 2022, 2:58:15 pm</a>
-            <p>更新日期：<a href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C++/">December 14th 2022, 3:17:32 pm</a>
+            <p>更新日期：<a href="https://sniffer.site/2022/03/31/%E9%87%8D%E5%AD%A6C++/">December 24th 2022, 7:48:40 am</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1331,7 +1331,24 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2354,7 +2371,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 96
+        Total : 97
         </div>
         <!-- search  -->
         
@@ -2372,6 +2389,12 @@
             <div class="archive-year"> 2022 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2022/12/31/%E5%86%8D%E8%A7%812022/">再见2022</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">12/06</span>
