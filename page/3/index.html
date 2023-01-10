@@ -471,6 +471,58 @@
             
         
         <article class="index-post">
+            <a class="abstract-title" href="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">
+                
+                <span class="abstract-title-text">Linux网络协议之数据发送流程</span>
+            </a>
+            <div class="abstract-content">
+                <p>最近抽空学习下Linux网络协议栈, 读源码时总会前一天梳理完, 等两天再来看却发现又忘记的差不多, 只能再过一遍, 没有对协议栈构建一个系统性的框架. 于是想着要把看过的代码逻辑整理下来, 算是对这段时间学习的总结, 也方便后面的查阅.</p>
+<p>在之前的一篇有关网络协议的文章<a href="http://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">从NAPI说一说Linux内核数据的接收流程</a>简单的讲到了Linux的数据接收流程, 但主要是集中在数据链路层与设备驱动之间的交互, 并没有涉及到IP网络层以及TCP传输层的逻辑.对于Linux系统来说, TCP数据的传输大致要经历如下几个步骤:</p>
+<ul>
+<li>用户进程创建<code>socket</code>并创建相应数据的buffer, 通过<code>send</code>函数发送给服务端</li>
+<li>内核收到数据后, 将用户空间的buffer数据拷贝到内核协议栈</li>
+<li>内核协议栈需要经过TCP层(L4)&#x2F;IP层(L3)&#x2F;数据链路层(L2)最后发送到网卡</li>
+<li>CPU与网卡的数据传输一般通过<code>DMA</code>进行, 完成后网卡发送中断告知CPU, 此时内核会释放之前分配的buffer</li>
+</ul>
+<p>这篇文章, 我们着重来看下数据传输中内核部分的流程, 并梳理下Linux协议栈大致的结构与初始化步骤, 主要分为如下两个部分:</p>
+<ul>
+<li>Linux内核协议栈的初始化流程</li>
+<li>数据是如何从TCP传输层发送到设备驱动的</li>
+</ul>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2022/01/30">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2021/04/08</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="TCP/IP">TCP/IP</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="网络协议栈">网络协议栈</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
             <a class="abstract-title" href="/2021/02/20/ADB%E6%98%AF%E5%A6%82%E4%BD%95%E5%B7%A5%E4%BD%9C%E7%9A%84/">
                 
                 <span class="abstract-title-text">一个ADB无法识别设备的问题</span>
@@ -856,58 +908,6 @@
         <a class="post-tag" href="javascript:void(0);" data-tags="项目管理">项目管理</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="BUG">BUG</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">
-                
-                <span class="abstract-title-text">从NAPI说一说Linux内核数据的接收流程</span>
-            </a>
-            <div class="abstract-content">
-                <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/New_API">NAPI(New API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，网络驱动收到硬件中断后，通过poll(轮询)方式将传输过来的数据包统一处理， 在poll时通过禁止网络设备中断以减少硬件中断数量(<code>Interrupt Mitigation</code>)，从而实现更高的数据传输速率。</p>
-<p>基于NAPI接口， 一般的网络传输(接收)有如下几个步骤：</p>
-<ul>
-<li>网络设备驱动加载与初始化（配置IP等）</li>
-<li>数据包从网络侧发送到网卡(<code>Network Interface Controller</code>, NIC)</li>
-<li>通过<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Direct_memory_access">DMA(Direct Memory Access)</a>，将数据从网卡拷贝到内存的环形缓冲区(ring buffer)</li>
-<li>数据从网卡拷贝到内存后, NIC产生硬件中断告知内核有新的数据包达到</li>
-<li>内核收到中断后, 调用相应中断处理函数, 此时就会调用NAPI接口<code>__napi_schedule</code>开启poll线程（实际是触发一个软中断<code>NET_RX_SOFTIRQ</code>）(常规数据传输, 一般在处理NIC的中断时调用<code>netif_rx_action</code>处理网卡队列的数据）</li>
-<li><code>ksoftirqd</code>（每个CPU上都会启动一个软中断处理线程）收到软中断后被唤醒, 然后执行函数<code>net_rx_action</code>, 这个函数负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
-<li>解除网卡<code>ring buffer</code>中的DMA内存映射(unmapped), 数据由CPU负责处理, <code>netif_receive_skb</code>传递回内核协议栈</li>
-<li>如果内核支持数据包定向分发(<code>packet steering</code>)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行均衡, 这样可以获得更高的网络速率</li>
-<li>网络协议栈处理数据包，并将其发送到对应应用的<code>socket</code>接收缓冲区</li>
-</ul>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2022/10/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2020/05/12</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="TCP/IP">TCP/IP</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="NAPI">NAPI</a>
     
 </div>
 
@@ -1602,7 +1602,24 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2637,7 +2654,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 97
+        Total : 98
         </div>
         <!-- search  -->
         
@@ -2651,6 +2668,21 @@
     
         
             
+            
+            <div class="archive-year"> 2023 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/10</span>
+            <a class="archive-post-title" href="/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">为什么iperf测试时UDP会出现高丢包率</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
             
             <div class="archive-year"> 2022 </div>
             <ul class="year-list">
@@ -4305,6 +4337,11 @@
             <span class="sidebar-tag-name" data-tags="Wifi">
                 <span class="iconfont-archer">&#xe606;</span>
                 Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="UDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                UDP
             </span>
         
     </div>
