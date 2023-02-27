@@ -28,7 +28,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/netdo_elf_sh.png">
 <meta property="article:published_time" content="2021-11-26T07:34:45.000Z">
-<meta property="article:modified_time" content="2022-07-18T05:39:36.647Z">
+<meta property="article:modified_time" content="2023-02-08T06:26:58.533Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Android">
 <meta property="article:tag" content="extended Berkeley Packet Filters">
@@ -366,7 +366,7 @@
                 
                 
                     <div class="post-intro-read">
-                        <span>字数统计: <span class="post-count word-count">3.2k</span>阅读时长: <span class="post-count reading-time">15 min</span></span>
+                        <span>字数统计: <span class="post-count word-count">3.5k</span>阅读时长: <span class="post-count reading-time">16 min</span></span>
                     </div>
                 
                 <div class="post-intro-meta">
@@ -532,7 +532,7 @@
 <ul>
 <li><code>bpfloader</code>: 位于<code>/system/bpf/bpfloader</code>, 系统启动时负责加载位于<code>/system/etc/bpf</code> 中的eBPF目标文件</li>
 <li><code>libbpf_android</code>: 位于<code>/system/bpf/libbpf_android</code>提供创建bpf容器&#x2F;加载bpf目标文件的接口</li>
-<li><code>libbpf</code>: 位于<code>/external/bcc</code>, 封装了bpf的系统调用, 提供如attach&#x2F;deattach程序的接口</li>
+<li><code>libbpf</code>: 位于<code>/external/bcc</code>, 封装了bpf的系统调用, 提供如attach&#x2F;dettach程序的接口</li>
 <li><code>libnetdbpf</code>: 位于<code>/system/netd/libnetdbpf</code>, 实现了netd流量统计功能的函数</li>
 </ul>
 <p>目前在Android(Q)上有两处eBPF的代码: 一个是<code>/system/netd/bpf_progs/netd.c</code>, 主要是用于流量统计；一个是<code>/system/bpfprogs/time_in_state.c</code>用于监控CPU运行频率以及上下文切换的耗时.</p>
@@ -551,10 +551,10 @@
 <ul>
 <li>通过<code>DEFINE_BPF_MAP</code>定义BPF数据容器的类型以及访问接口</li>
 <li>声明代码段, 比如<code>SEC(&quot;cgroupsock/inet/create&quot;)</code></li>
-<li>声明BPF段的证书类型,  一般是<code>GPL</code>或者跟GPL兼容的证书类型</li>
+<li>声明BPF段的证书类型,  一般是<code>GPL</code>或者跟GPL兼容的证书类型（如果要使用内核的某些辅助函数，如<code>bpf_trace_printk</code>的话一定要使用<code>GPL</code>证书，否则无正常加载）</li>
 </ul>
 <blockquote>
-<p>看内核代码, 对于大部分的BPF容器类型可以是<code>GPL</code>的, 也可以是其他证书, 但对于<code>stackmap.c</code>则要求只能是<code>GPL</code>的.</p>
+<p>看内核代码, 对于大部分的BPF容器类型可以是<code>GPL</code>的, 也可以是其他证书, 但对于<code>stackmap.c</code>则要求只能是<code>GPL</code>的.但如果要使用某些函数，如<code>bpf_perf_event_read</code>&#x2F;<code>bpf_trace_printk</code>则要求使用GPL，否则会验证不过，无法加载，具体可以参考<code>bpf_trace.c</code>, 有关辅助函数可以参考<a target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/bpf-helpers.7.html">bpf-helpers</a></p>
 </blockquote>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;bpf_helpers.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* Define one or more maps in the maps section, for example</span></span><br><span class="line"><span class="comment"> * define a map of type array int -&gt; uint32_t, with 10 entries</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">DEFINE_BPF_MAP(name_of_my_map, ARRAY, <span class="type">int</span>, <span class="type">uint32_t</span>, <span class="number">10</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">/* this will also define type-safe accessors:</span></span><br><span class="line"><span class="comment"> *   value * bpf_name_of_my_map_lookup_elem(&amp;key);</span></span><br><span class="line"><span class="comment"> *   int bpf_name_of_my_map_update_elem(&amp;key, &amp;value, flags);</span></span><br><span class="line"><span class="comment"> *   int bpf_name_of_my_map_delete_elem(&amp;key);</span></span><br><span class="line"><span class="comment"> * as such it is heavily suggested to use lowercase *_map names.</span></span><br><span class="line"><span class="comment"> * Also note that due to compiler deficiencies you cannot use a type</span></span><br><span class="line"><span class="comment"> * of &#x27;struct foo&#x27; but must instead use just &#x27;foo&#x27;.  As such structs</span></span><br><span class="line"><span class="comment"> * must not be defined as &#x27;struct foo &#123;&#125;&#x27; and must instead be</span></span><br><span class="line"><span class="comment"> * &#x27;typedef struct &#123;&#125; foo&#x27;.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"></span><br><span class="line">SEC(<span class="string">&quot;PROGTYPE/PROGNAME&quot;</span>)</span><br><span class="line"><span class="type">int</span> <span class="title function_">PROGFUNC</span><span class="params">(..args..)</span> &#123;</span><br><span class="line">   &lt;body-of-code</span><br><span class="line">    ... read or write to MY_MAPNAME</span><br><span class="line">    ... <span class="keyword">do</span> other things</span><br><span class="line">   &gt;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">char</span> _license[] SEC(<span class="string">&quot;license&quot;</span>) = <span class="string">&quot;GPL&quot;</span>; <span class="comment">// or other license</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
@@ -590,7 +590,7 @@
 <tr>
 <td>cgroupskb&#x2F;cgroupsock</td>
 <td>BPF_PROG_TYPE_CGROUP_SKB&#x2F;BPF_PROG_TYPE_CGROUP_SOCK</td>
-<td>每当指定的cgroup上有数据传输(SKB); 创建<code>AF_INET/AF_INET6</code>的socket(SOCK)时就执行eBPF函数 ,参考<code>bpf-cgroup.h </code></td>
+<td>每当指定的cgroup上有数据传输(SKB); 创建<code>AF_INET/AF_INET6</code>的socket(SOCK)时就执行eBPF函数 ,参考<code>bpf-cgroup.h </code>&#x2F;<code>bpf/cgroup.c</code></td>
 </tr>
 </tbody></table>
 <p>每个eBPF c语言程序都会通过LLVM编译成ELF(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Executable_and_Linkable_Format"><code>Executable-Link Format</code></a>目标文件, 我们可以通过linux中的<code>readelf</code>&#x2F;<code>objdump</code>工具来查看ELF文件. 比如利用<code>readelf -S netd.o</code>查看<code>netd.o</code>的段头信息, 从这里可以看到<code>netd.c</code>中定义的各个段:</p>
@@ -640,7 +640,10 @@
 <blockquote>
 <p>cgroup是linux管理系统资源的资源分配与隔离方案, 在同一个cgroup的进程共享同样的CPU, 内存以及网络资源.</p>
 </blockquote>
-<p>更多的实现细节可以参考<code>BpfMap.h</code>以及<code>TrafficController.cpp</code>.</p>
+<p>Android提供了一个<code>libnetdbpf</code>库封装了获取系统<code>UID</code>以及网卡的流量统计接口，提供给框架层使用, 比如想要获取某个UID的流量，可以使用<code>bpfGetUidStats</code>这个接口获取:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">bpfGetUidStatsInternal</span><span class="params">(<span class="type">uid_t</span> uid, Stats* stats,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">const</span> BpfMap&lt;<span class="type">uint32_t</span>, StatsValue&gt;&amp; appUidStatsMap)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">auto</span> statsEntry = appUidStatsMap.<span class="built_in">readValue</span>(uid);</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">isOk</span>(statsEntry)) &#123;</span><br><span class="line">        stats-&gt;rxPackets = statsEntry.<span class="built_in">value</span>().rxPackets;</span><br><span class="line">        stats-&gt;txPackets = statsEntry.<span class="built_in">value</span>().txPackets;</span><br><span class="line">        stats-&gt;rxBytes = statsEntry.<span class="built_in">value</span>().rxBytes;</span><br><span class="line">        stats-&gt;txBytes = statsEntry.<span class="built_in">value</span>().txBytes;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> statsEntry.<span class="built_in">status</span>().<span class="built_in">code</span>() == ENOENT ? <span class="number">0</span> : -statsEntry.<span class="built_in">status</span>().<span class="built_in">code</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">bpfGetUidStats</span><span class="params">(<span class="type">uid_t</span> uid, Stats* stats)</span> </span>&#123;</span><br><span class="line">    <span class="function">BpfMap&lt;<span class="type">uint32_t</span>, StatsValue&gt; <span class="title">appUidStatsMap</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">        mapRetrieve(APP_UID_STATS_MAP_PATH, BPF_OPEN_FLAGS))</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!appUidStatsMap.<span class="built_in">isValid</span>()) &#123;</span><br><span class="line">        <span class="type">int</span> ret = -errno;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Opening appUidStatsMap(%s) failed: %s&quot;</span>, APP_UID_STATS_MAP_PATH, <span class="built_in">strerror</span>(errno));</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">bpfGetUidStatsInternal</span>(uid, stats, appUidStatsMap);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>更多的实现细节可以参考<code>BpfNetworkStats.cpp``, BpfMap.h</code>以及<code>TrafficController.cpp</code>. </p>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>这篇文章主要将了Android中eBPF程序的格式, 以及如何加载eBPF程序, 最后阐述了Android上如何利用eBPF来实现流量统计的功能. 对eBPF的逻辑与流程理清楚后, 在Android上开发自己的eBPF功能也就不是什么难事了.</p>
 <h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
 <li><a target="_blank" rel="noopener" href="https://blogs.oracle.com/linux/post/bpf-a-tour-of-program-types">详细介绍了BPF程序类型</a></li>
@@ -662,7 +665,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <p>原文链接：<a href="https://sniffer.site/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">https://sniffer.site/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/</a>
             <p>发表日期：<a href="https://sniffer.site/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">November 26th 2021, 3:34:45 pm</a>
-            <p>更新日期：<a href="https://sniffer.site/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">July 18th 2022, 1:39:36 pm</a>
+            <p>更新日期：<a href="https://sniffer.site/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">February 8th 2023, 2:26:58 pm</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1332,7 +1335,26 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2379,7 +2401,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 98
+        Total : 99
         </div>
         <!-- search  -->
         
@@ -2397,6 +2419,12 @@
             <div class="archive-year"> 2023 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2023/02/27/%E8%AF%B4%E8%AF%B4%E7%B3%BB%E7%BB%9F%E5%BC%80%E5%8F%91%E4%B8%AD%E7%9A%84%E5%BA%B7%E5%A8%81%E5%AE%9A%E5%BE%8B/">说说系统开发中的康威定律</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">01/10</span>
@@ -4067,6 +4095,16 @@
             <span class="sidebar-tag-name" data-tags="UDP">
                 <span class="iconfont-archer">&#xe606;</span>
                 UDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Conway's Law">
+                <span class="iconfont-archer">&#xe606;</span>
+                Conway's Law
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="康威定律">
+                <span class="iconfont-archer">&#xe606;</span>
+                康威定律
             </span>
         
     </div>
