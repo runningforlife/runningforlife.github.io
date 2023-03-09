@@ -456,6 +456,56 @@
             
         
         <article class="index-post">
+            <a class="abstract-title" href="/2021/06/22/%E4%B8%80%E4%B8%AASMMU%E5%86%85%E5%AD%98%E8%AE%BF%E9%97%AE%E5%BC%82%E5%B8%B8%E9%97%AE%E9%A2%98/">
+                
+                <span class="abstract-title-text">一个SMMU内存访问异常的问题</span>
+            </a>
+            <div class="abstract-content">
+                <p>最近碰到棘手的问题: 以太网进行iperf测试时, 发生了SMMU (System Memory Management Unit)访问异常导致内核崩溃. 原本只是内部测试发现, 后面在试验车上也概率性的出现. 问题发生的概率还不小. 很严重. 只能先从头把一些基本概念与流程梳理清楚. 好在最后还是找到了原因并解决了. 松了口气, 才有时间把整个问题的来龙去脉细细的总结下, 算是一个SMMU相关问题的案例.</p>
+<p>首先来看看问题的发生的背景.</p>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a><strong>问题背景</strong></h2><p>问题发生在利用<code>iperf</code>做网络性能测试的时候, 测试系统(采用高通8155平台, 内置一个EMAC芯片, 最高支持1Gbps速率)作为客户端:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">iperf -c <span class="number">172.20</span><span class="number">.2</span><span class="number">.33</span> -p <span class="number">8989</span> -f m -R</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这里加<code>-R</code>参数表示客户端作为数据接收方(奇怪的是, 测试不加<code>-R</code>参数就不会有问题, 这也说明只有在接收数据的过程才会出现问题), 而服务端是发送方:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">iperf -s -p <span class="number">8989</span> -f m </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这么测试几十个小时就很快出现了, 抓取到的问题堆栈如下. 前面的日志是SMMU相关的寄存器状态打印, 后面是内核调用堆栈.</p>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2021/08/11">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2021/06/22</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Kernel">Kernel</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="SMMU">SMMU</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="MMU">MMU</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
             <a class="abstract-title" href="/2021/04/29/%E4%BB%8EWifi%E7%83%AD%E7%82%B9%E5%8A%9F%E8%83%BD%E8%AF%B4%E4%B8%80%E8%AF%B4Android-Wifi%E6%A1%86%E6%9E%B6/">
                 
                 <span class="abstract-title-text">从Wifi热点功能说一说Android Wifi框架</span>
@@ -840,55 +890,6 @@
         <a class="post-tag" href="javascript:void(0);" data-tags="IPv6">IPv6</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="ICMP">ICMP</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/">
-                
-                <span class="abstract-title-text">由Policy Routing引发的一个奇怪问题</span>
-            </a>
-            <div class="abstract-content">
-                <p>最近新的项目又开始了, 开始还算顺利, 却不料碰到了一个奇怪的问题. 先来了解下问题的背景. 这个项目里, Android中有两个以太网网口, 一个用于内网通讯<eth0>, 不具备上外网的能力;一个用于外网通讯<eth1>, 使用该网口可以访问互联网. 在网络管理模块的工作完成后, 提交了代码我原本以为可以高枕无忧, 前两天组内的同学跑过来告诉我, 他有个系统服务一直没法通过<eth0>与内网的其他设备上的服务建立TCP链接, 但是网络却一直可以ping通; 而另外的一个开发板上却不存在这个问题. </p>
-<p>开始我有点不相信竟然会有这样的问题, 但事实摆在面前, 我也不好抵赖, 于是自己找来一个板子, 看了下, 才逐渐找到答案. 问题的根源在于Android配置的策略路由<Policy Routing>规则隐含了一个针对系统默认网络的<code>fwmark</code>规则, 要解决问题, 只要我们将包含了<eth0>内网路由表的路由规则的优先级提升到高于Android隐含的这条规则即可. 虽然找到了解决方案, 但是还是决定花点时间把整个事情的来龙去脉都理清楚. </p>
-<p>大致分如下几个部分来讲一讲这个问题:</p>
-<ul>
-<li>介绍下什么是Policy Routing&lt;策略路由&gt;</li>
-<li>分析具体的问题, 并给出方案</li>
-<li>从源代码角度来分析下, 为何TCP无法建立, 但ping却可以</li>
-</ul>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/08/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2020/06/03</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Policy Routing">Policy Routing</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="策略路由">策略路由</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="网络管理">网络管理</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Netd">Netd</a>
     
 </div>
 
@@ -1498,7 +1499,26 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2559,7 +2579,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 99
+        Total : 100
         </div>
         <!-- search  -->
         
@@ -2577,6 +2597,12 @@
             <div class="archive-year"> 2023 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/09</span>
+            <a class="archive-post-title" href="/2023/03/09/Android%E4%B8%ADHAL%E6%9C%8D%E5%8A%A1%E6%97%A0%E6%B3%95%E4%BD%BF%E7%94%A8%E7%BD%91%E7%BB%9C%E7%9A%84%E9%97%AE%E9%A2%98/">Android中HAL服务无法使用网络的问题</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">02/27</span>
@@ -4263,6 +4289,11 @@
             <span class="sidebar-tag-name" data-tags="康威定律">
                 <span class="iconfont-archer">&#xe606;</span>
                 康威定律
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络使用权限
             </span>
         
     </div>
