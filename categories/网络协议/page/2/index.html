@@ -456,6 +456,58 @@
             
         
         <article class="index-post">
+            <a class="abstract-title" href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">
+                
+                <span class="abstract-title-text">从NAPI说一说Linux内核数据的接收流程</span>
+            </a>
+            <div class="abstract-content">
+                <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/New_API">NAPI(New API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，网络驱动收到硬件中断后，通过poll(轮询)方式将传输过来的数据包统一处理， 在poll时通过禁止网络设备中断以减少硬件中断数量(<code>Interrupt Mitigation</code>)，从而实现更高的数据传输速率。</p>
+<p>基于NAPI接口， 一般的网络传输(接收)有如下几个步骤：</p>
+<ul>
+<li>网络设备驱动加载与初始化（配置IP等）</li>
+<li>数据包从网络侧发送到网卡(<code>Network Interface Controller</code>, NIC)</li>
+<li>通过<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Direct_memory_access">DMA(Direct Memory Access)</a>，将数据从网卡拷贝到内存的环形缓冲区(ring buffer)</li>
+<li>数据从网卡拷贝到内存后, NIC产生硬件中断告知内核有新的数据包达到</li>
+<li>内核收到中断后, 调用相应中断处理函数, 此时就会调用NAPI接口<code>__napi_schedule</code>开启poll线程（实际是触发一个软中断<code>NET_RX_SOFTIRQ</code>）(常规数据传输, 一般在处理NIC的中断时调用<code>netif_rx_action</code>处理网卡队列的数据）</li>
+<li><code>ksoftirqd</code>（每个CPU上都会启动一个软中断处理线程）收到软中断后被唤醒, 然后执行函数<code>net_rx_action</code>, 这个函数负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
+<li>解除网卡<code>ring buffer</code>中的DMA内存映射(unmapped), 数据由CPU负责处理, <code>netif_receive_skb</code>传递回内核协议栈</li>
+<li>如果内核支持数据包定向分发(<code>packet steering</code>)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行均衡, 这样可以获得更高的网络速率</li>
+<li>网络协议栈处理数据包，并将其发送到对应应用的<code>socket</code>接收缓冲区</li>
+</ul>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2022/10/11">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2020/05/12</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="TCP/IP">TCP/IP</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="NAPI">NAPI</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
             <a class="abstract-title" href="/2020/02/24/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8SSH%E9%9A%A7%E9%81%93%E8%AE%BF%E9%97%AE%E5%B1%80%E5%9F%9F%E7%BD%91/">
                 
                 <span class="abstract-title-text">利用SSH隧道访问局域网</span>
@@ -510,7 +562,7 @@
             
             <div class="abstract-post-meta">
                 <!-- date -->
-                <div class="abstract-date" title="Last updated: 2022/03/16">
+                <div class="abstract-date" title="Last updated: 2023/05/12">
                     <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2019/07/30</span>
                 </div>
                 <!-- tags -->
@@ -871,6 +923,11 @@
         <div class="sidebar-panel-archives">
     <!-- 在 ejs 中将 archive 按照时间排序 -->
     
+        
+        
+        
+        
+        
         
         
         
@@ -2490,7 +2547,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 102
+        Total : 103
         </div>
         <!-- search  -->
         
@@ -2508,6 +2565,12 @@
             <div class="archive-year"> 2023 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2023/05/27/%E6%8A%95%E5%B1%8F%E4%B8%AD%E7%9A%84%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E5%8D%8F%E8%AE%AE/">投屏中的服务发现协议</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">04/17</span>
@@ -2592,7 +2655,7 @@
         
         <li class="archive-post-item">
             <span class="archive-post-date">03/31</span>
-            <a class="archive-post-title" href="/2022/03/31/%E9%87%8D%E5%AD%A6C++/">重学Modern C++</a>
+            <a class="archive-post-title" href="/2022/03/31/%E9%87%8D%E5%AD%A6C++/">重学现代C++</a>
         </li>
     
         
@@ -4242,6 +4305,21 @@
             <span class="sidebar-tag-name" data-tags="Private DNS">
                 <span class="iconfont-archer">&#xe606;</span>
                 Private DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="投屏">
+                <span class="iconfont-archer">&#xe606;</span>
+                投屏
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DLNA">
+                <span class="iconfont-archer">&#xe606;</span>
+                DLNA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Airplay">
+                <span class="iconfont-archer">&#xe606;</span>
+                Airplay
             </span>
         
     </div>
