@@ -471,6 +471,46 @@
             
         
         <article class="index-post">
+            <a class="abstract-title" href="/2017/07/01/Android%E4%B8%AD%E7%9A%84%E4%BB%BB%E5%8A%A1%E7%AE%A1%E7%90%86/">
+                
+                <span class="abstract-title-text">Android中的任务管理</span>
+            </a>
+            <div class="abstract-content">
+                <p>Activity是Android负责与用户交互的实体。一个应用一般由多个Activity组成;一个Activity不仅可以打开应用内的Activity，也可以打开其他应用内的Activity，比如通过一个名为<code>android.intent.action.VIEW</code>的Intent事件可以打开浏览器；通过<code>android.intent.action.DIAL</code>可以向CALL发送拨号请求。一系列的Activity组合在一起（完成某个特定的“任务“）构成了一个任务（一个后进先出的队列，被称为back stack），而多个任务又构成了一个任务栈（后台可以有多个任务栈，但系统如需恢复内存，则会杀死部分应用，清空部分任务，以释放内存，因此长时间后应用状态会丢失）。以下图为例，图中的back stack一开始只有一个Activity1；接着在Activity1中启动Activity2，此时Activity2位于队列的顶部，而Activity1位于栈底（Activity1处于Stop状态），而Activity2又启动一个Activity3，同样，Activity3压入栈顶。如果此时通过回退键（<strong>Back</strong>）用户离开Activity3,则Activity3从栈中清除，被系统销毁，而Activity2则恢复到可见状态(resume)。</p>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2023/01/31">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/07/01</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="任务管理">任务管理</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Activity">Activity</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
             <a class="abstract-title" href="/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">
                 
                 <span class="abstract-title-text">Android ANR处理流程</span>
@@ -861,54 +901,6 @@
         <a class="post-tag" href="javascript:void(0);" data-tags="Glide">Glide</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="Image Loading">Image Loading</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2017/05/17/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%90%8C%E6%AD%A5/">
-                
-                <span class="abstract-title-text">Java并发编程之同步</span>
-            </a>
-            <div class="abstract-content">
-                <p>在单一线程执行的情况下，并不用考虑任何数据一致性与同步等问题，但到了多个线程执行的情况下，共享数据的同步就显得至关重要了。比如有一个银行账户的操作问题(例子来自<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Concurrent_computing" title="Wikipedia">Wikipedia</a>),现在有两个线程A与B共享一个账户变量<code>balance</code>,这个提款的操作有两个部分，首先需要判定提款数目是否小于当前账户存款，记为<code>s1</code>;如果该条件满足，则从账户中提取资金，记为<code>s2</code>。假定开始时账户<code>balance=600</code>，现在A调用<code>withdraw(200)</code>,B调用<code>withdraw(500)</code>，如果两个线程A与B调用时，<code>s1</code>都发生在<code>s2</code>之前，则两个线程都可以进入判定条件，提取相应的资金，而实际的存款是小于两个线程需要提取的资金的。</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">bool <span class="title function_">withdraw</span><span class="params">(<span class="type">int</span> withdrawal)</span></span><br><span class="line">&#123;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> (balance &gt;= withdrawal) <span class="comment">// --&gt; s1</span></span><br><span class="line">     &#123;</span><br><span class="line"> </span><br><span class="line">         balance -= withdrawal; <span class="comment">// --&gt; s2</span></span><br><span class="line">         <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">     &#125; </span><br><span class="line">     <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这种线程之间共享资源的一致性同步问题在并发编程中十分常见，通常被称为Data Race。根据官网上的定义(<a target="_blank" rel="noopener" href="https://docs.oracle.com/cd/E19205-01/820-0619/geojs/index.html">what is data race</a>)，Data Race出现是由以下原因导致：</p>
-<ul>
-<li>多个线程同时访问共享内存；</li>
-<li>至少有一个线程写该共享内存区域；</li>
-<li>线程访问共享内存并没有利用锁进行同步；</li>
-</ul>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/08/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/05/17</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Java">Java</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="并发编程">并发编程</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="synchronized">synchronized</a>
     
 </div>
 
@@ -1633,7 +1625,36 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2742,7 +2763,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 103
+        Total : 104
         </div>
         <!-- search  -->
         
@@ -2760,6 +2781,12 @@
             <div class="archive-year"> 2023 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/30</span>
+            <a class="archive-post-title" href="/2023/06/30/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%80%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">虚拟化之一虚拟机的基本概念</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">05/27</span>
@@ -4517,6 +4544,21 @@
                 Airplay
             </span>
         
+            <span class="sidebar-tag-name" data-tags="virtualization">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtualization
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="QNX">
+                <span class="iconfont-archer">&#xe606;</span>
+                QNX
+            </span>
+        
     </div>
     <div class="iconfont-archer sidebar-tags-empty">&#xe678;</div>
     <div class="tag-load-fail" style="display: none; color: #ccc; font-size: 0.6rem;">
@@ -4631,6 +4673,11 @@
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
             Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="虚拟化">
+            <span class="iconfont-archer">&#xe60a;</span>
+            虚拟化
         </span>
     
     </div>

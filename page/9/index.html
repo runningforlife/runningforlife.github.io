@@ -471,6 +471,54 @@
             
         
         <article class="index-post">
+            <a class="abstract-title" href="/2017/05/17/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%90%8C%E6%AD%A5/">
+                
+                <span class="abstract-title-text">Java并发编程之同步</span>
+            </a>
+            <div class="abstract-content">
+                <p>在单一线程执行的情况下，并不用考虑任何数据一致性与同步等问题，但到了多个线程执行的情况下，共享数据的同步就显得至关重要了。比如有一个银行账户的操作问题(例子来自<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Concurrent_computing" title="Wikipedia">Wikipedia</a>),现在有两个线程A与B共享一个账户变量<code>balance</code>,这个提款的操作有两个部分，首先需要判定提款数目是否小于当前账户存款，记为<code>s1</code>;如果该条件满足，则从账户中提取资金，记为<code>s2</code>。假定开始时账户<code>balance=600</code>，现在A调用<code>withdraw(200)</code>,B调用<code>withdraw(500)</code>，如果两个线程A与B调用时，<code>s1</code>都发生在<code>s2</code>之前，则两个线程都可以进入判定条件，提取相应的资金，而实际的存款是小于两个线程需要提取的资金的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">bool <span class="title function_">withdraw</span><span class="params">(<span class="type">int</span> withdrawal)</span></span><br><span class="line">&#123;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> (balance &gt;= withdrawal) <span class="comment">// --&gt; s1</span></span><br><span class="line">     &#123;</span><br><span class="line"> </span><br><span class="line">         balance -= withdrawal; <span class="comment">// --&gt; s2</span></span><br><span class="line">         <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">     &#125; </span><br><span class="line">     <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>这种线程之间共享资源的一致性同步问题在并发编程中十分常见，通常被称为Data Race。根据官网上的定义(<a target="_blank" rel="noopener" href="https://docs.oracle.com/cd/E19205-01/820-0619/geojs/index.html">what is data race</a>)，Data Race出现是由以下原因导致：</p>
+<ul>
+<li>多个线程同时访问共享内存；</li>
+<li>至少有一个线程写该共享内存区域；</li>
+<li>线程访问共享内存并没有利用锁进行同步；</li>
+</ul>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2021/08/11">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/05/17</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Java">Java</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="并发编程">并发编程</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="synchronized">synchronized</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
             <a class="abstract-title" href="/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">
                 
                 <span class="abstract-title-text">Java并发编程之线程</span>
@@ -850,52 +898,6 @@
         <a class="post-tag" href="javascript:void(0);" data-tags="Launcher">Launcher</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="SystemServer">SystemServer</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">
-                
-                <span class="abstract-title-text">如何在Java中调用C_C++方法</span>
-            </a>
-            <div class="abstract-content">
-                <p>有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C&#x2F;C++实现。在Java中调用本地方法通常被称为Java Native Interface(JNI)。那么，什么时候需要用到JNI了？</p>
-<ul>
-<li>需要在底层实现耗时更小、更快的程序</li>
-<li>在Java中需要调用本地代码库</li>
-<li>需要使用平台相关但Java标准库文件不支持的特性</li>
-</ul>
-<p>接下来，我们就来看一看，如何在Java中通过JNI来调用本地方法？</p>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/08/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/01/07</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Java">Java</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="JNI">JNI</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="共享库文件">共享库文件</a>
     
 </div>
 
@@ -1620,7 +1622,36 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2729,7 +2760,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 103
+        Total : 104
         </div>
         <!-- search  -->
         
@@ -2747,6 +2778,12 @@
             <div class="archive-year"> 2023 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/30</span>
+            <a class="archive-post-title" href="/2023/06/30/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%80%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">虚拟化之一虚拟机的基本概念</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">05/27</span>
@@ -4504,6 +4541,21 @@
                 Airplay
             </span>
         
+            <span class="sidebar-tag-name" data-tags="virtualization">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtualization
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="QNX">
+                <span class="iconfont-archer">&#xe606;</span>
+                QNX
+            </span>
+        
     </div>
     <div class="iconfont-archer sidebar-tags-empty">&#xe678;</div>
     <div class="tag-load-fail" style="display: none; color: #ccc; font-size: 0.6rem;">
@@ -4618,6 +4670,11 @@
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
             Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="虚拟化">
+            <span class="iconfont-archer">&#xe60a;</span>
+            虚拟化
         </span>
     
     </div>
