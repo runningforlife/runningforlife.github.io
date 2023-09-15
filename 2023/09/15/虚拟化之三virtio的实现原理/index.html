@@ -1,0 +1,4489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <!-- title -->
+
+
+    
+
+<!-- keywords -->
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="author" content="Jason Wang">
+    <meta name="renderer" content="webkit">
+    <meta name="copyright" content="Jason Wang">
+    
+        <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
+    
+    <meta name="description" content="关于编程,生活,工作">
+    <meta name="description" content="在讲虚拟化的第二篇QNX系统时，有提到在QNX中设备的虚拟化有直通(pass-through)、半虚拟化(para-virtulization)、全虚拟化(full-virtualization)等多种形式，而像串口、网络设备、块设备等通常都是基于半虚拟化的形式实现的。而在半虚拟化的实现方案中，virtio是最常见的一种。简单来说，virtio是虚拟化设备的中间抽象层，为设备的虚拟化提供了一个统一">
+<meta property="og:type" content="article">
+<meta property="og:title" content="虚拟化之三virtio的实现原理">
+<meta property="og:url" content="https://sniffer.site/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="在讲虚拟化的第二篇QNX系统时，有提到在QNX中设备的虚拟化有直通(pass-through)、半虚拟化(para-virtulization)、全虚拟化(full-virtualization)等多种形式，而像串口、网络设备、块设备等通常都是基于半虚拟化的形式实现的。而在半虚拟化的实现方案中，virtio是最常见的一种。简单来说，virtio是虚拟化设备的中间抽象层，为设备的虚拟化提供了一个统一">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://developer.ibm.com/developer/default/articles/l-virtio/images/figure1.gif">
+<meta property="og:image" content="https://developer.ibm.com/developer/default/articles/l-virtio/images/figure2.gif">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/virtio-net-qnx.png">
+<meta property="article:published_time" content="2023-09-15T10:42:33.000Z">
+<meta property="article:modified_time" content="2023-09-15T10:44:40.151Z">
+<meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="QNX">
+<meta property="article:tag" content="virtio">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://developer.ibm.com/developer/default/articles/l-virtio/images/figure1.gif">
+    <meta http-equiv="Cache-control" content="no-cache">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="icon" href="/assets/favicon.ico">
+    
+    <title>虚拟化之三virtio的实现原理 · JasonWang&#39;s Blog</title>
+    <!-- /*! loadCSS. [c]2017 Filament Group, Inc. MIT License */
+/* This file is meant as a standalone workflow for
+- testing support for link[rel=preload]
+- enabling async CSS loading in browsers that do not support rel=preload
+- applying rel preload css once loaded, whether supported or not.
+*/ -->
+<script>
+    (function (w) {
+        'use strict'
+        // rel=preload support test
+        if (!w.loadCSS) {
+            w.loadCSS = function () {}
+        }
+        // define on the loadCSS obj
+        var rp = (loadCSS.relpreload = {})
+        // rel=preload feature support test
+        // runs once and returns a function for compat purposes
+        rp.support = (function () {
+            var ret
+            try {
+                ret = w.document.createElement('link').relList.supports('preload')
+            } catch (e) {
+                ret = false
+            }
+            return function () {
+                return ret
+            }
+        })()
+
+        // if preload isn't supported, get an asynchronous load by using a non-matching media attribute
+        // then change that media back to its intended value on load
+        rp.bindMediaToggle = function (link) {
+            // remember existing media attr for ultimate state, or default to 'all'
+            var finalMedia = link.media || 'all'
+
+            function enableStylesheet() {
+                link.media = finalMedia
+            }
+
+            // bind load handlers to enable media
+            if (link.addEventListener) {
+                link.addEventListener('load', enableStylesheet)
+            } else if (link.attachEvent) {
+                link.attachEvent('onload', enableStylesheet)
+            }
+
+            // Set rel and non-applicable media type to start an async request
+            // note: timeout allows this to happen async to let rendering continue in IE
+            setTimeout(function () {
+                link.rel = 'stylesheet'
+                link.media = 'only x'
+            })
+            // also enable media after 3 seconds,
+            // which will catch very old browsers (android 2.x, old firefox) that don't support onload on link
+            setTimeout(enableStylesheet, 3000)
+        }
+
+        // loop through link elements in DOM
+        rp.poly = function () {
+            // double check this to prevent external calls from running
+            if (rp.support()) {
+                return
+            }
+            var links = w.document.getElementsByTagName('link')
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i]
+                // qualify links to those with rel=preload and as=style attrs
+                if (
+                    link.rel === 'preload' &&
+                    link.getAttribute('as') === 'style' &&
+                    !link.getAttribute('data-loadcss')
+                ) {
+                    // prevent rerunning on link
+                    link.setAttribute('data-loadcss', true)
+                    // bind listeners to toggle media back
+                    rp.bindMediaToggle(link)
+                }
+            }
+        }
+
+        // if unsupported, run the polyfill
+        if (!rp.support()) {
+            // run once at least
+            rp.poly()
+
+            // rerun poly on an interval until onload
+            var run = w.setInterval(rp.poly, 500)
+            if (w.addEventListener) {
+                w.addEventListener('load', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            } else if (w.attachEvent) {
+                w.attachEvent('onload', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            }
+        }
+
+        // commonjs
+        if (typeof exports !== 'undefined') {
+            exports.loadCSS = loadCSS
+        } else {
+            w.loadCSS = loadCSS
+        }
+    })(typeof global !== 'undefined' ? global : this)
+</script>
+
+    <style type="text/css">
+    @font-face {
+        font-family: 'Oswald-Regular';
+        src: url("/font/Oswald-Regular.ttf");
+    }
+
+    body {
+        margin: 0;
+    }
+
+    header,
+    footer,
+    .back-top,
+    .sidebar,
+    .container,
+    .site-intro-meta,
+    .toc-wrapper {
+        display: none;
+    }
+
+    .site-intro {
+        position: relative;
+        z-index: 3;
+        width: 100%;
+        /* height: 50vh; */
+        overflow: hidden;
+    }
+
+    .site-intro-placeholder {
+        position: absolute;
+        z-index: -2;
+        top: 0;
+        left: 0;
+        width: calc(100% + 300px);
+        height: 100%;
+        background: repeating-linear-gradient(-45deg, #444 0, #444 80px, #333 80px, #333 160px);
+        background-position: center center;
+        transform: translate3d(-226px, 0, 0);
+        animation: gradient-move 2.5s ease-out 0s infinite;
+    }
+
+    @keyframes gradient-move {
+        0% {
+            transform: translate3d(-226px, 0, 0);
+        }
+        100% {
+            transform: translate3d(0, 0, 0);
+        }
+    }
+</style>
+
+    <link rel="preload" href="/css/style.css?v=20211217" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="/css/dark.css?v=20211217" as="style">
+    <link rel="stylesheet" href="/css/dark.css">
+    <link rel="stylesheet" href="/css/mobile.css?v=20211217" media="(max-width: 960px)">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js" as="script">
+    <link rel="preload" href="/scripts/main.js?v=20211217" as="script">
+    <link rel="preload" href="/scripts/dark.js?v=20211217" as="script">
+    <link rel="preload" href="/font/Oswald-Regular.ttf" as="font" crossorigin>
+    <link rel="preload" href="https://at.alicdn.com/t/font_327081_1dta1rlogw17zaor.woff" as="font" crossorigin>
+    <!-- algolia -->
+    
+        <script>
+            var hits = JSON.parse('{"per_page":10}')
+            var labels = JSON.parse('{"input_placeholder":"Search for Posts","hits_empty":"We did not find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}')
+
+            var algolia = {
+                applicationID: '1POSCBVZ02',
+                apiKey: 'bf09f0197d475fa69488099407011316',
+                indexName: 'getstarted_actors',
+                hits: hits,
+                labels: labels
+            }
+        </script>
+    
+    <!-- 百度统计  -->
+    
+    <!-- 谷歌统计  -->
+    
+        <script>
+            (function (i, s, o, g, r, a, m) {
+                i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+                (i[r].q = i[r].q || []).push(arguments)
+                }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+            })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
+            ga('create', 'G-828GR9BHP9', 'auto');
+            ga('send', 'pageview');
+        </script>
+    
+<meta name="generator" content="Hexo 6.1.0"><link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+</head>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script type="text/javascript">
+        if (typeof window.$ == undefined) {
+            console.warn('jquery load from jsdelivr failed, will load local script')
+            document.write('<script src="/lib/jquery.min.js" />')
+        }
+    </script>
+    
+        <body class="post-body">
+    
+        <!-- header -->
+        <header class="header header-mobile">
+    <!-- top read progress line -->
+    <div class="header-element">
+        <div class="read-progress"></div>
+    </div>
+    <!-- sidebar menu button -->
+    <div class="header-element">
+        
+            <div class="header-sidebar-menu">
+        
+            
+                <div style="padding-left: 1px;">&#xe775;</div>
+            
+        </div>
+    </div>
+    <!-- header actions -->
+    <div class="header-actions">
+        <!-- theme mode switch button -->
+        <span class="header-theme-btn header-element">
+            <i class="fas fa-adjust"></i>
+        </span>
+        <!-- back to home page text -->
+        <span class="home-link header-element">
+            <a href=/>JasonWang's Blog</a>
+        </span>
+    </div>
+    <!-- toggle banner for post layout -->
+    
+        
+            <div class="banner">
+        
+            <div class="blog-title header-element">
+                <a href="/">JasonWang&#39;s Blog</a>
+            </div>
+            <div class="post-title header-element">
+                <a href="#" class="post-name">虚拟化之三virtio的实现原理</a>
+            </div>
+        </div>
+    
+</header>
+
+        <!-- fixed footer -->
+        <footer class="footer-fixed">
+    <!-- back to top button -->
+    <div class="footer-fixed-element">
+        
+            <div class="back-top back-top-hidden">
+        
+        
+            <div>&#xe639;</div>
+        
+        </div>
+    </div>
+</footer>
+
+        <!-- wrapper -->
+        <div class="wrapper">
+            <div class="site-intro" style="
+
+
+
+
+
+
+
+    height:50vh;
+
+">
+    
+    <!-- 主页  -->
+    
+        
+    <!-- 404页  -->
+            
+    <div class="site-intro-placeholder"></div>
+    <div class="site-intro-img" style="background-image: url(/intro/post-bg.jpeg)"></div>
+    <div class="site-intro-meta">
+        <!-- 标题  -->
+        <h1 class="intro-title">
+            <!-- 主页  -->
+            
+                虚拟化之三virtio的实现原理
+            <!-- 404 -->
+            
+        </h1>
+        <!-- 副标题 -->
+        <p class="intro-subtitle">
+            <!-- 主页副标题  -->
+            
+                
+            <!-- 404 -->
+            
+        </p>
+        <!-- 文章页 meta -->
+        
+            <div class="post-intros">
+                <!-- 文章页标签  -->
+                
+                    <div class= post-intro-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="虚拟化">虚拟化</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="QNX">QNX</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="virtio">virtio</a>
+    
+</div>
+
+                
+                
+                    <div class="post-intro-read">
+                        <span>字数统计: <span class="post-count word-count">3.3k</span>阅读时长: <span class="post-count reading-time">15 min</span></span>
+                    </div>
+                
+                <div class="post-intro-meta">
+                    <!-- 撰写日期 -->
+                    <span class="iconfont-archer post-intro-calander">&#xe676;</span>
+                    <span class="post-intro-time">2023/09/15</span>
+                    <!-- busuanzi -->
+                    <!--
+                        <span id="busuanzi_container_page_pv" class="busuanzi-pv">
+                            <span class="iconfont-archer post-intro-busuanzi">&#xe602;</span>
+                            <span id="busuanzi_value_page_pv"></span>
+                        </span>
+                     -->
+                    <!-- 文章分享 -->
+                    <span class="share-wrapper">
+                        <span class="iconfont-archer share-icon">&#xe71d;</span>
+                        <span class="share-text">Share</span>
+                        <ul class="share-list">
+                            <li class="iconfont-archer share-qr" data-type="qr">&#xe75b;
+                                <div class="share-qrcode"></div>
+                            </li>
+                            <li class="iconfont-archer" data-type="weibo">&#xe619;</li>
+                            <li class="iconfont-archer" data-type="qzone">&#xe62e;</li>
+                            <li class="iconfont-archer" data-type="twitter">&#xe634;</li>
+                            <li class="iconfont-archer" data-type="facebook">&#xe67a;</li>
+                        </ul>
+                    </span>
+                </div>
+            </div>
+        
+    </div>
+</div>
+
+            <script>
+  // get user agent
+  function getBrowserVersions() {
+    var u = window.navigator.userAgent
+    return {
+      userAgent: u,
+      trident: u.indexOf('Trident') > -1, //IE内核
+      presto: u.indexOf('Presto') > -1, //opera内核
+      webKit: u.indexOf('AppleWebKit') > -1, //苹果、谷歌内核
+      gecko: u.indexOf('Gecko') > -1 && u.indexOf('KHTML') == -1, //火狐内核
+      mobile: !!u.match(/AppleWebKit.*Mobile.*/), //是否为移动终端
+      ios: !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/), //ios终端
+      android: u.indexOf('Android') > -1 || u.indexOf('Linux') > -1, //android终端或者uc浏览器
+      iPhone: u.indexOf('iPhone') > -1 || u.indexOf('Mac') > -1, //是否为iPhone或者安卓QQ浏览器
+      iPad: u.indexOf('iPad') > -1, //是否为iPad
+      webApp: u.indexOf('Safari') == -1, //是否为web应用程序，没有头部与底部
+      weixin: u.indexOf('MicroMessenger') == -1, //是否为微信浏览器
+      uc: u.indexOf('UCBrowser') > -1, //是否为android下的UC浏览器
+    }
+  }
+  var browser = {
+    versions: getBrowserVersions(),
+  }
+  console.log('userAgent: ' + browser.versions.userAgent)
+
+  // callback
+  function fontLoaded() {
+    console.log('font loaded')
+    if (document.getElementsByClassName('site-intro-meta')) {
+      document
+        .getElementsByClassName('intro-title')[0]
+        .classList.add('intro-fade-in')
+      document
+        .getElementsByClassName('intro-subtitle')[0]
+        .classList.add('intro-fade-in')
+      var postIntros = document.getElementsByClassName('post-intros')[0]
+      if (postIntros) {
+        postIntros.classList.add('post-fade-in')
+      }
+    }
+  }
+
+  // UC不支持跨域，所以直接显示
+  function asyncCb() {
+    if (browser.versions.uc) {
+      console.log('UCBrowser')
+      fontLoaded()
+    } else {
+      WebFont.load({
+        custom: {
+          families: ['Oswald-Regular'],
+        },
+        loading: function () {
+          // 所有字体开始加载
+          // console.log('font loading');
+        },
+        active: function () {
+          // 所有字体已渲染
+          fontLoaded()
+        },
+        inactive: function () {
+          // 字体预加载失败，无效字体或浏览器不支持加载
+          console.log('inactive: timeout')
+          fontLoaded()
+        },
+        timeout: 5000, // Set the timeout to two seconds
+      })
+    }
+  }
+
+  function asyncErr() {
+    console.warn('script load from CDN failed, will load local script')
+  }
+
+  // load webfont-loader async, and add callback function
+  function async(u, cb, err) {
+    var d = document,
+      t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0]
+    o.src = u
+    if (cb) {
+      o.addEventListener(
+        'load',
+        function (e) {
+          cb(null, e)
+        },
+        false
+      )
+    }
+    if (err) {
+      o.addEventListener(
+        'error',
+        function (e) {
+          err(null, e)
+        },
+        false
+      )
+    }
+    s.parentNode.insertBefore(o, s)
+  }
+
+  var asyncLoadWithFallBack = function (arr, success, reject) {
+    var currReject = function () {
+      reject()
+      arr.shift()
+      if (arr.length) async(arr[0], success, currReject)
+    }
+
+    async(arr[0], success, currReject)
+  }
+
+  asyncLoadWithFallBack(
+    [
+      'https://cdn.jsdelivr.net/npm/webfontloader@1.6.28/webfontloader.min.js',
+      'https://cdn.bootcss.com/webfont/1.6.28/webfontloader.js',
+      "/lib/webfontloader.min.js",
+    ],
+    asyncCb,
+    asyncErr
+  )
+</script>
+
+            <img class="loading" src="/assets/loading.svg" style="display: block; margin: 6rem auto 0 auto; width: 6rem; height: 6rem;" />
+            <div class="container container-unloaded">
+                <main class="main post-page">
+    <article class="article-entry">
+        <p>在讲<code>虚拟化的第二篇QNX系统</code>时，有提到在<code>QNX</code>中设备的虚拟化有直通(<code>pass-through</code>)、半虚拟化(<code>para-virtulization</code>)、全虚拟化(<code>full-virtualization</code>)等多种形式，而像串口、网络设备、块设备等通常都是基于半虚拟化的形式实现的。而在半虚拟化的实现方案中，<code>virtio</code>是最常见的一种。简单来说，<code>virtio</code>是虚拟化设备的中间抽象层，为设备的虚拟化提供了一个统一的框架与接口，增加了跨平台时代码的复用性。<span id="more"></span></p>
+<p>下图是两种虚拟化方案:全虚拟化与半虚拟化的框架简图。对全虚拟化方案而已，虚拟机完全不知道自己运行在一个虚拟化平台之上，<code>hypervisor</code>为虚拟机提供了一个完全模拟的环境，虚拟机对资源与设备的访问都需要通过异常的陷入(<code>trap</code>)指令来完成,这在一定程度上降低了资源访问的效率；而对半虚拟化方案而言，虚拟机与宿主机共同来完成虚拟化，虚拟机是完全知道自己运行在一个虚拟化的环境中，相对而言，半虚拟化的效率更高。</p>
+<p><img src="https://developer.ibm.com/developer/default/articles/l-virtio/images/figure1.gif" alt="full-para virtualization"></p>
+<p>而<code>virtio</code>正是半虚拟化方案下设备虚拟化的一种广泛使用的方案，并被非营利性标准化组织<a target="_blank" rel="noopener" href="https://www.oasis-open.org/org/"><code>OASIS</code></a>进行了标准化，具体的文档可以参考<a target="_blank" rel="noopener" href="https://docs.oasis-open.org/virtio/virtio/v1.2/cs01/virtio-v1.2-cs01.html">Virtio V1.2</a>；<code>virtio</code>将设备驱动的实现分离为前端(<code>front-end</code>)与后端(<code>back-end</code>)两个部分:</p>
+<ul>
+<li>前端驱动(<code>front-end driver</code>): 虚拟机系统中的一个驱动模块，负责接收来自虚拟机用户的请求，并将其发送给宿主机上的后端驱动</li>
+<li>后端驱动(<code>back-end driver</code>): 运行在宿主机上的驱动模块，接收到来自虚拟机上的请求后，将其转换成物理设备上的操作</li>
+</ul>
+<p><img src="https://developer.ibm.com/developer/default/articles/l-virtio/images/figure2.gif" alt="driver abstractions with virtio"></p>
+<p>对<code>QNX</code>系统，提供了常见的如网络设备、串口设备以及块设备等多种后端虚拟化实现, 可以很好的与<code>Linux</code>下的<code>virtio</code>框架进行衔接，例如要在<code>QNX</code>上给<code>Linux</code>的虚拟机提供一张虚拟网卡，只需要在<code>linux-lv.config</code>中如下配置即可:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">vdev vdev-virtio-net.so loc <span class="number">0x1b018000</span> intr gic:<span class="number">45</span> peer /dev/vdevpeer/vp_lv mac aa:aa:aa:aa:aa:b1 bind-mode <span class="number">0660</span> name agl_to_host</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在<code>Linux</code>虚拟机上打开内核配置<code>CONFIG_VIRTIO_NET</code>就可以枚举到对应的虚拟网卡， 其<code>mac</code>地址为<code>aa:aa:aa:aa:aa:b1</code>，中断号为<code>45</code>。接下来我们就以虚拟网卡<code>virtio-net</code>为例说明<code>virtio</code>具体的工作机制。</p>
+<h2 id="virtio的原理"><a href="#virtio的原理" class="headerlink" title="virtio的原理"></a>virtio的原理</h2><p><code>QNX</code>中的<code>virtio</code>驱动分为两个部分: 前端驱动(<code>front-end driver</code>)与后端驱动(<code>back-end driver</code>)，前端驱动负责将虚拟机中的请求发送给后端驱动，后端驱动负责与前端驱动交互并将其请求发送给物理设备，像磁盘、网络、I2C、串口、fastRPC(用于与DSP交互)等设备都是通过<code>virtio</code>的方式来实现的，而其他的如音视频、显示、图形(Graphics)、Camera等传输数据比较大的模块也是采用了类似的前端与后端框架(高通称之为<code>HAB(Hypervisor ABstraction)</code>)。<code>virtio</code>为虚拟化驱动的实现提供了一个标准接口，从而解耦了宿主机与虚拟机之间的驱动开发, 提高了系统的开发效率。以<code>QNX</code>中的网络驱动为例:</p>
+<ul>
+<li>虚拟机有虚拟网卡驱动，与后端驱动通过一个内存映射的区域进行数据交互</li>
+<li>后端驱动接收到虚拟机的数据后通过一个桥接口与<code>QNX</code>宿主机上的物理网卡驱动进行交互</li>
+</ul>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/virtio-net-qnx.png" alt="QNX虚拟网卡驱动框架"></p>
+<p>接下来，我们从设备的识别与发现的过程来看下虚拟网卡中的具体实现。</p>
+<h2 id="设备的识别与初始化"><a href="#设备的识别与初始化" class="headerlink" title="设备的识别与初始化"></a>设备的识别与初始化</h2><p><code>virtio</code>设备的发现一般有两种方式，一种是基于<code>PCI</code>虚拟总线进行设备枚举，一种是基于内存映射的方式。在QNX上，很多设备如虚拟网卡，虚拟磁盘设备等都是基于内存映射(<code>MMIO</code>)的方式来实现的。具体可以参考: </p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/#com.qnx.doc.hypervisor.user/topic/use/virtio_guest.html">虚拟机上的设备发现</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.kernel.org/next/driver-api/virtio/virtio.html">Virtio on Linux</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.oasis-open.org/virtio/virtio/v1.2/cs01/virtio-v1.2-cs01.pdf">virtio标准中设备发现部分</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/index.html#com.qnx.doc.hypervisor.vdev/topic/intro/intro.html">如何在QNX中实现一个vdev</a></li>
+</ul>
+<blockquote>
+<p>QNX上的虚拟设备<code>vdev</code>采用的是内存映射的方式，就是说虚拟设备实际就是一个虚拟机的物理地址。<code>QNX</code>在启动<code>vdev</code>后端处理进程时，会通过<code>gfdt_add_vdev</code>&#x2F;<code>gfdt_update_node</code>等接口添加设备树到虚拟机上，这样虚拟机会在启动的时候枚举到对应的虚拟设备; 想要查看虚拟机上对应<code>vdev</code>设备树，可以在<code>/sys/firmware/devicetree/base/vdevs</code>目录中查找</p>
+</blockquote>
+<p><code>virtio</code>采用标准的<a target="_blank" rel="noopener" href="https://linux-kernel-labs.github.io/refs/heads/master/labs/device_model.html">Linux设备模型</a>，设备与设备驱动之间通过一个名为<code>virtio</code>的虚拟总线进行连接。在虚拟机启动时，会枚举到<code>QNX</code>配置的虚拟设备，并调用<code>virtio_mmio_probe</code>:</p>
+<ul>
+<li>首先会通过<code>devm_request_mem_region</code>请求虚拟设备对应的内存区域，用于设备的控制与事件传递</li>
+<li>接着会读取设备<code>I/O</code>地址来确认设备的类型(魔数)、<code>virtio</code>的版本号以及设备ID</li>
+<li>最后<code>register_virtio_device</code>将该虚拟设cat备添加到系统中，这样设备驱动加载时可以匹配到对应的设备</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">virtio_mmio_probe</span><span class="params">(<span class="keyword">struct</span> platform_device *pdev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">virtio_mmio_device</span> *vm_dev;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">resource</span> *mem;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> magic;</span><br><span class="line">    <span class="type">int</span> rc;</span><br><span class="line"></span><br><span class="line">    mem = <span class="built_in">platform_get_resource</span>(pdev, IORESOURCE_MEM, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span> (!mem)</span><br><span class="line">        <span class="keyword">return</span> -EINVAL;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">devm_request_mem_region</span>(&amp;pdev-&gt;dev, mem-&gt;start,</span><br><span class="line">            <span class="built_in">resource_size</span>(mem), pdev-&gt;name))</span><br><span class="line">        <span class="keyword">return</span> -EBUSY;</span><br><span class="line"></span><br><span class="line">    vm_dev = <span class="built_in">devm_kzalloc</span>(&amp;pdev-&gt;dev, <span class="built_in">sizeof</span>(*vm_dev), GFP_KERNEL);</span><br><span class="line">    <span class="keyword">if</span> (!vm_dev)</span><br><span class="line">        <span class="keyword">return</span> -ENOMEM;</span><br><span class="line"></span><br><span class="line">    vm_dev-&gt;vdev.dev.parent = &amp;pdev-&gt;dev;</span><br><span class="line">    vm_dev-&gt;vdev.dev.release = virtio_mmio_release_dev;</span><br><span class="line">    vm_dev-&gt;vdev.config = &amp;virtio_mmio_config_ops;</span><br><span class="line">    vm_dev-&gt;pdev = pdev;</span><br><span class="line">    <span class="built_in">INIT_LIST_HEAD</span>(&amp;vm_dev-&gt;virtqueues);</span><br><span class="line">    <span class="built_in">spin_lock_init</span>(&amp;vm_dev-&gt;lock);</span><br><span class="line"></span><br><span class="line">    vm_dev-&gt;base = <span class="built_in">devm_ioremap</span>(&amp;pdev-&gt;dev, mem-&gt;start, <span class="built_in">resource_size</span>(mem));</span><br><span class="line">    <span class="keyword">if</span> (vm_dev-&gt;base == <span class="literal">NULL</span>)</span><br><span class="line">        <span class="keyword">return</span> -EFAULT;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Check magic value */</span></span><br><span class="line">    magic = <span class="built_in">readl</span>(vm_dev-&gt;base + VIRTIO_MMIO_MAGIC_VALUE);</span><br><span class="line">    <span class="keyword">if</span> (magic != (<span class="string">&#x27;v&#x27;</span> | <span class="string">&#x27;i&#x27;</span> &lt;&lt; <span class="number">8</span> | <span class="string">&#x27;r&#x27;</span> &lt;&lt; <span class="number">16</span> | <span class="string">&#x27;t&#x27;</span> &lt;&lt; <span class="number">24</span>)) &#123;</span><br><span class="line">        <span class="built_in">dev_warn</span>(&amp;pdev-&gt;dev, <span class="string">&quot;Wrong magic value 0x%08lx!\n&quot;</span>, magic);</span><br><span class="line">        <span class="keyword">return</span> -ENODEV;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Check device version */</span></span><br><span class="line">    vm_dev-&gt;version = <span class="built_in">readl</span>(vm_dev-&gt;base + VIRTIO_MMIO_VERSION);</span><br><span class="line">    <span class="keyword">if</span> (vm_dev-&gt;version &lt; <span class="number">1</span> || vm_dev-&gt;version &gt; <span class="number">2</span>) &#123;</span><br><span class="line">        <span class="built_in">dev_err</span>(&amp;pdev-&gt;dev, <span class="string">&quot;Version %ld not supported!\n&quot;</span>,</span><br><span class="line">                vm_dev-&gt;version);</span><br><span class="line">        <span class="keyword">return</span> -ENXIO;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    vm_dev-&gt;vdev.id.device = <span class="built_in">readl</span>(vm_dev-&gt;base + VIRTIO_MMIO_DEVICE_ID);</span><br><span class="line">    ...</span><br><span class="line">    vm_dev-&gt;vdev.id.vendor = <span class="built_in">readl</span>(vm_dev-&gt;base + VIRTIO_MMIO_VENDOR_ID);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (vm_dev-&gt;version == <span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">writel</span>(PAGE_SIZE, vm_dev-&gt;base + VIRTIO_MMIO_GUEST_PAGE_SIZE);</span><br><span class="line"></span><br><span class="line">        rc = <span class="built_in">dma_set_mask</span>(&amp;pdev-&gt;dev, <span class="built_in">DMA_BIT_MASK</span>(<span class="number">64</span>));</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">        * In the legacy case, ensure our coherently-allocated virtio</span></span><br><span class="line"><span class="comment">        * ring will be at an address expressable as a 32-bit PFN.</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">        <span class="keyword">if</span> (!rc)</span><br><span class="line">            <span class="built_in">dma_set_coherent_mask</span>(&amp;pdev-&gt;dev,</span><br><span class="line">                        <span class="built_in">DMA_BIT_MASK</span>(<span class="number">32</span> + PAGE_SHIFT));</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        rc = <span class="built_in">dma_set_mask_and_coherent</span>(&amp;pdev-&gt;dev, <span class="built_in">DMA_BIT_MASK</span>(<span class="number">64</span>));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (rc)</span><br><span class="line">        rc = <span class="built_in">dma_set_mask_and_coherent</span>(&amp;pdev-&gt;dev, <span class="built_in">DMA_BIT_MASK</span>(<span class="number">32</span>));</span><br><span class="line">    ...</span><br><span class="line">    <span class="built_in">platform_set_drvdata</span>(pdev, vm_dev);</span><br><span class="line"></span><br><span class="line">    rc = <span class="built_in">register_virtio_device</span>(&amp;vm_dev-&gt;vdev);</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">return</span> rc;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><code>register_virtio_device</code>将虚拟设备注册到系统中，对应的总线类型为<code>virtio_bus</code>, 用于设备驱动的匹配与查找；对应的设备名称格式为<code>virtio%u</code>, 比如<code>virtio33</code>; 我们可以到路径<code>/sys/devices/platform/vdevs</code>中查看当前系统有哪些<code>virtio</code>设备:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">register_virtio_device</span><span class="params">(<span class="keyword">struct</span> virtio_device *dev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> err;</span><br><span class="line"></span><br><span class="line">    dev-&gt;dev.bus = &amp;virtio_bus;</span><br><span class="line">    <span class="built_in">device_initialize</span>(&amp;dev-&gt;dev);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Assign a unique device index and hence name. */</span></span><br><span class="line">    err = <span class="built_in">ida_simple_get</span>(&amp;virtio_index_ida, <span class="number">0</span>, <span class="number">0</span>, GFP_KERNEL);</span><br><span class="line">    <span class="keyword">if</span> (err &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line">    dev-&gt;index = err;</span><br><span class="line">    <span class="built_in">dev_set_name</span>(&amp;dev-&gt;dev, <span class="string">&quot;virtio%u&quot;</span>, dev-&gt;index);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">spin_lock_init</span>(&amp;dev-&gt;config_lock);</span><br><span class="line">    dev-&gt;config_enabled = <span class="literal">false</span>;</span><br><span class="line">    dev-&gt;config_change_pending = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* We always start by resetting the device, in case a previous</span></span><br><span class="line"><span class="comment">    * driver messed it up.  This also tests that code path a little. */</span></span><br><span class="line">    dev-&gt;config-&gt;<span class="built_in">reset</span>(dev);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Acknowledge that we&#x27;ve seen the device. */</span></span><br><span class="line">    <span class="built_in">virtio_add_status</span>(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">INIT_LIST_HEAD</span>(&amp;dev-&gt;vqs);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">    * device_add() causes the bus infrastructure to look for a matching</span></span><br><span class="line"><span class="comment">    * driver.</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    err = <span class="built_in">device_add</span>(&amp;dev-&gt;dev);</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>设备注册完后，虚拟网卡设备驱动程序<code>virtio-net</code>在注册时，会主动匹配与之对应的设备, 如果匹配到则会调用对应驱动的<code>probe</code>函数:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">struct</span> <span class="title class_">virtio_driver</span> virtio_net_driver = &#123;</span><br><span class="line">    .feature_table = features,</span><br><span class="line">    .feature_table_size = <span class="built_in">ARRAY_SIZE</span>(features),</span><br><span class="line">    .feature_table_legacy = features_legacy,</span><br><span class="line">    .feature_table_size_legacy = <span class="built_in">ARRAY_SIZE</span>(features_legacy),</span><br><span class="line">    .driver.name =	KBUILD_MODNAME,</span><br><span class="line">    .driver.owner =	THIS_MODULE,</span><br><span class="line">    .id_table =	id_table,</span><br><span class="line">    .validate =	virtnet_validate,</span><br><span class="line">    .probe =	virtnet_probe,</span><br><span class="line">    .remove =	virtnet_remove,</span><br><span class="line">    .config_changed = virtnet_config_changed,</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PM_SLEEP</span></span><br><span class="line">    .freeze =	virtnet_freeze,</span><br><span class="line">    .restore =	virtnet_restore,</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> __init <span class="type">int</span> <span class="title">virtio_net_driver_init</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">cpuhp_setup_state_multi</span>(CPUHP_AP_ONLINE_DYN, <span class="string">&quot;virtio/net:online&quot;</span>,</span><br><span class="line">                    virtnet_cpu_online,</span><br><span class="line">                    virtnet_cpu_down_prep);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> out;</span><br><span class="line">    virtionet_online = ret;</span><br><span class="line">    ret = <span class="built_in">cpuhp_setup_state_multi</span>(CPUHP_VIRT_NET_DEAD, <span class="string">&quot;virtio/net:dead&quot;</span>,</span><br><span class="line">                    <span class="literal">NULL</span>, virtnet_cpu_dead);</span><br><span class="line">    <span class="keyword">if</span> (ret)</span><br><span class="line">        <span class="keyword">goto</span> err_dead;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">register_virtio_driver</span>(&amp;virtio_net_driver);</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"><span class="built_in">module_init</span>(virtio_net_driver_init);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>虚拟网卡的驱动加载函数<code>virtnet_probe</code>主要做几个事情:</p>
+<ul>
+<li>根据宿主机的驱动配置，设置对应的网卡特性，比如是否支持硬件校验计算、TSO、GSO等</li>
+<li><code>alloc_etherdev_mq</code>分配协议栈的网络设备对象<code>net_device</code>, 将其注册到内核中<code>register_netdev</code></li>
+<li>通过检查虚拟设备的特性(feature)确认是否打开网络设备某些配置，比如是否支持<code>GSO/TSO</code>等</li>
+<li><code>init_vqs</code>初始化虚拟网卡的接收与发送队列， 创建对应的<code>virtqueue</code>循环队列</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">virtnet_probe</span><span class="params">(<span class="keyword">struct</span> virtio_device *vdev)</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="type">int</span> i, err = -ENOMEM;</span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">net_device</span> *dev;</span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">virtnet_info</span> *vi;</span><br><span class="line">        u16 max_queue_pairs;</span><br><span class="line">        <span class="type">int</span> mtu;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Find if host supports multiqueue virtio_net device */</span></span><br><span class="line">        err = <span class="built_in">virtio_cread_feature</span>(vdev, VIRTIO_NET_F_MQ,</span><br><span class="line">                    <span class="keyword">struct</span> virtio_net_config,</span><br><span class="line">                    max_virtqueue_pairs, &amp;max_queue_pairs);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* We need at least 2 queue&#x27;s */</span></span><br><span class="line">        <span class="keyword">if</span> (err || max_queue_pairs &lt; VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MIN ||</span><br><span class="line">            max_queue_pairs &gt; VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MAX ||</span><br><span class="line">            !<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_CTRL_VQ))</span><br><span class="line">            max_queue_pairs = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Allocate ourselves a network device with room for our info */</span></span><br><span class="line">        dev = <span class="built_in">alloc_etherdev_mq</span>(<span class="built_in">sizeof</span>(<span class="keyword">struct</span> virtnet_info), max_queue_pairs);</span><br><span class="line">        <span class="keyword">if</span> (!dev)</span><br><span class="line">            <span class="keyword">return</span> -ENOMEM;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Set up network device as normal. */</span></span><br><span class="line">        dev-&gt;priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;</span><br><span class="line">        dev-&gt;netdev_ops = &amp;virtnet_netdev;</span><br><span class="line">        dev-&gt;features = NETIF_F_HIGHDMA;</span><br><span class="line"></span><br><span class="line">        dev-&gt;ethtool_ops = &amp;virtnet_ethtool_ops;</span><br><span class="line">        <span class="built_in">SET_NETDEV_DEV</span>(dev, &amp;vdev-&gt;dev);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Do we support &quot;hardware&quot; checksums? */</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_CSUM)) &#123;</span><br><span class="line">            <span class="comment">/* This opens up the world of extra features. */</span></span><br><span class="line">            dev-&gt;hw_features |= NETIF_F_HW_CSUM | NETIF_F_SG;</span><br><span class="line">            <span class="keyword">if</span> (csum)</span><br><span class="line">                dev-&gt;features |= NETIF_F_HW_CSUM | NETIF_F_SG;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GSO)) &#123;</span><br><span class="line">                dev-&gt;hw_features |= NETIF_F_TSO</span><br><span class="line">                    | NETIF_F_TSO_ECN | NETIF_F_TSO6;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">/* Individual feature bits: what can host handle? */</span></span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_HOST_TSO4))</span><br><span class="line">                dev-&gt;hw_features |= NETIF_F_TSO;</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_HOST_TSO6))</span><br><span class="line">                dev-&gt;hw_features |= NETIF_F_TSO6;</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_HOST_ECN))</span><br><span class="line">                dev-&gt;hw_features |= NETIF_F_TSO_ECN;</span><br><span class="line"></span><br><span class="line">            dev-&gt;features |= NETIF_F_GSO_ROBUST;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (gso)</span><br><span class="line">                dev-&gt;features |= dev-&gt;hw_features &amp; NETIF_F_ALL_TSO;</span><br><span class="line">            <span class="comment">/* (!csum &amp;&amp; gso) case will be fixed by register_netdev() */</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GUEST_CSUM))</span><br><span class="line">            dev-&gt;features |= NETIF_F_RXCSUM;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GUEST_TSO4) ||</span><br><span class="line">            <span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GUEST_TSO6))</span><br><span class="line">            dev-&gt;features |= NETIF_F_GRO_HW;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_CTRL_GUEST_OFFLOADS))</span><br><span class="line">            dev-&gt;hw_features |= NETIF_F_GRO_HW;</span><br><span class="line"></span><br><span class="line">        dev-&gt;vlan_features = dev-&gt;features;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* MTU range: 68 - 65535 */</span></span><br><span class="line">        dev-&gt;min_mtu = MIN_MTU;</span><br><span class="line">        dev-&gt;max_mtu = MAX_MTU;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Configuration may specify what MAC to use.  Otherwise random. */</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_MAC))</span><br><span class="line">            <span class="built_in">virtio_cread_bytes</span>(vdev,</span><br><span class="line">                    <span class="built_in">offsetof</span>(<span class="keyword">struct</span> virtio_net_config, mac),</span><br><span class="line">                    dev-&gt;dev_addr, dev-&gt;addr_len);</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            <span class="built_in">eth_hw_addr_random</span>(dev);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Set up our device-specific information */</span></span><br><span class="line">        vi = <span class="built_in">netdev_priv</span>(dev);</span><br><span class="line">        vi-&gt;dev = dev;</span><br><span class="line">        vi-&gt;vdev = vdev;</span><br><span class="line">        vdev-&gt;priv = vi;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">INIT_WORK</span>(&amp;vi-&gt;config_work, virtnet_config_changed_work);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* If we can receive ANY GSO packets, we must allocate large ones. */</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GUEST_TSO4) ||</span><br><span class="line">            <span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GUEST_TSO6) ||</span><br><span class="line">            <span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GUEST_ECN) ||</span><br><span class="line">            <span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_GUEST_UFO))</span><br><span class="line">            vi-&gt;big_packets = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_MRG_RXBUF))</span><br><span class="line">            vi-&gt;mergeable_rx_bufs = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_MRG_RXBUF) ||</span><br><span class="line">            <span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_F_VERSION_1))</span><br><span class="line">            vi-&gt;hdr_len = <span class="built_in">sizeof</span>(<span class="keyword">struct</span> virtio_net_hdr_mrg_rxbuf);</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            vi-&gt;hdr_len = <span class="built_in">sizeof</span>(<span class="keyword">struct</span> virtio_net_hdr);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_F_ANY_LAYOUT) ||</span><br><span class="line">            <span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_F_VERSION_1))</span><br><span class="line">            vi-&gt;any_header_sg = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_CTRL_VQ))</span><br><span class="line">            vi-&gt;has_cvq = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_MTU)) &#123;</span><br><span class="line">            mtu = <span class="built_in">virtio_cread16</span>(vdev,</span><br><span class="line">                        <span class="built_in">offsetof</span>(<span class="keyword">struct</span> virtio_net_config,</span><br><span class="line">                            mtu));</span><br><span class="line">            <span class="keyword">if</span> (mtu &lt; dev-&gt;min_mtu) &#123;</span><br><span class="line">                <span class="comment">/* Should never trigger: MTU was previously validated</span></span><br><span class="line"><span class="comment">                * in virtnet_validate.</span></span><br><span class="line"><span class="comment">                */</span></span><br><span class="line">                <span class="built_in">dev_err</span>(&amp;vdev-&gt;dev,</span><br><span class="line">                    <span class="string">&quot;device MTU appears to have changed it is now %d &lt; %d&quot;</span>,</span><br><span class="line">                    mtu, dev-&gt;min_mtu);</span><br><span class="line">                err = -EINVAL;</span><br><span class="line">                <span class="keyword">goto</span> free;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            dev-&gt;mtu = mtu;</span><br><span class="line">            dev-&gt;max_mtu = mtu;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* <span class="doctag">TODO:</span> size buffers correctly in this case. */</span></span><br><span class="line">            <span class="keyword">if</span> (dev-&gt;mtu &gt; ETH_DATA_LEN)</span><br><span class="line">                vi-&gt;big_packets = <span class="literal">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (vi-&gt;any_header_sg)</span><br><span class="line">            dev-&gt;needed_headroom = vi-&gt;hdr_len;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Enable multiqueue by default */</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">num_online_cpus</span>() &gt;= max_queue_pairs)</span><br><span class="line">            vi-&gt;curr_queue_pairs = max_queue_pairs;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            vi-&gt;curr_queue_pairs = <span class="built_in">num_online_cpus</span>();</span><br><span class="line">        vi-&gt;max_queue_pairs = max_queue_pairs;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Allocate/initialize the rx/tx queues, and invoke find_vqs */</span></span><br><span class="line">        err = <span class="built_in">init_vqs</span>(vi);</span><br><span class="line">        ...</span><br><span class="line">        <span class="built_in">netif_set_real_num_tx_queues</span>(dev, vi-&gt;curr_queue_pairs);</span><br><span class="line">        <span class="built_in">netif_set_real_num_rx_queues</span>(dev, vi-&gt;curr_queue_pairs);</span><br><span class="line"></span><br><span class="line">        <span class="built_in">virtnet_init_settings</span>(dev);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vdev, VIRTIO_NET_F_STANDBY)) &#123;</span><br><span class="line">            vi-&gt;failover = <span class="built_in">net_failover_create</span>(vi-&gt;dev);</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">IS_ERR</span>(vi-&gt;failover)) &#123;</span><br><span class="line">                err = <span class="built_in">PTR_ERR</span>(vi-&gt;failover);</span><br><span class="line">                <span class="keyword">goto</span> free_vqs;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        err = <span class="built_in">register_netdev</span>(dev);</span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line">        <span class="built_in">virtio_device_ready</span>(vdev);</span><br><span class="line"></span><br><span class="line">        err = <span class="built_in">virtnet_cpu_notif_add</span>(vi);</span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line">        <span class="built_in">virtnet_set_queues</span>(vi, vi-&gt;curr_queue_pairs);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Assume link up if device can&#x27;t report link status,</span></span><br><span class="line"><span class="comment">        otherwise get link status from config. */</span></span><br><span class="line">        <span class="built_in">netif_carrier_off</span>(dev);</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vi-&gt;vdev, VIRTIO_NET_F_STATUS)) &#123;</span><br><span class="line">            <span class="built_in">schedule_work</span>(&amp;vi-&gt;config_work);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            vi-&gt;status = VIRTIO_NET_S_LINK_UP;</span><br><span class="line">            <span class="built_in">virtnet_update_settings</span>(vi);</span><br><span class="line">            <span class="built_in">netif_carrier_on</span>(dev);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="built_in">ARRAY_SIZE</span>(guest_offloads); i++)</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">virtio_has_feature</span>(vi-&gt;vdev, guest_offloads[i]))</span><br><span class="line">                <span class="built_in">set_bit</span>(guest_offloads[i], &amp;vi-&gt;guest_offloads);</span><br><span class="line">        vi-&gt;guest_offloads_capable = vi-&gt;guest_offloads;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">pr_debug</span>(<span class="string">&quot;virtnet: registered device %s with %d RX and TX vq&#x27;s\n&quot;</span>,</span><br><span class="line">            dev-&gt;name, max_queue_pairs);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">        ...</span><br><span class="line">        <span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>重点来看看<code>init_vqs</code>，这个函数首先分配用于接发数据的队列，然后调用<code>virtnet_find_vqs</code>来设置每个接发队列的回调，以及通过<code>virtio_mmio</code>的接口配置中断、配置接发缓冲区的内存等:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">init_vqs</span><span class="params">(<span class="keyword">struct</span> virtnet_info *vi)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Allocate send &amp; receive queues */</span></span><br><span class="line">    ret = virtnet_alloc_queues(vi);</span><br><span class="line">    <span class="keyword">if</span> (ret)</span><br><span class="line">        <span class="keyword">goto</span> err;</span><br><span class="line"></span><br><span class="line">    ret = virtnet_find_vqs(vi);</span><br><span class="line">    <span class="keyword">if</span> (ret)</span><br><span class="line">        <span class="keyword">goto</span> err_free;</span><br><span class="line"></span><br><span class="line">    get_online_cpus();</span><br><span class="line">    virtnet_set_affinity(vi);</span><br><span class="line">    put_online_cpus();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><code>virtnet_find_vqs</code>最终会通过<code>vdev-&gt;config-&gt;find_vqs</code>调用<code>virtio_mmio.c</code>设备的配置操作函数列表<code>virtio_mmio_config_ops-&gt;find_vqs</code>, 即<code>vm_find_vqs</code>, 这个函数主要做了如下几个事情:</p>
+<ul>
+<li>配置中断<code>request_irq</code>, 这个中断号就是从宿主机QNX端配置的，比如数据发送，数据接收等信号都是通过这个中断发送过来的</li>
+<li>为每个接发队列分配足够的环形缓冲区，这个缓冲区的内存位于虚拟机上，分配成功后会通过通过<code>virtio</code>的协议，将对应的缓冲区队列的虚拟地址传递给宿主机QNX端，这样前端驱动就可以与后端进行数据的交互</li>
+</ul>
+<p>有关具体的配置细节可以参考<code>vring_create_virtqueue</code>&#x2F;<code>vring_create_virtqueue</code>这两个函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">vm_find_vqs</span><span class="params">(<span class="keyword">struct</span> virtio_device *vdev, <span class="type">unsigned</span> nvqs,</span></span><br><span class="line"><span class="params">          <span class="keyword">struct</span> virtqueue *vqs[],</span></span><br><span class="line"><span class="params">          <span class="type">vq_callback_t</span> *callbacks[],</span></span><br><span class="line"><span class="params">          <span class="type">const</span> <span class="type">char</span> * <span class="type">const</span> names[],</span></span><br><span class="line"><span class="params">          <span class="type">const</span> <span class="type">bool</span> *ctx,</span></span><br><span class="line"><span class="params">          <span class="keyword">struct</span> irq_affinity *desc)</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">virtio_mmio_device</span> *<span class="title">vm_dev</span> =</span> to_virtio_mmio_device(vdev);</span><br><span class="line">  <span class="type">int</span> irq = platform_get_irq(vm_dev-&gt;pdev, <span class="number">0</span>);</span><br><span class="line">  <span class="type">int</span> i, err, queue_idx = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (irq &lt; <span class="number">0</span>) &#123;</span><br><span class="line">    dev_err(&amp;vdev-&gt;dev, <span class="string">&quot;Cannot get IRQ resource\n&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span> irq;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  err = request_irq(irq, vm_interrupt, IRQF_SHARED,</span><br><span class="line">      dev_name(&amp;vdev-&gt;dev), vm_dev);</span><br><span class="line">  <span class="keyword">if</span> (err)</span><br><span class="line">    <span class="keyword">return</span> err;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (of_property_read_bool(vm_dev-&gt;pdev-&gt;dev.of_node, <span class="string">&quot;virtio,wakeup&quot;</span>))</span><br><span class="line">    enable_irq_wake(irq);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; nvqs; ++i) &#123;</span><br><span class="line">    <span class="keyword">if</span> (!names[i]) &#123;</span><br><span class="line">      vqs[i] = <span class="literal">NULL</span>;</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    vqs[i] = vm_setup_vq(vdev, queue_idx++, callbacks[i], names[i],</span><br><span class="line">            ctx ? ctx[i] : <span class="literal">false</span>);</span><br><span class="line">    <span class="keyword">if</span> (IS_ERR(vqs[i])) &#123;</span><br><span class="line">      vm_del_vqs(vdev);</span><br><span class="line">      <span class="keyword">return</span> PTR_ERR(vqs[i]);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://blogs.oracle.com/linux/post/introduction-to-virtio">https://blogs.oracle.com/linux/post/introduction-to-virtio</a></li>
+<li><a target="_blank" rel="noopener" href="https://developer.ibm.com/articles/l-virtio/">https://developer.ibm.com/articles/l-virtio/</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cs.cmu.edu/~412/lectures/Virtio_2015-10-14.pdf">https://www.cs.cmu.edu/~412/lectures/Virtio_2015-10-14.pdf</a></li>
+<li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine">https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/239238/">An API for virtual I&#x2F;O: virtio</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.oasis-open.org/virtio/virtio/v1.2/cs01/virtio-v1.2-cs01.html">Virtual I&#x2F;O Device (VIRTIO) Version 1.2</a></li>
+<li><a target="_blank" rel="noopener" href="https://genode.org/documentation/articles/arm_virtualization">ARM virtualization</a></li>
+<li><a target="_blank" rel="noopener" href="https://developer.arm.com/documentation/100942/0100/Hypervisor-software">AArch64 virtualization</a></li>
+<li><a target="_blank" rel="noopener" href="https://tinylab.org/virtio-intro/#virtio-net">https://tinylab.org/virtio-intro/#virtio-net</a></li>
+</ul>
+
+    </article>
+    <!-- license -->
+    
+        <div class="license-wrapper">
+            <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
+            <!-- <p>原文链接：<a href="https://sniffer.site/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">https://sniffer.site/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/</a> -->
+            <!-- <p>发表日期：<a href="https://sniffer.site/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">九月 15日 2023, 6:42:33 晚上</a> -->
+            <p>更新日期：<a href="https://sniffer.site/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">2023-09-15, 18:44:40</a>
+            <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
+        </div>
+    
+    <!-- paginator -->
+    <ul class="post-paginator">
+        <li class="next">
+            
+        </li>
+        <li class="previous">
+            
+                <div class="prevSlogan">Previous Post</div>
+                <a href="/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/" title="虚拟化之二QNX虚拟化平台简介">
+                    <div class="prevTitle">虚拟化之二QNX虚拟化平台简介</div>
+                </a>
+            
+        </li>
+    </ul>
+    <!-- comment -->
+    
+        <div class="post-comment">
+            <!-- 来必力 City 版安装代码 -->
+
+
+            
+
+            
+
+            
+
+            <!-- utteranc评论 -->
+
+    <script src='https://utteranc.es/client.js'
+        repo='runningforlife/utterances-comment'
+        issue-term='pathname'
+        label=''
+        theme='github-light'
+        crossorigin='anonymous'
+        async>
+    </script>
+
+
+            <!-- partial('_partial/comment/changyan') -->
+            <!--PC版-->
+
+
+            
+            
+
+            
+
+        </div>
+    
+    <!-- timeliness note -->
+    <!-- idea from: https://hexo.fluid-dev.com/posts/hexo-injector/#%E6%96%87%E7%AB%A0%E6%97%B6%E6%95%88%E6%80%A7%E6%8F%90%E7%A4%BA -->
+    
+    <!-- Mathjax -->
+    
+</main>
+
+                <!-- profile -->
+                
+            </div>
+            <footer class="footer footer-unloaded">
+    <!-- social  -->
+    
+        <div class="social">
+            
+    
+        
+            
+                <a href="mailto:wlh2119@gmail.com" class="iconfont-archer email" title=email ></a>
+            
+        
+    
+        
+            
+                <a href="//github.com/runningforlife" class="iconfont-archer github" target="_blank" title=github></a>
+            
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="https://weibo.com/2573460570/profile?topnav=1&wvr=6" class="iconfont-archer weibo" target="_blank" title=weibo></a>
+            
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="/atom.xml" class="iconfont-archer rss" target="_blank" title=rss></a>
+            
+        
+    
+
+
+        </div>
+    
+    <!-- powered by Hexo  -->
+    <div class="copyright">
+        <span id="hexo-power">Powered by <a href="https://hexo.io/" target="_blank">Hexo</a></span><span class="iconfont-archer power">&#xe635;</span><span id="theme-info">theme <a href="https://github.com/fi3ework/hexo-theme-archer" target="_blank">Archer</a></span>
+    </div>
+    <!-- website approve for Chinese user -->
+    
+    <!-- 不蒜子  -->
+    
+        <div class="busuanzi-container">
+            
+             
+                <span id="busuanzi_container_site_pv">PV: <span id="busuanzi_value_site_pv"></span> :)</span>
+            
+        </div>
+    	
+</footer>
+
+        </div>
+        <!-- toc -->
+        
+            <div class="toc-wrapper toc-wrapper-loding" style=
+
+
+
+
+
+
+
+    top:50vh;
+
+>
+                <div class="toc-catalog">
+                    <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
+                </div>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#virtio%E7%9A%84%E5%8E%9F%E7%90%86"><span class="toc-number">1.</span> <span class="toc-text">virtio的原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%BE%E5%A4%87%E7%9A%84%E8%AF%86%E5%88%AB%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">2.</span> <span class="toc-text">设备的识别与初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">3.</span> <span class="toc-text">参考资料</span></a></li></ol>
+            </div>
+        
+        <!-- sidebar -->
+        <div class="sidebar sidebar-hide">
+    <ul class="sidebar-tabs sidebar-tabs-active-0">
+        <li class="sidebar-tab-archives"><span class="iconfont-archer">&#xe67d;</span><span class="tab-name">Archive</span></li>
+        <li class="sidebar-tab-tags"><span class="iconfont-archer">&#xe61b;</span><span class="tab-name">Tag</span></li>
+        <li class="sidebar-tab-categories"><span class="iconfont-archer">&#xe666;</span><span class="tab-name">Cate</span></li>
+    </ul>
+    <div class="sidebar-content sidebar-content-show-archive">
+        <div class="sidebar-panel-archives">
+    <!-- 在 ejs 中将 archive 按照时间排序 -->
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+    
+    
+    
+    <div class="total-and-search">
+        <div class="total-archive">
+        Total : 106
+        </div>
+        <!-- search  -->
+        
+            <div class="site-search site-search-loading popup-trigger">
+                <span class="iconfont-archer search-icon">&#xe627;</span>
+            </div>
+        
+    </div>
+    
+    <div class="post-archive">
+    
+        
+            
+            
+            <div class="archive-year"> 2023 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/15</span>
+            <a class="archive-post-title" href="/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">虚拟化之三virtio的实现原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/09</span>
+            <a class="archive-post-title" href="/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">虚拟化之二QNX虚拟化平台简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/30</span>
+            <a class="archive-post-title" href="/2023/06/30/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%80%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">虚拟化之一虚拟机的基本概念</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2023/05/27/%E6%8A%95%E5%B1%8F%E4%B8%AD%E7%9A%84%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E5%8D%8F%E8%AE%AE/">投屏中的服务发现协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/17</span>
+            <a class="archive-post-title" href="/2023/04/17/Android%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8CDNS%E8%A7%A3%E6%9E%90/">Android如何进行DNS解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/23</span>
+            <a class="archive-post-title" href="/2023/03/23/chatGPT%E4%B9%8B%E5%90%8E%EF%BC%8C%E6%88%91%E4%BB%AC%E8%BF%98%E8%83%BD%E5%81%9A%E4%BB%80%E4%B9%88/">chatGPT之后，我们还能做什么?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/09</span>
+            <a class="archive-post-title" href="/2023/03/09/Android%E4%B8%ADHAL%E6%9C%8D%E5%8A%A1%E6%97%A0%E6%B3%95%E4%BD%BF%E7%94%A8%E7%BD%91%E7%BB%9C%E7%9A%84%E9%97%AE%E9%A2%98/">Android中HAL服务无法使用网络的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2023/02/27/%E8%AF%B4%E8%AF%B4%E7%B3%BB%E7%BB%9F%E5%BC%80%E5%8F%91%E4%B8%AD%E7%9A%84%E5%BA%B7%E5%A8%81%E5%AE%9A%E5%BE%8B/">说说系统开发中的康威定律</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/10</span>
+            <a class="archive-post-title" href="/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">为什么iperf测试时UDP会出现高丢包率</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2022 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2022/12/31/%E5%86%8D%E8%A7%812022/">再见2022</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/06</span>
+            <a class="archive-post-title" href="/2022/12/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BAVB-TSN/">Linux网络优化之AVB/TSN</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/30</span>
+            <a class="archive-post-title" href="/2022/09/30/%E5%A6%82%E4%BD%95%E7%94%A8FFMPEG%E5%9C%A8Android%E4%B8%8A%E5%81%9A%E8%A7%86%E9%A2%91%E8%A7%A3%E7%A0%81/">如何用FFmpeg在Android上实现音视频解码</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/27</span>
+            <a class="archive-post-title" href="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/">如何通过QEMU启动Linux系统</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/12</span>
+            <a class="archive-post-title" href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/">Linux网络优化之DPDK与XDP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2022/06/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BTCP%E4%BC%98%E5%8C%96/">Linux网络优化之TCP优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/13</span>
+            <a class="archive-post-title" href="/2022/04/13/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8B%E9%93%BE%E8%B7%AF%E5%B1%82%E4%BC%98%E5%8C%96/">Linux网络优化之链路层优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/31</span>
+            <a class="archive-post-title" href="/2022/03/31/%E9%87%8D%E5%AD%A6C++/">重学现代C++</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/18</span>
+            <a class="archive-post-title" href="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/">如何用pktgen测试网卡性能?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/17</span>
+            <a class="archive-post-title" href="/2022/03/17/%E6%94%B6%E8%97%8F%E7%9A%84%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%96%99/">「置顶」收藏的学习资料</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/16</span>
+            <a class="archive-post-title" href="/2022/02/16/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dopenssh%E5%88%B0armv7%E7%B3%BB%E7%BB%9F/">如何移植openssh到ARM开发板</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/29</span>
+            <a class="archive-post-title" href="/2022/01/29/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%AE%80%E4%BB%8B/">深度学习简介</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2021 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2021/12/31/%E6%84%9F%E6%82%9F2021/">感悟2021</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">理解Android eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/09</span>
+            <a class="archive-post-title" href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/">什么是GARP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/28</span>
+            <a class="archive-post-title" href="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/">ARP cache不更新导致的网络问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2021/07/16/%E6%80%8E%E4%B9%88%E6%8B%9B%E8%81%98SRE%E5%B7%A5%E7%A8%8B%E5%B8%88-%E7%9C%8B%E7%9C%8BGoogle%E6%98%AF%E5%A6%82%E4%BD%95%E6%8B%9B%E4%BA%BA%E7%9A%84-%E8%AF%91/">怎么招聘SRE工程师-看看Google是如何招人</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2021/06/22/%E4%B8%80%E4%B8%AASMMU%E5%86%85%E5%AD%98%E8%AE%BF%E9%97%AE%E5%BC%82%E5%B8%B8%E9%97%AE%E9%A2%98/">一个SMMU内存访问异常的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2021/04/29/%E4%BB%8EWifi%E7%83%AD%E7%82%B9%E5%8A%9F%E8%83%BD%E8%AF%B4%E4%B8%80%E8%AF%B4Android-Wifi%E6%A1%86%E6%9E%B6/">从Wifi热点功能说一说Android Wifi框架</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/08</span>
+            <a class="archive-post-title" href="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">Linux网络协议之数据发送流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/20</span>
+            <a class="archive-post-title" href="/2021/02/20/ADB%E6%98%AF%E5%A6%82%E4%BD%95%E5%B7%A5%E4%BD%9C%E7%9A%84/">一个ADB无法识别设备的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/08</span>
+            <a class="archive-post-title" href="/2021/01/08/%E8%AF%91-%E6%88%91%E7%9A%84%E5%B7%A5%E7%A8%8B%E6%A0%BC%E8%A8%80/">「译」我的工程格言</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/03</span>
+            <a class="archive-post-title" href="/2021/01/03/%E4%B8%8D%E5%BE%97%E4%B8%8D%E8%AF%B4%E7%9A%842020/">不得不说的2020</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2020 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/">MAC与PHY调试遇到的那些坑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/06</span>
+            <a class="archive-post-title" href="/2020/11/06/%E6%B1%BD%E8%BD%A6%E7%BD%91%E7%BB%9C%E6%BC%94%E5%8C%96-%E4%BB%8ECAN%E5%88%B0%E4%BB%A5%E5%A4%AA%E7%BD%91/">汽车网络演化-从CAN到以太网</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/23</span>
+            <a class="archive-post-title" href="/2020/10/23/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E7%9A%84%E9%94%81/">Linux内核中的锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2020/10/14/IPV6%E5%9C%B0%E5%9D%80%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">IPV6地址的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/03</span>
+            <a class="archive-post-title" href="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/">由Policy Routing引发的一个奇怪问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2020/05/27/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91%E4%B8%8EBUG%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">软件开发与BUG的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/12</span>
+            <a class="archive-post-title" href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">从NAPI说一说Linux内核数据的接收流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/04</span>
+            <a class="archive-post-title" href="/2020/04/04/%E8%AF%B4%E8%AF%B4%E8%BF%99%E6%AC%A1%E6%96%B0%E5%86%A0%E4%BC%A0%E6%9F%93%E7%97%85%E6%83%B3%E5%88%B0%E7%9A%84%E4%BA%8B%E6%83%85/">由新冠病毒想到的一些事情</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/01</span>
+            <a class="archive-post-title" href="/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">Android是如何实现流量统计的?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/24</span>
+            <a class="archive-post-title" href="/2020/02/24/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8SSH%E9%9A%A7%E9%81%93%E8%AE%BF%E9%97%AE%E5%B1%80%E5%9F%9F%E7%BD%91/">利用SSH隧道访问局域网</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2019 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2019/12/31/Recovery%E6%A8%A1%E5%BC%8F%E5%A6%82%E4%BD%95%E6%94%AF%E6%8C%81ADB/">Recovery模式如何支持ADB</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/07</span>
+            <a class="archive-post-title" href="/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">SELinux在Android中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/07</span>
+            <a class="archive-post-title" href="/2019/11/07/BPF%E4%B8%8EeBPF/">BPF与eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/04</span>
+            <a class="archive-post-title" href="/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">说说Process.waitfor()引起的进程阻塞问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/30</span>
+            <a class="archive-post-title" href="/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/">聊一聊TCP协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/15</span>
+            <a class="archive-post-title" href="/2019/07/15/TCP%E9%93%BE%E6%8E%A5%E5%BB%BA%E7%AB%8B%E4%B8%8E%E7%8A%B6%E6%80%81%E8%BF%81%E7%A7%BB/">TCP链接建立与状态迁移</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/05</span>
+            <a class="archive-post-title" href="/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/">PPP拨号时拿到错误DNS的问题解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/26</span>
+            <a class="archive-post-title" href="/2019/02/26/%E5%9C%A8Android-Studio%E4%B8%AD%E6%B7%BB%E5%8A%A0%E8%87%AA%E5%AE%9A%E4%B9%89framework-jar/">如何在Android Studio中添加自定义framework.jar?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/17</span>
+            <a class="archive-post-title" href="/2019/01/17/Linux%E4%B8%8B%E5%B8%B8%E7%94%A8%E7%BD%91%E7%BB%9C%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/">Linux下常用网络工具使用总结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/04</span>
+            <a class="archive-post-title" href="/2019/01/04/%E6%88%90%E7%8E%8B%E8%B4%A5%E5%AF%87%E4%B8%8E%E4%B8%9B%E6%9E%97%E6%B3%95%E5%88%99-%E7%9C%8B%E7%BA%AA%E5%BD%95%E7%89%87-%E8%8B%B1%E5%9B%BD%E5%8F%B2-%E6%9C%89%E6%84%9F/">成王败寇与丛林法则-看纪录片<英国史>有感</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2018 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/18</span>
+            <a class="archive-post-title" href="/2018/12/18/Android-netd%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Android netd工作原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/30</span>
+            <a class="archive-post-title" href="/2018/11/30/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F%E5%8F%8A%E5%85%B6%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">正则表达式及其应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/21</span>
+            <a class="archive-post-title" href="/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">socket编程与IO multiplexing</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2018/06/22/%E5%85%B3%E4%BA%8E%E6%8A%80%E6%9C%AF%E5%8F%91%E5%B1%95%E7%9A%84%E4%B8%80%E4%BA%9B%E6%80%9D%E8%80%83/">关于技术发展的一些思考</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/17</span>
+            <a class="archive-post-title" href="/2018/06/17/HAL-binder%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B-%E4%BB%A5RILJ-RILD%E9%80%9A%E4%BF%A1%E4%B8%BA%E4%BE%8B/">HAL binder工作流程-以RILJ/RILD通信为例</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">深入Android HAL binder</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/05</span>
+            <a class="archive-post-title" href="/2018/05/05/%E4%BB%8EHTTP%E5%88%B0HTTPS/">从HTTP到HTTPS</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/30</span>
+            <a class="archive-post-title" href="/2018/04/30/%E3%80%8A%E4%BA%BA%E7%B1%BB%E7%AE%80%E5%8F%B2%E3%80%8B%E6%9C%AD%E8%AE%B0/">《人类简史》札记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/23</span>
+            <a class="archive-post-title" href="/2018/02/23/Garbage-Collection-in-Java/">Java中的垃圾回收机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">Java虚拟机入门</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2017 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/23</span>
+            <a class="archive-post-title" href="/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">如何用JobScheduler进行任务调度</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/20</span>
+            <a class="archive-post-title" href="/2017/11/20/Circuit-Switching-Packet-Switching/">Circuit Switching & Packet Switching</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/18</span>
+            <a class="archive-post-title" href="/2017/11/18/Android-%E5%8A%A8%E7%94%BB/">Android 动画</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2017/10/15/GSM%E7%9F%AD%E4%BF%A1%E7%9A%84%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/">GSM短信的发送与接收</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/08</span>
+            <a class="archive-post-title" href="/2017/10/08/Java-Annotation/">Java Annotation</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/22</span>
+            <a class="archive-post-title" href="/2017/09/22/%E5%A6%82%E4%BD%95%E5%9C%A8Android%E4%B8%AD%E6%9F%A5%E7%9C%8B%E8%BF%9B%E7%A8%8B%E7%8A%B6%E6%80%81/">如何在Android中查看进程状态</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/23</span>
+            <a class="archive-post-title" href="/2017/08/23/HTTP%E5%85%A5%E9%97%A8%E4%BB%8B%E7%BB%8D/">HTTP简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/06</span>
+            <a class="archive-post-title" href="/2017/08/06/%E5%B8%B8%E7%94%A8%E5%93%88%E5%B8%8C%E5%87%BD%E6%95%B0C%E5%AE%9E%E7%8E%B0/">常用哈希函数C实现</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2017/07/16/cache%E6%8F%AD%E7%A7%98/">cache揭秘</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/09</span>
+            <a class="archive-post-title" href="/2017/07/09/Android%E8%BF%9B%E7%A8%8BCrash%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android进程Crash处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/01</span>
+            <a class="archive-post-title" href="/2017/07/01/Android%E4%B8%AD%E7%9A%84%E4%BB%BB%E5%8A%A1%E7%AE%A1%E7%90%86/">Android中的任务管理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android ANR处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2017/06/18/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E9%94%81/">Java并发编程之锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/11</span>
+            <a class="archive-post-title" href="/2017/06/11/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">Java并发编程之原子操作</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/30</span>
+            <a class="archive-post-title" href="/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Glide详解之图片加载过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/%E8%BF%91%E6%9D%A5%E4%BA%8C%E4%B8%89%E4%BA%8B/">近来二三事</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">Java并发编程之Java Memory Model</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2017/05/27/Zygote%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Zygote进程启动过程详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/24</span>
+            <a class="archive-post-title" href="/2017/05/24/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E7%BB%BC%E8%BF%B0/">Java并发编程综述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/20</span>
+            <a class="archive-post-title" href="/2017/05/20/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">Glide详解之架构分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/17</span>
+            <a class="archive-post-title" href="/2017/05/17/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%90%8C%E6%AD%A5/">Java并发编程之同步</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">Java并发编程之线程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2017/04/29/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">单例模式在Java中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/20</span>
+            <a class="archive-post-title" href="/2017/04/20/Picasso%E4%BB%8E%E4%BD%BF%E7%94%A8%E5%88%B0%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Picasso从使用到原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2017/03/07/TCP-IP%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E5%85%A5%E9%97%A8/">TCP/IP网络协议入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/06</span>
+            <a class="archive-post-title" href="/2017/03/06/Maven%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">关于Maven</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2017/02/27/%E8%BF%BD%E5%AF%BB%E7%9C%9F%E5%AE%9E%E7%9A%84%E8%87%AA%E6%88%91/">追寻真实的自我</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/25</span>
+            <a class="archive-post-title" href="/2017/02/25/%E3%80%8AEffective-Java%E3%80%8B%E6%91%98%E8%AE%B0/">《Effective Java》摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/21</span>
+            <a class="archive-post-title" href="/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Android Phone进程启动过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/18</span>
+            <a class="archive-post-title" href="/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">Android Launcher工作原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">如何在Java中调用C_C++方法</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2016 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/26</span>
+            <a class="archive-post-title" href="/2016/12/26/%E7%BD%97%E7%B4%A0%E3%80%8A%E6%9D%83%E5%A8%81%E4%B8%8E%E4%B8%AA%E4%BA%BA%E3%80%8B/">罗素《权威与个人》</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/29</span>
+            <a class="archive-post-title" href="/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/">Android RILD详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/19</span>
+            <a class="archive-post-title" href="/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android RIL概述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/04</span>
+            <a class="archive-post-title" href="/2016/11/04/%E3%80%8A%E9%80%9A%E5%BE%80%E5%A5%B4%E5%BD%B9%E4%B9%8B%E8%B7%AF%E3%80%8B%E8%AF%BB%E4%B9%A6%E6%91%98%E8%AE%B0/">《通往奴役之路》读书摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Android%E7%B3%BB%E7%BB%9F%E6%97%B6%E9%97%B4%E8%87%AA%E5%8A%A8%E6%9B%B4%E6%96%B0%E6%9C%BA%E5%88%B6/">Android系统时间自动更新机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Java%E7%A8%8B%E5%BA%8F%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B/">Java程序编译过程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/16</span>
+            <a class="archive-post-title" href="/2016/10/16/%E7%94%B1%E4%BA%BA%E5%AE%9A%E8%83%9C%E5%A4%A9%E8%AF%B4%E8%B5%B7/">由人定胜天说起</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2016/10/15/%E5%81%9C%E6%9C%BA%E9%97%AE%E9%A2%98/">停机问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2016/10/14/Linux-Shell%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">Linux Shell快速入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/13</span>
+            <a class="archive-post-title" href="/2016/10/13/Dependency-Inversion-Principle/">Dependency Inversion Principle(依赖反转原则)</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/01</span>
+            <a class="archive-post-title" href="/2016/10/01/Binder%E5%85%A5%E9%97%A8/">Android Binder入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/18</span>
+            <a class="archive-post-title" href="/2016/08/18/Android-Fota%E5%8D%87%E7%BA%A7/">Android Fota升级</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2016/03/07/Git%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4/">Git常用命令</a>
+        </li>
+    
+    </div>
+</div>
+
+        <div class="sidebar-panel-tags">
+    <div class="sidebar-tags-name">
+        
+            <span class="sidebar-tag-name" data-tags="ADB">
+                <span class="iconfont-archer">&#xe606;</span>
+                ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android Debug Bridge
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FOTA">
+                <span class="iconfont-archer">&#xe606;</span>
+                FOTA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Firm Over The Air">
+                <span class="iconfont-archer">&#xe606;</span>
+                Firm Over The Air
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RIL">
+                <span class="iconfont-archer">&#xe606;</span>
+                RIL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILD">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Property Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Property Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Frame Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Frame Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="系统时间更新">
+                <span class="iconfont-archer">&#xe606;</span>
+                系统时间更新
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NITZ">
+                <span class="iconfont-archer">&#xe606;</span>
+                NITZ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                NTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                BPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="eBPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                eBPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Binder">
+                <span class="iconfont-archer">&#xe606;</span>
+                Binder
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPC">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Virtual Machine
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Garbage Collection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Garbage Collection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Glide">
+                <span class="iconfont-archer">&#xe606;</span>
+                Glide
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Image Loading">
+                <span class="iconfont-archer">&#xe606;</span>
+                Image Loading
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTPS">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTPS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation Processor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation Processor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="并发编程">
+                <span class="iconfont-archer">&#xe606;</span>
+                并发编程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Atomicity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Atomicity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="synchronized">
+                <span class="iconfont-archer">&#xe606;</span>
+                synchronized
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Thread">
+                <span class="iconfont-archer">&#xe606;</span>
+                Thread
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Memory Model">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Memory Model
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Compiling process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Compiling process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="字节码">
+                <span class="iconfont-archer">&#xe606;</span>
+                字节码
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="class　file">
+                <span class="iconfont-archer">&#xe606;</span>
+                class　file
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Shell">
+                <span class="iconfont-archer">&#xe606;</span>
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="mutex">
+                <span class="iconfont-archer">&#xe606;</span>
+                mutex
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Spin Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Spin Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Kernel">
+                <span class="iconfont-archer">&#xe606;</span>
+                Kernel
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AVB">
+                <span class="iconfont-archer">&#xe606;</span>
+                AVB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TSN">
+                <span class="iconfont-archer">&#xe606;</span>
+                TSN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DPDK">
+                <span class="iconfont-archer">&#xe606;</span>
+                DPDK
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="XDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                XDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Maven">
+                <span class="iconfont-archer">&#xe606;</span>
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PPP">
+                <span class="iconfont-archer">&#xe606;</span>
+                PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Picasso,">
+                <span class="iconfont-archer">&#xe606;</span>
+                Picasso,
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
+                <span class="iconfont-archer">&#xe606;</span>
+                ImageLoader
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Recovery">
+                <span class="iconfont-archer">&#xe606;</span>
+                Recovery
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SELinux">
+                <span class="iconfont-archer">&#xe606;</span>
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP/IP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="三次握手">
+                <span class="iconfont-archer">&#xe606;</span>
+                三次握手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="四次挥手">
+                <span class="iconfont-archer">&#xe606;</span>
+                四次挥手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Cache">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Cache
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU Architecture">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU Architecture
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Hierarchy">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Hierarchy
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="2020">
+                <span class="iconfont-archer">&#xe606;</span>
+                2020
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="新冠病毒">
+                <span class="iconfont-archer">&#xe606;</span>
+                新冠病毒
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TLS">
+                <span class="iconfont-archer">&#xe606;</span>
+                TLS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSL">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                GARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络性能">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络性能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="带宽测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                带宽测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="pktgen">
+                <span class="iconfont-archer">&#xe606;</span>
+                pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Halting Problem">
+                <span class="iconfont-archer">&#xe606;</span>
+                Halting Problem
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Computability theory">
+                <span class="iconfont-archer">&#xe606;</span>
+                Computability theory
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="技术">
+                <span class="iconfont-archer">&#xe606;</span>
+                技术
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="5G">
+                <span class="iconfont-archer">&#xe606;</span>
+                5G
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人工智能">
+                <span class="iconfont-archer">&#xe606;</span>
+                人工智能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSH">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSH
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="远程登录">
+                <span class="iconfont-archer">&#xe606;</span>
+                远程登录
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="反向隧道">
+                <span class="iconfont-archer">&#xe606;</span>
+                反向隧道
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JNI">
+                <span class="iconfont-archer">&#xe606;</span>
+                JNI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="共享库文件">
+                <span class="iconfont-archer">&#xe606;</span>
+                共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FFmpeg">
+                <span class="iconfont-archer">&#xe606;</span>
+                FFmpeg
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="H.264">
+                <span class="iconfont-archer">&#xe606;</span>
+                H.264
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="音视频">
+                <span class="iconfont-archer">&#xe606;</span>
+                音视频
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JobScheduler">
+                <span class="iconfont-archer">&#xe606;</span>
+                JobScheduler
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AlarmManager">
+                <span class="iconfont-archer">&#xe606;</span>
+                AlarmManager
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="定时任务">
+                <span class="iconfont-archer">&#xe606;</span>
+                定时任务
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="openssh">
+                <span class="iconfont-archer">&#xe606;</span>
+                openssh
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARM嵌入式开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARM嵌入式开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hash Function">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hash Function
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SRE">
+                <span class="iconfont-archer">&#xe606;</span>
+                SRE
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Site Reliability Engineering">
+                <span class="iconfont-archer">&#xe606;</span>
+                Site Reliability Engineering
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Google">
+                <span class="iconfont-archer">&#xe606;</span>
+                Google
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="英国史">
+                <span class="iconfont-archer">&#xe606;</span>
+                英国史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="丛林法则">
+                <span class="iconfont-archer">&#xe606;</span>
+                丛林法则
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习资料">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习资料
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="正则表达式">
+                <span class="iconfont-archer">&#xe606;</span>
+                正则表达式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Regular Expression">
+                <span class="iconfont-archer">&#xe606;</span>
+                Regular Expression
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                CAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MOST">
+                <span class="iconfont-archer">&#xe606;</span>
+                MOST
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LIN">
+                <span class="iconfont-archer">&#xe606;</span>
+                LIN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Ethernet">
+                <span class="iconfont-archer">&#xe606;</span>
+                Ethernet
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="机器学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                机器学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="深度学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                深度学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Deep Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Deep Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Machine Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Machine Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AI">
+                <span class="iconfont-archer">&#xe606;</span>
+                AI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哲学">
+                <span class="iconfont-archer">&#xe606;</span>
+                哲学
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="社会">
+                <span class="iconfont-archer">&#xe606;</span>
+                社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="拥塞控制">
+                <span class="iconfont-archer">&#xe606;</span>
+                拥塞控制
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件工程">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件工程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="团队协作">
+                <span class="iconfont-archer">&#xe606;</span>
+                团队协作
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="项目管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                项目管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="waitfor">
+                <span class="iconfont-archer">&#xe606;</span>
+                waitfor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BUG">
+                <span class="iconfont-archer">&#xe606;</span>
+                BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
+                <span class="iconfont-archer">&#xe606;</span>
+                摔跤吧，爸爸
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="电影">
+                <span class="iconfont-archer">&#xe606;</span>
+                电影
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习方法">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习方法
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bob dylan">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bob dylan
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="追寻自我">
+                <span class="iconfont-archer">&#xe606;</span>
+                追寻自我
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="C++">
+                <span class="iconfont-archer">&#xe606;</span>
+                C++
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="编程语言">
+                <span class="iconfont-archer">&#xe606;</span>
+                编程语言
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Launcher">
+                <span class="iconfont-archer">&#xe606;</span>
+                Launcher
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SystemServer">
+                <span class="iconfont-archer">&#xe606;</span>
+                SystemServer
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Phone进程">
+                <span class="iconfont-archer">&#xe606;</span>
+                Phone进程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Telephony">
+                <span class="iconfont-archer">&#xe606;</span>
+                Telephony
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NetworkManagerService">
+                <span class="iconfont-archer">&#xe606;</span>
+                NetworkManagerService
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Crash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Crash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Inversion">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Inversion
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DIP">
+                <span class="iconfont-archer">&#xe606;</span>
+                DIP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Injection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Injection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Uncle Bob">
+                <span class="iconfont-archer">&#xe606;</span>
+                Uncle Bob
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="依赖反转">
+                <span class="iconfont-archer">&#xe606;</span>
+                依赖反转
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="图片加载">
+                <span class="iconfont-archer">&#xe606;</span>
+                图片加载
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Network tools">
+                <span class="iconfont-archer">&#xe606;</span>
+                Network tools
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ip route">
+                <span class="iconfont-archer">&#xe606;</span>
+                ip route
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="tcpdump">
+                <span class="iconfont-archer">&#xe606;</span>
+                tcpdump
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iptables">
+                <span class="iconfont-archer">&#xe606;</span>
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MAC">
+                <span class="iconfont-archer">&#xe606;</span>
+                MAC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PHY">
+                <span class="iconfont-archer">&#xe606;</span>
+                PHY
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="车载以太网">
+                <span class="iconfont-archer">&#xe606;</span>
+                车载以太网
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="socket programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                socket programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="I/O multiplexing">
+                <span class="iconfont-archer">&#xe606;</span>
+                I/O multiplexing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="network programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                network programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Effective Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Effective Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Design Pattern">
+                <span class="iconfont-archer">&#xe606;</span>
+                Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="通往奴役之路">
+                <span class="iconfont-archer">&#xe606;</span>
+                通往奴役之路
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哈耶克">
+                <span class="iconfont-archer">&#xe606;</span>
+                哈耶克
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="读书">
+                <span class="iconfont-archer">&#xe606;</span>
+                读书
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Policy Routing">
+                <span class="iconfont-archer">&#xe606;</span>
+                Policy Routing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="策略路由">
+                <span class="iconfont-archer">&#xe606;</span>
+                策略路由
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                Netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Zygote">
+                <span class="iconfont-archer">&#xe606;</span>
+                Zygote
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android应用启动">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android应用启动
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="UDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                UDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Conway's Law">
+                <span class="iconfont-archer">&#xe606;</span>
+                Conway's Law
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="康威定律">
+                <span class="iconfont-archer">&#xe606;</span>
+                康威定律
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络使用权限
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="chatGPT">
+                <span class="iconfont-archer">&#xe606;</span>
+                chatGPT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LLM">
+                <span class="iconfont-archer">&#xe606;</span>
+                LLM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AIGC">
+                <span class="iconfont-archer">&#xe606;</span>
+                AIGC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="域名解析">
+                <span class="iconfont-archer">&#xe606;</span>
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="投屏">
+                <span class="iconfont-archer">&#xe606;</span>
+                投屏
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DLNA">
+                <span class="iconfont-archer">&#xe606;</span>
+                DLNA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Airplay">
+                <span class="iconfont-archer">&#xe606;</span>
+                Airplay
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtualization">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtualization
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="QNX">
+                <span class="iconfont-archer">&#xe606;</span>
+                QNX
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtio">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtio
+            </span>
+        
+    </div>
+    <div class="iconfont-archer sidebar-tags-empty">&#xe678;</div>
+    <div class="tag-load-fail" style="display: none; color: #ccc; font-size: 0.6rem;">
+        缺失模块，请参考主题文档进行安装配置：https://github.com/fi3ework/hexo-theme-archer#%E5%AE%89%E8%A3%85%E4%B8%BB%E9%A2%98
+    </div> 
+    <div class="sidebar-tags-list"></div>
+</div>
+
+        <div class="sidebar-panel-categories">
+    <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Linux">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Linux
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="移动通讯">
+            <span class="iconfont-archer">&#xe60a;</span>
+            移动通讯
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Java">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Java
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="网络协议">
+            <span class="iconfont-archer">&#xe60a;</span>
+            网络协议
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="项目构建">
+            <span class="iconfont-archer">&#xe60a;</span>
+            项目构建
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="读书笔记">
+            <span class="iconfont-archer">&#xe60a;</span>
+            读书笔记
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="思考">
+            <span class="iconfont-archer">&#xe60a;</span>
+            思考
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Design Pattern">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="算法/数据结构">
+            <span class="iconfont-archer">&#xe60a;</span>
+            算法/数据结构
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="软件工程">
+            <span class="iconfont-archer">&#xe60a;</span>
+            软件工程
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Regular Expression">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Regular Expression
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="社会万象">
+            <span class="iconfont-archer">&#xe60a;</span>
+            社会万象
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="C++">
+            <span class="iconfont-archer">&#xe60a;</span>
+            C++
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Software Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Software Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="虚拟化">
+            <span class="iconfont-archer">&#xe60a;</span>
+            虚拟化
+        </span>
+    
+    </div>
+    <div class="iconfont-archer sidebar-categories-empty">&#xe678;</div>
+    <div class="sidebar-categories-list"></div>
+</div>
+
+    </div>
+</div>
+
+        <!-- site-meta -->
+        <script>
+    var siteMetaRoot = "/"
+    if (siteMetaRoot === "undefined") {
+        siteMetaRoot = '/'
+    }
+    var siteMeta = {
+        url: "https://sniffer.site",
+        root: siteMetaRoot,
+        author: "Jason Wang"
+    }
+</script>
+
+        <!-- import experimental options here -->
+        <!-- Custom Font -->
+
+
+        <!-- main func -->
+        <script src="/scripts/main.js?v=20211217"></script>
+        <!-- dark mode -->
+        <script src="/scripts/dark.js?v=20211217"></script>
+        <!-- fancybox -->
+        <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js" defer></script>
+        <!-- algolia -->
+        
+            <div class="site-search site-search-loading">
+    <div class="algolia-popup popup">
+        <div class="algolia-search">
+            <div class="algolia-search-input-icon">
+                <i class="fa fa-search"></i>
+            </div>
+            <div class="algolia-search-input" id="algolia-search-input"></div>
+            <div class="popup-btn-close">
+                <i class="iconfont-archer">&#xe609;</i>
+            </div>
+        </div>
+
+        <div class="algolia-results">
+            <div id="algolia-stats" class="algolia-stats"></div>
+            <div id="algolia-hits"></div>
+            <div id="algolia-pagination" class="algolia-pagination"></div>
+        </div>
+    </div>
+</div>
+
+            <script src="/scripts/search.js?v=20211217" defer></script>
+        
+        <!-- busuanzi -->
+        
+            <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+        
+        <!-- CNZZ -->
+        
+        <!-- async load share.js -->
+        
+            <script src="/scripts/share.js?v=20211217" async></script>
+        
+        <!-- mermaid -->
+        
+            <script src='https://cdn.jsdelivr.net/npm/mermaid@8.11.0/dist/mermaid.min.js'></script>
+            <script>
+                if (window.mermaid) {
+                    mermaid.initialize({theme: 'dark'});
+                }
+            </script>
+        
+    </body>
+</html>
