@@ -469,6 +469,53 @@
             
         
         <article class="index-post">
+            <a class="abstract-title" href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/">
+                
+                <span class="abstract-title-text">Linux网络优化之DPDK与XDP</span>
+            </a>
+            <div class="abstract-content">
+                <p>在前面的一篇文章<a href="https://sniffer.site/2022/04/13/linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8B%E9%93%BE%E8%B7%AF%E5%B1%82%E4%BC%98%E5%8C%96/">Linux网络优化之链路层优化</a>中，我们已经看到，随着网卡速率超过<code>1Gbps</code>，增加到<code>10Gbps/100Gbps</code>时，CPU已经很难处理如此大量的数据包了。总结来说，主要有如下瓶颈：</p>
+<ul>
+<li>内核协议栈处理在<code>L3(IP)/L4(TCP)</code>的数据处理上，消耗了比较多的时间，会导致网络延迟与传输受限</li>
+<li>高速网卡会在短时间内产生大量中断，导致CPU频繁发生上下文切换，性能收到影响，进而影响网络吞吐</li>
+</ul>
+<p>针对<code>10Gbps/100Gbps</code>等高速网卡中存在的延迟与带宽受限问题，<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Data_Plane_Development_Kit">Intel在2010年提出了<code>DPDK(Data Plane Development Kit)</code>基于用户空间的解决方案</a>，并开源了实现方案, 目前<code>DPDK</code>支持包括Intel&#x2F;ARM等多个芯片架构的指令集; 同样是Intel的工程师在2018年提出了<code>XDP(eXpress Data Path)</code>，与<code>DPDK</code>不一样的是，<code>XDP</code>基于现有内核<code>socket</code>接口，与<code>eBPF</code>相结合实现网卡与用户空间的数据传输，从而避免了内核协议栈的处理延迟。</p>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2022/08/12">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2022/08/12</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="网络优化">网络优化</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="DPDK">DPDK</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="XDP">XDP</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
             <a class="abstract-title" href="/2022/06/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BTCP%E4%BC%98%E5%8C%96/">
                 
                 <span class="abstract-title-text">Linux网络优化之TCP优化</span>
@@ -849,55 +896,6 @@
         <a class="post-tag" href="javascript:void(0);" data-tags="Address Resolution Protocol">Address Resolution Protocol</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="GARP">GARP</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/">
-                
-                <span class="abstract-title-text">ARP cache不更新导致的网络问题</span>
-            </a>
-            <div class="abstract-content">
-                <p>最近碰到了一个很奇怪的问题, Android系统(Linux内核4.15)唤醒后, SoC(高通平台)跟TBox(Telematics Box)TCP的连接会偶发变慢, 需要等超过10s才能连接上. 发送ping包给TBox, 通过<code>strace</code>看进程一直提示<code>EAGAIN</code>的错误.从字面意义来说<code>EAGAIN</code>(<code>Resource temporarily unavailable</code>)是内核告知ping进程当前没有可用的数据包可以接收. 可是, 问题来了:</p>
-<ul>
-<li>为什么ping一直会收到<code>EAGAIN</code>的错误? 内核在什么时候会返回该错误?</li>
-<li>为什么ping收不到数据包, TBox回包到底去了哪里?</li>
-</ul>
-<p>幸亏好这个问题比较容易重现, 折腾了两天才最终把问题的的来龙去脉搞清楚. 接下来就来看看这个问题的现象以及背后发生的根因, 最后给出几个相应的对策.</p>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/10/09">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2021/09/28</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="TCP/IP">TCP/IP</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="ARP">ARP</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Address Resolution Protocol">Address Resolution Protocol</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="MAC">MAC</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Media Access Control">Media Access Control</a>
     
 </div>
 
@@ -1662,7 +1660,44 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2869,7 +2904,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 111
+        Total : 112
         </div>
         <!-- search  -->
         
@@ -2887,6 +2922,12 @@
             <div class="archive-year"> 2024 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">Android如何使用PSI管理内存</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">04/15</span>
@@ -4774,6 +4815,21 @@
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PSI">
+                <span class="iconfont-archer">&#xe606;</span>
+                PSI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内存管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                内存管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LMKD">
+                <span class="iconfont-archer">&#xe606;</span>
+                LMKD
             </span>
         
     </div>

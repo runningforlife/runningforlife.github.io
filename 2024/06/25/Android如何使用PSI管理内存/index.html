@@ -1,0 +1,4696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <!-- title -->
+
+
+    
+
+<!-- keywords -->
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="author" content="Jason Wang">
+    <meta name="renderer" content="webkit">
+    <meta name="copyright" content="Jason Wang">
+    
+        <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
+    
+    <meta name="description" content="关于编程,生活,工作">
+    <meta name="description" content="早前，Android使用内核中的lowmemorykiller驱动模块来监控系统内存，在内存不足时会主动杀掉某些非关键性的进程或者应用，从而减少系统的内存压力；自从内核版本4.12之后，lowmemorykiller从内核中移除了，因此Android增加一个lmkd(Low Memory Killer Daemon)来替代内核驱动用以监控系统内存状态，在系统处于内存高压状态时，主动清理部分内存，确">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android如何使用PSI管理内存">
+<meta property="og:url" content="https://sniffer.site/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="早前，Android使用内核中的lowmemorykiller驱动模块来监控系统内存，在内存不足时会主动杀掉某些非关键性的进程或者应用，从而减少系统的内存压力；自从内核版本4.12之后，lowmemorykiller从内核中移除了，因此Android增加一个lmkd(Low Memory Killer Daemon)来替代内核驱动用以监控系统内存状态，在系统处于内存高压状态时，主动清理部分内存，确">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/psi-some.png">
+<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/psi-full.png">
+<meta property="article:published_time" content="2024-06-25T09:46:33.000Z">
+<meta property="article:modified_time" content="2024-07-07T08:37:48.147Z">
+<meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="PSI">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="LMKD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/psi-some.png">
+    <meta http-equiv="Cache-control" content="no-cache">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="icon" href="/assets/favicon.ico">
+    
+    <title>Android如何使用PSI管理内存 · JasonWang&#39;s Blog</title>
+    <!-- /*! loadCSS. [c]2017 Filament Group, Inc. MIT License */
+/* This file is meant as a standalone workflow for
+- testing support for link[rel=preload]
+- enabling async CSS loading in browsers that do not support rel=preload
+- applying rel preload css once loaded, whether supported or not.
+*/ -->
+<script>
+    (function (w) {
+        'use strict'
+        // rel=preload support test
+        if (!w.loadCSS) {
+            w.loadCSS = function () {}
+        }
+        // define on the loadCSS obj
+        var rp = (loadCSS.relpreload = {})
+        // rel=preload feature support test
+        // runs once and returns a function for compat purposes
+        rp.support = (function () {
+            var ret
+            try {
+                ret = w.document.createElement('link').relList.supports('preload')
+            } catch (e) {
+                ret = false
+            }
+            return function () {
+                return ret
+            }
+        })()
+
+        // if preload isn't supported, get an asynchronous load by using a non-matching media attribute
+        // then change that media back to its intended value on load
+        rp.bindMediaToggle = function (link) {
+            // remember existing media attr for ultimate state, or default to 'all'
+            var finalMedia = link.media || 'all'
+
+            function enableStylesheet() {
+                link.media = finalMedia
+            }
+
+            // bind load handlers to enable media
+            if (link.addEventListener) {
+                link.addEventListener('load', enableStylesheet)
+            } else if (link.attachEvent) {
+                link.attachEvent('onload', enableStylesheet)
+            }
+
+            // Set rel and non-applicable media type to start an async request
+            // note: timeout allows this to happen async to let rendering continue in IE
+            setTimeout(function () {
+                link.rel = 'stylesheet'
+                link.media = 'only x'
+            })
+            // also enable media after 3 seconds,
+            // which will catch very old browsers (android 2.x, old firefox) that don't support onload on link
+            setTimeout(enableStylesheet, 3000)
+        }
+
+        // loop through link elements in DOM
+        rp.poly = function () {
+            // double check this to prevent external calls from running
+            if (rp.support()) {
+                return
+            }
+            var links = w.document.getElementsByTagName('link')
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i]
+                // qualify links to those with rel=preload and as=style attrs
+                if (
+                    link.rel === 'preload' &&
+                    link.getAttribute('as') === 'style' &&
+                    !link.getAttribute('data-loadcss')
+                ) {
+                    // prevent rerunning on link
+                    link.setAttribute('data-loadcss', true)
+                    // bind listeners to toggle media back
+                    rp.bindMediaToggle(link)
+                }
+            }
+        }
+
+        // if unsupported, run the polyfill
+        if (!rp.support()) {
+            // run once at least
+            rp.poly()
+
+            // rerun poly on an interval until onload
+            var run = w.setInterval(rp.poly, 500)
+            if (w.addEventListener) {
+                w.addEventListener('load', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            } else if (w.attachEvent) {
+                w.attachEvent('onload', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            }
+        }
+
+        // commonjs
+        if (typeof exports !== 'undefined') {
+            exports.loadCSS = loadCSS
+        } else {
+            w.loadCSS = loadCSS
+        }
+    })(typeof global !== 'undefined' ? global : this)
+</script>
+
+    <style type="text/css">
+    @font-face {
+        font-family: 'Oswald-Regular';
+        src: url("/font/Oswald-Regular.ttf");
+    }
+
+    body {
+        margin: 0;
+    }
+
+    header,
+    footer,
+    .back-top,
+    .sidebar,
+    .container,
+    .site-intro-meta,
+    .toc-wrapper {
+        display: none;
+    }
+
+    .site-intro {
+        position: relative;
+        z-index: 3;
+        width: 100%;
+        /* height: 50vh; */
+        overflow: hidden;
+    }
+
+    .site-intro-placeholder {
+        position: absolute;
+        z-index: -2;
+        top: 0;
+        left: 0;
+        width: calc(100% + 300px);
+        height: 100%;
+        background: repeating-linear-gradient(-45deg, #444 0, #444 80px, #333 80px, #333 160px);
+        background-position: center center;
+        transform: translate3d(-226px, 0, 0);
+        animation: gradient-move 2.5s ease-out 0s infinite;
+    }
+
+    @keyframes gradient-move {
+        0% {
+            transform: translate3d(-226px, 0, 0);
+        }
+        100% {
+            transform: translate3d(0, 0, 0);
+        }
+    }
+</style>
+
+    <link rel="preload" href="/css/style.css?v=20211217" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="/css/dark.css?v=20211217" as="style">
+    <link rel="stylesheet" href="/css/dark.css">
+    <link rel="stylesheet" href="/css/mobile.css?v=20211217" media="(max-width: 960px)">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js" as="script">
+    <link rel="preload" href="/scripts/main.js?v=20211217" as="script">
+    <link rel="preload" href="/scripts/dark.js?v=20211217" as="script">
+    <link rel="preload" href="/font/Oswald-Regular.ttf" as="font" crossorigin>
+    <link rel="preload" href="https://at.alicdn.com/t/font_327081_1dta1rlogw17zaor.woff" as="font" crossorigin>
+    <!-- algolia -->
+    
+        <script>
+            var hits = JSON.parse('{"per_page":10}')
+            var labels = JSON.parse('{"input_placeholder":"Search for Posts","hits_empty":"We did not find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}')
+
+            var algolia = {
+                applicationID: '1POSCBVZ02',
+                apiKey: 'bf09f0197d475fa69488099407011316',
+                indexName: 'getstarted_actors',
+                hits: hits,
+                labels: labels
+            }
+        </script>
+    
+    <!-- 百度统计  -->
+    
+    <!-- 谷歌统计  -->
+    
+        <script>
+            (function (i, s, o, g, r, a, m) {
+                i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+                (i[r].q = i[r].q || []).push(arguments)
+                }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+            })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
+            ga('create', 'G-828GR9BHP9', 'auto');
+            ga('send', 'pageview');
+        </script>
+    
+<meta name="generator" content="Hexo 6.1.0"><link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+</head>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script type="text/javascript">
+        if (typeof window.$ == undefined) {
+            console.warn('jquery load from jsdelivr failed, will load local script')
+            document.write('<script src="/lib/jquery.min.js" />')
+        }
+    </script>
+    
+        <body class="post-body">
+    
+        <!-- header -->
+        <header class="header header-mobile">
+    <!-- top read progress line -->
+    <div class="header-element">
+        <div class="read-progress"></div>
+    </div>
+    <!-- sidebar menu button -->
+    <div class="header-element">
+        
+            <div class="header-sidebar-menu">
+        
+            
+                <div style="padding-left: 1px;">&#xe775;</div>
+            
+        </div>
+    </div>
+    <!-- header actions -->
+    <div class="header-actions">
+        <!-- theme mode switch button -->
+        <span class="header-theme-btn header-element">
+            <i class="fas fa-adjust"></i>
+        </span>
+        <!-- back to home page text -->
+        <span class="home-link header-element">
+            <a href=/>JasonWang's Blog</a>
+        </span>
+    </div>
+    <!-- toggle banner for post layout -->
+    
+        
+            <div class="banner">
+        
+            <div class="blog-title header-element">
+                <a href="/">JasonWang&#39;s Blog</a>
+            </div>
+            <div class="post-title header-element">
+                <a href="#" class="post-name">Android如何使用PSI管理内存</a>
+            </div>
+        </div>
+    
+</header>
+
+        <!-- fixed footer -->
+        <footer class="footer-fixed">
+    <!-- back to top button -->
+    <div class="footer-fixed-element">
+        
+            <div class="back-top back-top-hidden">
+        
+        
+            <div>&#xe639;</div>
+        
+        </div>
+    </div>
+</footer>
+
+        <!-- wrapper -->
+        <div class="wrapper">
+            <div class="site-intro" style="
+
+
+
+
+
+
+
+    height:50vh;
+
+">
+    
+    <!-- 主页  -->
+    
+        
+    <!-- 404页  -->
+            
+    <div class="site-intro-placeholder"></div>
+    <div class="site-intro-img" style="background-image: url(/intro/post-bg.jpeg)"></div>
+    <div class="site-intro-meta">
+        <!-- 标题  -->
+        <h1 class="intro-title">
+            <!-- 主页  -->
+            
+                Android如何使用PSI管理内存
+            <!-- 404 -->
+            
+        </h1>
+        <!-- 副标题 -->
+        <p class="intro-subtitle">
+            <!-- 主页副标题  -->
+            
+                
+            <!-- 404 -->
+            
+        </p>
+        <!-- 文章页 meta -->
+        
+            <div class="post-intros">
+                <!-- 文章页标签  -->
+                
+                    <div class= post-intro-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="PSI">PSI</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="内存管理">内存管理</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="LMKD">LMKD</a>
+    
+</div>
+
+                
+                
+                    <div class="post-intro-read">
+                        <span>字数统计: <span class="post-count word-count">3.5k</span>阅读时长: <span class="post-count reading-time">17 min</span></span>
+                    </div>
+                
+                <div class="post-intro-meta">
+                    <!-- 撰写日期 -->
+                    <span class="iconfont-archer post-intro-calander">&#xe676;</span>
+                    <span class="post-intro-time">2024/06/25</span>
+                    <!-- busuanzi -->
+                    <!--
+                        <span id="busuanzi_container_page_pv" class="busuanzi-pv">
+                            <span class="iconfont-archer post-intro-busuanzi">&#xe602;</span>
+                            <span id="busuanzi_value_page_pv"></span>
+                        </span>
+                     -->
+                    <!-- 文章分享 -->
+                    <span class="share-wrapper">
+                        <span class="iconfont-archer share-icon">&#xe71d;</span>
+                        <span class="share-text">Share</span>
+                        <ul class="share-list">
+                            <li class="iconfont-archer share-qr" data-type="qr">&#xe75b;
+                                <div class="share-qrcode"></div>
+                            </li>
+                            <li class="iconfont-archer" data-type="weibo">&#xe619;</li>
+                            <li class="iconfont-archer" data-type="qzone">&#xe62e;</li>
+                            <li class="iconfont-archer" data-type="twitter">&#xe634;</li>
+                            <li class="iconfont-archer" data-type="facebook">&#xe67a;</li>
+                        </ul>
+                    </span>
+                </div>
+            </div>
+        
+    </div>
+</div>
+
+            <script>
+  // get user agent
+  function getBrowserVersions() {
+    var u = window.navigator.userAgent
+    return {
+      userAgent: u,
+      trident: u.indexOf('Trident') > -1, //IE内核
+      presto: u.indexOf('Presto') > -1, //opera内核
+      webKit: u.indexOf('AppleWebKit') > -1, //苹果、谷歌内核
+      gecko: u.indexOf('Gecko') > -1 && u.indexOf('KHTML') == -1, //火狐内核
+      mobile: !!u.match(/AppleWebKit.*Mobile.*/), //是否为移动终端
+      ios: !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/), //ios终端
+      android: u.indexOf('Android') > -1 || u.indexOf('Linux') > -1, //android终端或者uc浏览器
+      iPhone: u.indexOf('iPhone') > -1 || u.indexOf('Mac') > -1, //是否为iPhone或者安卓QQ浏览器
+      iPad: u.indexOf('iPad') > -1, //是否为iPad
+      webApp: u.indexOf('Safari') == -1, //是否为web应用程序，没有头部与底部
+      weixin: u.indexOf('MicroMessenger') == -1, //是否为微信浏览器
+      uc: u.indexOf('UCBrowser') > -1, //是否为android下的UC浏览器
+    }
+  }
+  var browser = {
+    versions: getBrowserVersions(),
+  }
+  console.log('userAgent: ' + browser.versions.userAgent)
+
+  // callback
+  function fontLoaded() {
+    console.log('font loaded')
+    if (document.getElementsByClassName('site-intro-meta')) {
+      document
+        .getElementsByClassName('intro-title')[0]
+        .classList.add('intro-fade-in')
+      document
+        .getElementsByClassName('intro-subtitle')[0]
+        .classList.add('intro-fade-in')
+      var postIntros = document.getElementsByClassName('post-intros')[0]
+      if (postIntros) {
+        postIntros.classList.add('post-fade-in')
+      }
+    }
+  }
+
+  // UC不支持跨域，所以直接显示
+  function asyncCb() {
+    if (browser.versions.uc) {
+      console.log('UCBrowser')
+      fontLoaded()
+    } else {
+      WebFont.load({
+        custom: {
+          families: ['Oswald-Regular'],
+        },
+        loading: function () {
+          // 所有字体开始加载
+          // console.log('font loading');
+        },
+        active: function () {
+          // 所有字体已渲染
+          fontLoaded()
+        },
+        inactive: function () {
+          // 字体预加载失败，无效字体或浏览器不支持加载
+          console.log('inactive: timeout')
+          fontLoaded()
+        },
+        timeout: 5000, // Set the timeout to two seconds
+      })
+    }
+  }
+
+  function asyncErr() {
+    console.warn('script load from CDN failed, will load local script')
+  }
+
+  // load webfont-loader async, and add callback function
+  function async(u, cb, err) {
+    var d = document,
+      t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0]
+    o.src = u
+    if (cb) {
+      o.addEventListener(
+        'load',
+        function (e) {
+          cb(null, e)
+        },
+        false
+      )
+    }
+    if (err) {
+      o.addEventListener(
+        'error',
+        function (e) {
+          err(null, e)
+        },
+        false
+      )
+    }
+    s.parentNode.insertBefore(o, s)
+  }
+
+  var asyncLoadWithFallBack = function (arr, success, reject) {
+    var currReject = function () {
+      reject()
+      arr.shift()
+      if (arr.length) async(arr[0], success, currReject)
+    }
+
+    async(arr[0], success, currReject)
+  }
+
+  asyncLoadWithFallBack(
+    [
+      'https://cdn.jsdelivr.net/npm/webfontloader@1.6.28/webfontloader.min.js',
+      'https://cdn.bootcss.com/webfont/1.6.28/webfontloader.js',
+      "/lib/webfontloader.min.js",
+    ],
+    asyncCb,
+    asyncErr
+  )
+</script>
+
+            <img class="loading" src="/assets/loading.svg" style="display: block; margin: 6rem auto 0 auto; width: 6rem; height: 6rem;" />
+            <div class="container container-unloaded">
+                <main class="main post-page">
+    <article class="article-entry">
+        <p>早前，<code>Android</code>使用内核中的<code>lowmemorykiller</code>驱动模块来监控系统内存，在内存不足时会主动杀掉某些非关键性的进程或者应用，从而减少系统的内存压力；自从内核版本<code>4.12</code>之后，<code>lowmemorykiller</code>从内核中移除了，因此<code>Android</code>增加一个<code>lmkd(Low Memory Killer Daemon)</code>来替代内核驱动用以监控系统内存状态，在系统处于内存高压状态时，主动清理部分内存，确保内存水位处于可接受的状态。那么，<code>LMKD</code>又是如何获取系统内存压力状态的了？这个就要说到<code>PSI(Pressure stall information)</code>这个内核模块了。</p>
+<span id="more"></span>
+
+<p><code>Android10</code>开始在<code>LMKD</code>中引入了<code>PSI</code>（压力失速信息）来检测内存压力，简单来说，<code>PSI</code>通过检测由于内存不足导致的任务延迟，这些延迟可以用来表示系统内存压力状态；并提供了接口来给用户进程获取这些状态信息；早期<code>Android</code>的版本则使用<code>vmpressure</code>模块来获取系统内存压力状态。</p>
+<p>这篇文章我们主要看看<code>Android</code>如何使用<code>PSI</code>来管理内存，在出现内存压力如何释放内存。</p>
+<h2 id="PSI简介"><a href="#PSI简介" class="headerlink" title="PSI简介"></a>PSI简介</h2><p><code>PSI(Pressure stall information)</code>是内核中的一个模块，用来监控系统中CPU、内存、IO资源压力状态，目的是衡量系统整体的资源健康情况；当系统出现资源压力时（由于CPU、内存或IO资源的不足而导致的任务延迟），系统的运行效率会降低。通过<code>PSI</code>的接口，我们可以获取系统资源的压力状态，可以选择对应的资源管理策略进行调优，从而提升系统的效率。</p>
+<p>要获取到<code>PSI</code>状态，可以通过<code>/proc/pressure</code>中的文件来查看，对应有三个接口:</p>
+<ul>
+<li><code>/proc/pressure/cpu</code>: 查看系统CPU压力状态</li>
+<li><code>/proc/pressure/memory</code>: 查看系统内存压力状态</li>
+<li><code>/proc/pressure/io</code>： 查看系统IO压力状态</li>
+</ul>
+<p>对应输出的数据都是统一的格式，具体来说，第一行<code>some</code>表示当前系统有一个或者多个进程有出现压力；第二行<code>full</code>表示所有的进程都出现了资源压力。<code>avg10</code>表示10s的平均值，<code>avg60</code>表示60s的平均值，<code>avg300</code>表示300s的平均值，<code>total</code>表示累计延迟的总时间（以ms为单位）。</p>
+<blockquote>
+<p>对CPU来说，不存在<code>full</code>状态，因为系统中始终存在一个可运行的进程</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">some avg10=0.77 avg60=0.23 avg300=0.14 total=117592248</span><br><span class="line">full avg10=0.00 avg60=0.00 avg300=0.00 total=0</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>以下图为列，有两个进程执行的情况下，由于出现内存压力，导致<code>B</code>进程等待了30s; <code>A</code>进程正常执行没有延迟, 则<code>some</code>的值对应50%（0.5）；因此<code>some</code>从某种程度上表示了系统资源压力带来的延迟；</p>
+<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/psi-some.png" alt="some crop"></p>
+<p>类似地，如下图，两个进程<code>A</code>与<code>B</code>都因为内存压力出现了延迟等待，<code>A</code>等待了<code>10s</code>, <code>B</code>等待了<code>30s</code>，则此时<code>some</code>为<code>50%</code>, 而<code>full</code>为<code>16.67%</code>; 高<code>full</code>值表示由于系统资源压力导致的总吞吐量的损失。</p>
+<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/psi-full.png" alt="full crop"></p>
+<blockquote>
+<p>打开<code>PSI</code>需要开启内核配置<code>CONFIG_PSI</code>，<code>CONFIG_PSI_LMKD</code>和<code>CONFIG_PSI_SYSCALL</code>三个配置项，默认都是开启的。</p>
+</blockquote>
+<p>内核一般会在系统发生进程切换或者内存分配发生回收时时主动通知<code>PSI</code>模块，从而统计当前资源的压力,对应的内核接口都可以在<code>linux/psi.h</code>中找到，主要用这么几个接口:</p>
+<ul>
+<li><code>psi_init</code>: 初始化<code>PSI</code>模块</li>
+<li><code>psi_task_change</code>: 任务状态发生变化时通知<code>PSI</code>模块，更新统计数据</li>
+<li><code>psi_task_switch</code>: 任务切换时通知<code>PSI</code>模块，更新统计数据</li>
+<li><code>psi_memstall_tick</code>: 定时器中断产生时通知<code>PSI</code>模块，更新内存压力统计数据</li>
+<li><code>psi_memstall_enter</code>: 内存分配出现压力开始时通知<code>PSI</code>模块，更新内存压力统计数据</li>
+<li><code>psi_memstall_leave</code>: 内存分配压力结束时通知<code>PSI</code>模块，更新内存压力统计数据</li>
+</ul>
+<p>以内存为例，内核会在主要的几个内存路径， 如内存回收、内存整理等都会调用，<code>psi_memstall_enter</code>&#x2F;<code>psi_memstall_leave</code>函数，用于统计内存压力状态。比如在内存分配路径如果由于内存碎片化，启动了内存整理，则会告知<code>PSI</code>模块，统计内存碎片化整理带来的延迟：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// page_alloc.c</span></span><br><span class="line"></span><br><span class="line">* Try memory compaction <span class="keyword">for</span> high-order allocations before reclaim */</span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">page</span> *</span></span><br><span class="line"><span class="class">__<span class="title">alloc_pages_direct_compact</span>(<span class="title">gfp_t</span> <span class="title">gfp_mask</span>, <span class="title">unsigned</span> <span class="title">int</span> <span class="title">order</span>,</span></span><br><span class="line"><span class="class">		<span class="title">unsigned</span> <span class="title">int</span> <span class="title">alloc_flags</span>, <span class="title">const</span> <span class="keyword">struct</span> <span class="title">alloc_context</span> *<span class="title">ac</span>,</span></span><br><span class="line"><span class="class">		<span class="title">enum</span> <span class="title">compact_priority</span> <span class="title">prio</span>, <span class="title">enum</span> <span class="title">compact_result</span> *<span class="title">compact_result</span>)</span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">page</span> *<span class="title">page</span> =</span> <span class="literal">NULL</span>;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> pflags;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> noreclaim_flag;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!order)</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 开始内存整理</span></span><br><span class="line">	psi_memstall_enter(&amp;pflags);</span><br><span class="line">	noreclaim_flag = memalloc_noreclaim_save();</span><br><span class="line"></span><br><span class="line">	*compact_result = try_to_compact_pages(gfp_mask, order, alloc_flags, ac,</span><br><span class="line">								prio, &amp;page);</span><br><span class="line"></span><br><span class="line">	memalloc_noreclaim_restore(noreclaim_flag);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 结束内存整理</span></span><br><span class="line">	psi_memstall_leave(&amp;pflags);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * At least in one zone compaction wasn&#x27;t deferred or skipped, so let&#x27;s</span></span><br><span class="line"><span class="comment">	 * count a compaction stall</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	count_vm_event(COMPACTSTALL);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Prep a captured page if available */</span></span><br><span class="line">	<span class="keyword">if</span> (page)</span><br><span class="line">		prep_new_page(page, order, gfp_mask, alloc_flags);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Try get a page from the freelist if available */</span></span><br><span class="line">	<span class="keyword">if</span> (!page)</span><br><span class="line">		page = get_page_from_freelist(gfp_mask, order, alloc_flags, ac);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (page) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">zone</span> *<span class="title">zone</span> =</span> page_zone(page);</span><br><span class="line"></span><br><span class="line">		zone-&gt;compact_blockskip_flush = <span class="literal">false</span>;</span><br><span class="line">		compaction_defer_reset(zone, order, <span class="literal">true</span>);</span><br><span class="line">		count_vm_event(COMPACTSUCCESS);</span><br><span class="line">		<span class="keyword">return</span> page;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * It&#x27;s bad if compaction run occurs and fails. The most likely reason</span></span><br><span class="line"><span class="comment">	 * is that pages exist, but not enough to satisfy watermarks.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	count_vm_event(COMPACTFAIL);</span><br><span class="line"></span><br><span class="line">	cond_resched();</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>更多的技术细节可以参考<code>linux/stats.h</code>(CPU调度)以及<code>kernel/mm</code>(内存管理)相关的代码。下面我们就来看看<code>Android</code>中如何利用<code>PSI</code>来管理系统的内存，并在低内存状态时如何回收内存的。</p>
+<h2 id="LMKD如何使用PSI监控内存状态"><a href="#LMKD如何使用PSI监控内存状态" class="headerlink" title="LMKD如何使用PSI监控内存状态"></a>LMKD如何使用PSI监控内存状态</h2><p>下图是<code>LMKD</code>内存管理服务的架构图，<code>LMKD</code>主要是为了解决低内存时系统内存回收的问题，通过<code>PSI</code>的信息获取到系统内存压力状态后，只要内存压力超过一定的水位，<code>LMKD</code>会主动选择杀掉一个低优先级任务（根据进程的<code>oom_score</code>的值），释放部分内存，确保系统内存达到正常水位。</p>
+<p>！<a target="_blank" rel="noopener" href="https://md-files.oss-cn-shenzhen.aliyuncs.com/lmkd-psi-architecture.png">lmkd-psi-architecture</a></p>
+<p><code>LMKD</code>低内存管理服务在启动时，会主动注册一个内核事件，用于监听<code>PSI</code>内存压力状态(<code>Android10</code>以后默认使用<code>PSI</code>):</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">init_monitors</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">/* Try to use psi monitor first if kernel has it */</span></span><br><span class="line">    use_psi_monitors = <span class="built_in">GET_LMK_PROPERTY</span>(<span class="type">bool</span>, <span class="string">&quot;use_psi&quot;</span>, <span class="literal">true</span>) &amp;&amp;</span><br><span class="line">        <span class="built_in">init_psi_monitors</span>();</span><br><span class="line">    <span class="comment">/* Fall back to vmpressure */</span></span><br><span class="line">    <span class="keyword">if</span> (!use_psi_monitors &amp;&amp;</span><br><span class="line">        (!<span class="built_in">init_mp_common</span>(VMPRESS_LEVEL_LOW) ||</span><br><span class="line">        !<span class="built_in">init_mp_common</span>(VMPRESS_LEVEL_MEDIUM) ||</span><br><span class="line">        !<span class="built_in">init_mp_common</span>(VMPRESS_LEVEL_CRITICAL))) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Kernel does not support memory pressure events or in-kernel low memory killer&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (use_psi_monitors) &#123;</span><br><span class="line">        <span class="built_in">ALOGI</span>(<span class="string">&quot;Using psi monitors for memory pressure detection&quot;</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">ALOGI</span>(<span class="string">&quot;Using vmpressure for memory pressure detection&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>初始化<code>PSI</code>监听模块会根据内存压力阈值进行初始化：内存压力分为<code>low</code>，<code>medium</code>和<code>critical</code>三个阈值，实际只使用了<code>VMPRESS_LEVEL_MEDIUM</code>与<code>VMPRESS_LEVEL_CRITICAL</code>两个值， 对应<code>PSI</code>中的<code>some</code>与<code>full</code>两种状态。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">init_psi_monitors</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * When PSI is used on low-ram devices or on high-end devices without memfree levels</span></span><br><span class="line"><span class="comment">     * use new kill strategy based on zone watermarks, free swap and thrashing stats</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">bool</span> use_new_strategy =</span><br><span class="line">        <span class="built_in">GET_LMK_PROPERTY</span>(<span class="type">bool</span>, <span class="string">&quot;use_new_strategy&quot;</span>, low_ram_device || !use_minfree_levels);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* In default PSI mode override stall amounts using system properties */</span></span><br><span class="line">    <span class="keyword">if</span> (use_new_strategy) &#123;</span><br><span class="line">        <span class="comment">/* Do not use low pressure level */</span></span><br><span class="line">        psi_thresholds[VMPRESS_LEVEL_LOW].threshold_ms = <span class="number">0</span>;</span><br><span class="line">        psi_thresholds[VMPRESS_LEVEL_MEDIUM].threshold_ms = psi_partial_stall_ms;</span><br><span class="line">        psi_thresholds[VMPRESS_LEVEL_CRITICAL].threshold_ms = psi_complete_stall_ms;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">init_mp_psi</span>(VMPRESS_LEVEL_LOW, use_new_strategy)) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">init_mp_psi</span>(VMPRESS_LEVEL_MEDIUM, use_new_strategy)) &#123;</span><br><span class="line">        <span class="built_in">destroy_mp_psi</span>(VMPRESS_LEVEL_LOW);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">init_mp_psi</span>(VMPRESS_LEVEL_CRITICAL, use_new_strategy)) &#123;</span><br><span class="line">        <span class="built_in">destroy_mp_psi</span>(VMPRESS_LEVEL_MEDIUM);</span><br><span class="line">        <span class="built_in">destroy_mp_psi</span>(VMPRESS_LEVEL_LOW);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>函数<code>mp_event_psi</code>最终会通过<code>PSI</code>的接口监听内存压力状态（<code>PSI</code>接口可以支持<code>poll</code>&#x2F;<code>epoll</code>等通用的方式进行监听），并注册一个监听的回调，在有状态变化时会调用<code>mp_event_psi</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">init_mp_psi</span><span class="params">(<span class="keyword">enum</span> vmpressure_level level, <span class="type">bool</span> use_new_strategy)</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> fd;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Do not register a handler if threshold_ms is not set */</span></span><br><span class="line">    <span class="keyword">if</span> (!psi_thresholds[level].threshold_ms) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    fd = <span class="built_in">init_psi_monitor</span>(psi_thresholds[level].stall_type,</span><br><span class="line">        psi_thresholds[level].threshold_ms * US_PER_MS,</span><br><span class="line">        PSI_WINDOW_SIZE_MS * US_PER_MS);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    vmpressure_hinfo[level].handler = use_new_strategy ? mp_event_psi : mp_event_common;</span><br><span class="line">    vmpressure_hinfo[level].data = level;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">register_psi_monitor</span>(epollfd, fd, &amp;vmpressure_hinfo[level]) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">destroy_psi_monitor</span>(fd);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    maxevents++;</span><br><span class="line">    mpevfd[level] = fd;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>注册<code>psi</code>接口的核心函数<code>init_psi_monitor</code>, 主要功能是打开<code>/proc/pressure/memory</code>, 然后按照标准格式写入一个配置文件，用于设定内存压力阈值和监听时间窗口，并返回一个文件描述符。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"># &lt;some|full&gt; &lt;stall amount in us&gt; &lt;time window in us&gt;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">init_psi_monitor</span><span class="params">(<span class="keyword">enum</span> psi_stall_type stall_type,</span></span></span><br><span class="line"><span class="params"><span class="function">             <span class="type">int</span> threshold_us, <span class="type">int</span> window_us)</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> fd;</span><br><span class="line">    <span class="type">int</span> res;</span><br><span class="line">    <span class="type">char</span> buf[<span class="number">256</span>];</span><br><span class="line"></span><br><span class="line">    fd = <span class="built_in">TEMP_FAILURE_RETRY</span>(<span class="built_in">open</span>(PSI_PATH_MEMORY, O_WRONLY | O_CLOEXEC));</span><br><span class="line">    <span class="keyword">if</span> (fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;No kernel psi monitor support (errno=%d)&quot;</span>, errno);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">switch</span> (stall_type) &#123;</span><br><span class="line">    <span class="built_in">case</span> (PSI_SOME):</span><br><span class="line">    <span class="built_in">case</span> (PSI_FULL):</span><br><span class="line">        res = <span class="built_in">snprintf</span>(buf, <span class="built_in">sizeof</span>(buf), <span class="string">&quot;%s %d %d&quot;</span>,</span><br><span class="line">            stall_type_name[stall_type], threshold_us, window_us);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Invalid psi stall type: %d&quot;</span>, stall_type);</span><br><span class="line">        errno = EINVAL;</span><br><span class="line">        <span class="keyword">goto</span> err;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (res &gt;= (<span class="type">ssize_t</span>)<span class="built_in">sizeof</span>(buf)) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;%s line overflow for psi stall type &#x27;%s&#x27;&quot;</span>,</span><br><span class="line">            PSI_PATH_MEMORY, stall_type_name[stall_type]);</span><br><span class="line">        errno = EINVAL;</span><br><span class="line">        <span class="keyword">goto</span> err;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    res = <span class="built_in">TEMP_FAILURE_RETRY</span>(<span class="built_in">write</span>(fd, buf, <span class="built_in">strlen</span>(buf) + <span class="number">1</span>));</span><br><span class="line">    <span class="keyword">if</span> (res &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;%s write failed for psi stall type &#x27;%s&#x27;; errno=%d&quot;</span>,</span><br><span class="line">            PSI_PATH_MEMORY, stall_type_name[stall_type], errno);</span><br><span class="line">        <span class="keyword">goto</span> err;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> fd;</span><br><span class="line"></span><br><span class="line">err:</span><br><span class="line">    <span class="built_in">close</span>(fd);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>内核一旦触发内存压力事件，会通过<code>mp_event_psi</code>注册的回调函数进行处理：首先根据当前设定的内存水位，判断系统是否处于低内存状态，如果是，则找出后台的低优先级任务，然后选择其中一个杀掉，释放部分内存。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br><span class="line">245</span><br><span class="line">246</span><br><span class="line">247</span><br><span class="line">248</span><br><span class="line">249</span><br><span class="line">250</span><br><span class="line">251</span><br><span class="line">252</span><br><span class="line">253</span><br><span class="line">254</span><br><span class="line">255</span><br><span class="line">256</span><br><span class="line">257</span><br><span class="line">258</span><br><span class="line">259</span><br><span class="line">260</span><br><span class="line">261</span><br><span class="line">262</span><br><span class="line">263</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">mp_event_psi</span><span class="params">(<span class="type">int</span> data, <span class="type">uint32_t</span> events, <span class="keyword">struct</span> polling_params *poll_params)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">enum</span> <span class="title class_">reclaim_state</span> &#123;</span><br><span class="line">        NO_RECLAIM = <span class="number">0</span>,</span><br><span class="line">        KSWAPD_RECLAIM,</span><br><span class="line">        DIRECT_RECLAIM,</span><br><span class="line">    &#125;;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">clock_gettime</span>(CLOCK_MONOTONIC_COARSE, &amp;curr_tm) != <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to get current time&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">record_wakeup_time</span>(&amp;curr_tm, events ? Event : Polling, &amp;wi);</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> kill_pending = <span class="built_in">is_kill_pending</span>();</span><br><span class="line">    <span class="keyword">if</span> (kill_pending &amp;&amp; (kill_timeout_ms == <span class="number">0</span> ||</span><br><span class="line">        <span class="built_in">get_time_diff_ms</span>(&amp;last_kill_tm, &amp;curr_tm) &lt; <span class="built_in">static_cast</span>&lt;<span class="type">long</span>&gt;(kill_timeout_ms))) &#123;</span><br><span class="line">        <span class="comment">/* Skip while still killing a process */</span></span><br><span class="line">        wi.skipped_wakeups++;</span><br><span class="line">        <span class="keyword">goto</span> no_kill;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * Process is dead or kill timeout is over, stop waiting. This has no effect if pidfds are</span></span><br><span class="line"><span class="comment">     * supported and death notification already caused waiting to stop.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">stop_wait_for_proc_kill</span>(!kill_pending);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">vmstat_parse</span>(&amp;vs) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to parse vmstat!&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* Starting 5.9 kernel workingset_refault vmstat field was renamed workingset_refault_file */</span></span><br><span class="line">    workingset_refault_file = vs.field.workingset_refault ? : vs.field.workingset_refault_file;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">meminfo_parse</span>(&amp;mi) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to parse meminfo!&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Reset states after process got killed */</span></span><br><span class="line">    <span class="keyword">if</span> (killing) &#123;</span><br><span class="line">        killing = <span class="literal">false</span>;</span><br><span class="line">        cycle_after_kill = <span class="literal">true</span>;</span><br><span class="line">        <span class="comment">/* Reset file-backed pagecache size and refault amounts after a kill */</span></span><br><span class="line">        base_file_lru = vs.field.nr_inactive_file + vs.field.nr_active_file;</span><br><span class="line">        init_ws_refault = workingset_refault_file;</span><br><span class="line">        thrashing_reset_tm = curr_tm;</span><br><span class="line">        prev_thrash_growth = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Check free swap levels */</span></span><br><span class="line">    <span class="keyword">if</span> (swap_free_low_percentage) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!swap_low_threshold) &#123;</span><br><span class="line">            swap_low_threshold = mi.field.total_swap * swap_free_low_percentage / <span class="number">100</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        swap_is_low = mi.field.free_swap &lt; swap_low_threshold;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Identify reclaim state */</span></span><br><span class="line">    <span class="keyword">if</span> (vs.field.pgscan_direct &gt; init_pgscan_direct) &#123;</span><br><span class="line">        init_pgscan_direct = vs.field.pgscan_direct;</span><br><span class="line">        init_pgscan_kswapd = vs.field.pgscan_kswapd;</span><br><span class="line">        reclaim = DIRECT_RECLAIM;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (vs.field.pgscan_kswapd &gt; init_pgscan_kswapd) &#123;</span><br><span class="line">        init_pgscan_kswapd = vs.field.pgscan_kswapd;</span><br><span class="line">        reclaim = KSWAPD_RECLAIM;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (workingset_refault_file == prev_workingset_refault) &#123;</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Device is not thrashing and not reclaiming, bail out early until we see these stats</span></span><br><span class="line"><span class="comment">         * changing</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="keyword">goto</span> no_kill;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    prev_workingset_refault = workingset_refault_file;</span><br><span class="line"></span><br><span class="line">     <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * It&#x27;s possible we fail to find an eligible process to kill (ex. no process is</span></span><br><span class="line"><span class="comment">     * above oom_adj_min). When this happens, we should retry to find a new process</span></span><br><span class="line"><span class="comment">     * for a kill whenever a new eligible process is available. This is especially</span></span><br><span class="line"><span class="comment">     * important for a slow growing refault case. While retrying, we should keep</span></span><br><span class="line"><span class="comment">     * monitoring new thrashing counter as someone could release the memory to mitigate</span></span><br><span class="line"><span class="comment">     * the thrashing. Thus, when thrashing reset window comes, we decay the prev thrashing</span></span><br><span class="line"><span class="comment">     * counter by window counts. If the counter is still greater than thrashing limit,</span></span><br><span class="line"><span class="comment">     * we preserve the current prev_thrash counter so we will retry kill again. Otherwise,</span></span><br><span class="line"><span class="comment">     * we reset the prev_thrash counter so we will stop retrying.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    since_thrashing_reset_ms = <span class="built_in">get_time_diff_ms</span>(&amp;thrashing_reset_tm, &amp;curr_tm);</span><br><span class="line">    <span class="keyword">if</span> (since_thrashing_reset_ms &gt; THRASHING_RESET_INTERVAL_MS) &#123;</span><br><span class="line">        <span class="type">long</span> windows_passed;</span><br><span class="line">        <span class="comment">/* Calculate prev_thrash_growth if we crossed THRASHING_RESET_INTERVAL_MS */</span></span><br><span class="line">        prev_thrash_growth = (workingset_refault_file - init_ws_refault) * <span class="number">100</span></span><br><span class="line">                            / (base_file_lru + <span class="number">1</span>);</span><br><span class="line">        windows_passed = (since_thrashing_reset_ms / THRASHING_RESET_INTERVAL_MS);</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Decay prev_thrashing unless over-the-limit thrashing was registered in the window we</span></span><br><span class="line"><span class="comment">         * just crossed, which means there were no eligible processes to kill. We preserve the</span></span><br><span class="line"><span class="comment">         * counter in that case to ensure a kill if a new eligible process appears.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="keyword">if</span> (windows_passed &gt; <span class="number">1</span> || prev_thrash_growth &lt; thrashing_limit) &#123;</span><br><span class="line">            prev_thrash_growth &gt;&gt;= windows_passed;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Record file-backed pagecache size when crossing THRASHING_RESET_INTERVAL_MS */</span></span><br><span class="line">        base_file_lru = vs.field.nr_inactive_file + vs.field.nr_active_file;</span><br><span class="line">        init_ws_refault = workingset_refault_file;</span><br><span class="line">        thrashing_reset_tm = curr_tm;</span><br><span class="line">        thrashing_limit = thrashing_limit_pct;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">/* Calculate what % of the file-backed pagecache refaulted so far */</span></span><br><span class="line">        thrashing = (workingset_refault_file - init_ws_refault) * <span class="number">100</span> / (base_file_lru + <span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* Add previous cycle&#x27;s decayed thrashing amount */</span></span><br><span class="line">    thrashing += prev_thrash_growth;</span><br><span class="line">    <span class="keyword">if</span> (max_thrashing &lt; thrashing) &#123;</span><br><span class="line">        max_thrashing = thrashing;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * Refresh watermarks once per min in case user updated one of the margins.</span></span><br><span class="line"><span class="comment">     * <span class="doctag">TODO:</span> b/140521024 replace this periodic update with an API for AMS to notify LMKD</span></span><br><span class="line"><span class="comment">     * that zone watermarks were changed by the system software.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (watermarks.high_wmark == <span class="number">0</span> || <span class="built_in">get_time_diff_ms</span>(&amp;wmark_update_tm, &amp;curr_tm) &gt; <span class="number">60000</span>) &#123;</span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">zoneinfo</span> zi;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">zoneinfo_parse</span>(&amp;zi) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to parse zoneinfo!&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">calc_zone_watermarks</span>(&amp;zi, &amp;watermarks);</span><br><span class="line">        wmark_update_tm = curr_tm;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Find out which watermark is breached if any */</span></span><br><span class="line">    wmark = <span class="built_in">get_lowest_watermark</span>(&amp;mi, &amp;watermarks);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">psi_parse_mem</span>(&amp;psi_data)) &#123;</span><br><span class="line">        critical_stall = psi_data.mem_stats[PSI_FULL].avg10 &gt; (<span class="type">float</span>)stall_limit_critical;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * <span class="doctag">TODO:</span> move this logic into a separate function</span></span><br><span class="line"><span class="comment">     * Decide if killing a process is necessary and record the reason</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (cycle_after_kill &amp;&amp; wmark &lt; WMARK_LOW) &#123;</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Prevent kills not freeing enough memory which might lead to OOM kill.</span></span><br><span class="line"><span class="comment">         * This might happen when a process is consuming memory faster than reclaim can</span></span><br><span class="line"><span class="comment">         * free even after a kill. Mostly happens when running memory stress tests.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        kill_reason = PRESSURE_AFTER_KILL;</span><br><span class="line">        <span class="built_in">strncpy</span>(kill_desc, <span class="string">&quot;min watermark is breached even after kill&quot;</span>, <span class="built_in">sizeof</span>(kill_desc));</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (level == VMPRESS_LEVEL_CRITICAL &amp;&amp; events != <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Device is too busy reclaiming memory which might lead to ANR.</span></span><br><span class="line"><span class="comment">         * Critical level is triggered when PSI complete stall (all tasks are blocked because</span></span><br><span class="line"><span class="comment">         * of the memory congestion) breaches the configured threshold.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        kill_reason = NOT_RESPONDING;</span><br><span class="line">        <span class="built_in">strncpy</span>(kill_desc, <span class="string">&quot;device is not responding&quot;</span>, <span class="built_in">sizeof</span>(kill_desc));</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (swap_is_low &amp;&amp; thrashing &gt; thrashing_limit_pct) &#123;</span><br><span class="line">        <span class="comment">/* Page cache is thrashing while swap is low */</span></span><br><span class="line">        kill_reason = LOW_SWAP_AND_THRASHING;</span><br><span class="line">        <span class="built_in">snprintf</span>(kill_desc, <span class="built_in">sizeof</span>(kill_desc), <span class="string">&quot;device is low on swap (%&quot;</span> PRId64</span><br><span class="line">            <span class="string">&quot;kB &lt; %&quot;</span> PRId64 <span class="string">&quot;kB) and thrashing (%&quot;</span> PRId64 <span class="string">&quot;%%)&quot;</span>,</span><br><span class="line">            mi.field.free_swap * page_k, swap_low_threshold * page_k, thrashing);</span><br><span class="line">        <span class="comment">/* Do not kill perceptible apps unless below min watermark or heavily thrashing */</span></span><br><span class="line">        <span class="keyword">if</span> (wmark &gt; WMARK_MIN &amp;&amp; thrashing &lt; thrashing_critical_pct) &#123;</span><br><span class="line">            min_score_adj = PERCEPTIBLE_APP_ADJ + <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        check_filecache = <span class="literal">true</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (swap_is_low &amp;&amp; wmark &lt; WMARK_HIGH) &#123;</span><br><span class="line">        <span class="comment">/* Both free memory and swap are low */</span></span><br><span class="line">        kill_reason = LOW_MEM_AND_SWAP;</span><br><span class="line">        <span class="built_in">snprintf</span>(kill_desc, <span class="built_in">sizeof</span>(kill_desc), <span class="string">&quot;%s watermark is breached and swap is low (%&quot;</span></span><br><span class="line">            PRId64 <span class="string">&quot;kB &lt; %&quot;</span> PRId64 <span class="string">&quot;kB)&quot;</span>, wmark &lt; WMARK_LOW ? <span class="string">&quot;min&quot;</span> : <span class="string">&quot;low&quot;</span>,</span><br><span class="line">            mi.field.free_swap * page_k, swap_low_threshold * page_k);</span><br><span class="line">        <span class="comment">/* Do not kill perceptible apps unless below min watermark or heavily thrashing */</span></span><br><span class="line">        <span class="keyword">if</span> (wmark &gt; WMARK_MIN &amp;&amp; thrashing &lt; thrashing_critical_pct) &#123;</span><br><span class="line">            min_score_adj = PERCEPTIBLE_APP_ADJ + <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (wmark &lt; WMARK_HIGH &amp;&amp; swap_util_max &lt; <span class="number">100</span> &amp;&amp;</span><br><span class="line">               (swap_util = <span class="built_in">calc_swap_utilization</span>(&amp;mi)) &gt; swap_util_max) &#123;</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Too much anon memory is swapped out but swap is not low.</span></span><br><span class="line"><span class="comment">         * Non-swappable allocations created memory pressure.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        kill_reason = LOW_MEM_AND_SWAP_UTIL;</span><br><span class="line">        <span class="built_in">snprintf</span>(kill_desc, <span class="built_in">sizeof</span>(kill_desc), <span class="string">&quot;%s watermark is breached and swap utilization&quot;</span></span><br><span class="line">            <span class="string">&quot; is high (%d%% &gt; %d%%)&quot;</span>, wmark &lt; WMARK_LOW ? <span class="string">&quot;min&quot;</span> : <span class="string">&quot;low&quot;</span>,</span><br><span class="line">            swap_util, swap_util_max);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (wmark &lt; WMARK_HIGH &amp;&amp; thrashing &gt; thrashing_limit) &#123;</span><br><span class="line">        <span class="comment">/* Page cache is thrashing while memory is low */</span></span><br><span class="line">        kill_reason = LOW_MEM_AND_THRASHING;</span><br><span class="line">        <span class="built_in">snprintf</span>(kill_desc, <span class="built_in">sizeof</span>(kill_desc), <span class="string">&quot;%s watermark is breached and thrashing (%&quot;</span></span><br><span class="line">            PRId64 <span class="string">&quot;%%)&quot;</span>, wmark &lt; WMARK_LOW ? <span class="string">&quot;min&quot;</span> : <span class="string">&quot;low&quot;</span>, thrashing);</span><br><span class="line">        cut_thrashing_limit = <span class="literal">true</span>;</span><br><span class="line">        <span class="comment">/* Do not kill perceptible apps unless thrashing at critical levels */</span></span><br><span class="line">        <span class="keyword">if</span> (thrashing &lt; thrashing_critical_pct) &#123;</span><br><span class="line">            min_score_adj = PERCEPTIBLE_APP_ADJ + <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        check_filecache = <span class="literal">true</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (reclaim == DIRECT_RECLAIM &amp;&amp; thrashing &gt; thrashing_limit) &#123;</span><br><span class="line">        <span class="comment">/* Page cache is thrashing while in direct reclaim (mostly happens on lowram devices) */</span></span><br><span class="line">        kill_reason = DIRECT_RECL_AND_THRASHING;</span><br><span class="line">        <span class="built_in">snprintf</span>(kill_desc, <span class="built_in">sizeof</span>(kill_desc), <span class="string">&quot;device is in direct reclaim and thrashing (%&quot;</span></span><br><span class="line">            PRId64 <span class="string">&quot;%%)&quot;</span>, thrashing);</span><br><span class="line">        cut_thrashing_limit = <span class="literal">true</span>;</span><br><span class="line">        <span class="comment">/* Do not kill perceptible apps unless thrashing at critical levels */</span></span><br><span class="line">        <span class="keyword">if</span> (thrashing &lt; thrashing_critical_pct) &#123;</span><br><span class="line">            min_score_adj = PERCEPTIBLE_APP_ADJ + <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        check_filecache = <span class="literal">true</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (check_filecache) &#123;</span><br><span class="line">        <span class="type">int64_t</span> file_lru_kb = (vs.field.nr_inactive_file + vs.field.nr_active_file) * page_k;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (file_lru_kb &lt; filecache_min_kb) &#123;</span><br><span class="line">            <span class="comment">/* File cache is too low after thrashing, keep killing background processes */</span></span><br><span class="line">            kill_reason = LOW_FILECACHE_AFTER_THRASHING;</span><br><span class="line">            <span class="built_in">snprintf</span>(kill_desc, <span class="built_in">sizeof</span>(kill_desc),</span><br><span class="line">                <span class="string">&quot;filecache is low (%&quot;</span> PRId64 <span class="string">&quot;kB &lt; %&quot;</span> PRId64 <span class="string">&quot;kB) after thrashing&quot;</span>,</span><br><span class="line">                file_lru_kb, filecache_min_kb);</span><br><span class="line">            min_score_adj = PERCEPTIBLE_APP_ADJ + <span class="number">1</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">/* File cache is big enough, stop checking */</span></span><br><span class="line">            check_filecache = <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Kill a process if necessary */</span></span><br><span class="line">    <span class="keyword">if</span> (kill_reason != NONE) &#123;</span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">kill_info</span> ki = &#123;</span><br><span class="line">            .kill_reason = kill_reason,</span><br><span class="line">            .kill_desc = kill_desc,</span><br><span class="line">            .thrashing = (<span class="type">int</span>)thrashing,</span><br><span class="line">            .max_thrashing = max_thrashing,</span><br><span class="line">        &#125;;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Allow killing perceptible apps if the system is stalled */</span></span><br><span class="line">        <span class="keyword">if</span> (critical_stall) &#123;</span><br><span class="line">            min_score_adj = <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">psi_parse_io</span>(&amp;psi_data);</span><br><span class="line">        <span class="built_in">psi_parse_cpu</span>(&amp;psi_data);</span><br><span class="line">        <span class="type">int</span> pages_freed = <span class="built_in">find_and_kill_process</span>(min_score_adj, &amp;ki, &amp;mi, &amp;wi, &amp;curr_tm, &amp;psi_data);</span><br><span class="line">        <span class="keyword">if</span> (pages_freed &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            killing = <span class="literal">true</span>;</span><br><span class="line">            max_thrashing = <span class="number">0</span>;</span><br><span class="line">            <span class="keyword">if</span> (cut_thrashing_limit) &#123;</span><br><span class="line">                <span class="comment">/*</span></span><br><span class="line"><span class="comment">                 * Cut thrasing limit by thrashing_limit_decay_pct percentage of the current</span></span><br><span class="line"><span class="comment">                 * thrashing limit until the system stops thrashing.</span></span><br><span class="line"><span class="comment">                 */</span></span><br><span class="line">                thrashing_limit = (thrashing_limit * (<span class="number">100</span> - thrashing_limit_decay_pct)) / <span class="number">100</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://source.android.com/docs/core/perf/lmkd?hl=zh-cn">https://source.android.com/docs/core/perf/lmkd?hl=zh-cn</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.kernel.org/accounting/psi.html">https://docs.kernel.org/accounting/psi.html</a></li>
+</ul>
+
+    </article>
+    <!-- license -->
+    
+        <div class="license-wrapper">
+            <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
+            <!-- <p>原文链接：<a href="https://sniffer.site/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">https://sniffer.site/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/</a> -->
+            <!-- <p>发表日期：<a href="https://sniffer.site/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">June 25th 2024, 5:46:33 pm</a> -->
+            <p>更新日期：<a href="https://sniffer.site/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">2024-07-07, 16:37:48</a>
+            <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
+        </div>
+    
+    <!-- paginator -->
+    <ul class="post-paginator">
+        <li class="next">
+            
+        </li>
+        <li class="previous">
+            
+                <div class="prevSlogan">Previous Post</div>
+                <a href="/2024/04/15/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8cgroup%E4%BC%98%E5%8C%96Android%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD/" title="如何利用cgroups优化Android系统性能">
+                    <div class="prevTitle">如何利用cgroups优化Android系统性能</div>
+                </a>
+            
+        </li>
+    </ul>
+    <!-- comment -->
+    
+        <div class="post-comment">
+            <!-- 来必力 City 版安装代码 -->
+
+
+            
+
+            
+
+            
+
+            <!-- utteranc评论 -->
+
+    <script src='https://utteranc.es/client.js'
+        repo='runningforlife/utterances-comment'
+        issue-term='pathname'
+        label=''
+        theme='github-light'
+        crossorigin='anonymous'
+        async>
+    </script>
+
+
+            <!-- partial('_partial/comment/changyan') -->
+            <!--PC版-->
+
+
+            
+            
+
+            
+
+        </div>
+    
+    <!-- timeliness note -->
+    <!-- idea from: https://hexo.fluid-dev.com/posts/hexo-injector/#%E6%96%87%E7%AB%A0%E6%97%B6%E6%95%88%E6%80%A7%E6%8F%90%E7%A4%BA -->
+    
+    <!-- Mathjax -->
+    
+</main>
+
+                <!-- profile -->
+                
+            </div>
+            <footer class="footer footer-unloaded">
+    <!-- social  -->
+    
+        <div class="social">
+            
+    
+        
+            
+                <a href="mailto:wlh2119@gmail.com" class="iconfont-archer email" title=email ></a>
+            
+        
+    
+        
+            
+                <a href="//github.com/runningforlife" class="iconfont-archer github" target="_blank" title=github></a>
+            
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="https://weibo.com/2573460570/profile?topnav=1&wvr=6" class="iconfont-archer weibo" target="_blank" title=weibo></a>
+            
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="/atom.xml" class="iconfont-archer rss" target="_blank" title=rss></a>
+            
+        
+    
+
+
+        </div>
+    
+    <!-- powered by Hexo  -->
+    <div class="copyright">
+        <span id="hexo-power">Powered by <a href="https://hexo.io/" target="_blank">Hexo</a></span><span class="iconfont-archer power">&#xe635;</span><span id="theme-info">theme <a href="https://github.com/fi3ework/hexo-theme-archer" target="_blank">Archer</a></span>
+    </div>
+    <!-- website approve for Chinese user -->
+    
+    <!-- 不蒜子  -->
+    
+        <div class="busuanzi-container">
+            
+             
+                <span id="busuanzi_container_site_pv">PV: <span id="busuanzi_value_site_pv"></span> :)</span>
+            
+        </div>
+    	
+</footer>
+
+        </div>
+        <!-- toc -->
+        
+            <div class="toc-wrapper toc-wrapper-loding" style=
+
+
+
+
+
+
+
+    top:50vh;
+
+>
+                <div class="toc-catalog">
+                    <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
+                </div>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#PSI%E7%AE%80%E4%BB%8B"><span class="toc-number">1.</span> <span class="toc-text">PSI简介</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#LMKD%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%9B%91%E6%8E%A7%E5%86%85%E5%AD%98%E7%8A%B6%E6%80%81"><span class="toc-number">2.</span> <span class="toc-text">LMKD如何使用PSI监控内存状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">3.</span> <span class="toc-text">参考资料</span></a></li></ol>
+            </div>
+        
+        <!-- sidebar -->
+        <div class="sidebar sidebar-hide">
+    <ul class="sidebar-tabs sidebar-tabs-active-0">
+        <li class="sidebar-tab-archives"><span class="iconfont-archer">&#xe67d;</span><span class="tab-name">Archive</span></li>
+        <li class="sidebar-tab-tags"><span class="iconfont-archer">&#xe61b;</span><span class="tab-name">Tag</span></li>
+        <li class="sidebar-tab-categories"><span class="iconfont-archer">&#xe666;</span><span class="tab-name">Cate</span></li>
+    </ul>
+    <div class="sidebar-content sidebar-content-show-archive">
+        <div class="sidebar-panel-archives">
+    <!-- 在 ejs 中将 archive 按照时间排序 -->
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+    
+    
+    
+    <div class="total-and-search">
+        <div class="total-archive">
+        Total : 112
+        </div>
+        <!-- search  -->
+        
+            <div class="site-search site-search-loading popup-trigger">
+                <span class="iconfont-archer search-icon">&#xe627;</span>
+            </div>
+        
+    </div>
+    
+    <div class="post-archive">
+    
+        
+            
+            
+            <div class="archive-year"> 2024 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">Android如何使用PSI管理内存</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/15</span>
+            <a class="archive-post-title" href="/2024/04/15/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8cgroup%E4%BC%98%E5%8C%96Android%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD/">如何利用cgroups优化Android系统性能</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/28</span>
+            <a class="archive-post-title" href="/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">如何移植fio到Android平台</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/30</span>
+            <a class="archive-post-title" href="/2024/01/30/%E4%BD%A0%E5%A5%BD,2024/">你好,2024</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2023 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2023/11/26/%E8%AE%A4%E8%AF%86%E4%BD%A0%E7%9A%84%E5%A4%A7%E8%84%91/">认识你的大脑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/20</span>
+            <a class="archive-post-title" href="/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/">Android常用的性能分析工具</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/15</span>
+            <a class="archive-post-title" href="/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">虚拟化之三virtio的实现原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/09</span>
+            <a class="archive-post-title" href="/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">虚拟化之二QNX虚拟化平台简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/30</span>
+            <a class="archive-post-title" href="/2023/06/30/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%80%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">虚拟化之一虚拟机的基本概念</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2023/05/27/%E6%8A%95%E5%B1%8F%E4%B8%AD%E7%9A%84%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E5%8D%8F%E8%AE%AE/">投屏中的服务发现协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/17</span>
+            <a class="archive-post-title" href="/2023/04/17/Android%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8CDNS%E8%A7%A3%E6%9E%90/">Android如何进行DNS解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/23</span>
+            <a class="archive-post-title" href="/2023/03/23/chatGPT%E4%B9%8B%E5%90%8E%EF%BC%8C%E6%88%91%E4%BB%AC%E8%BF%98%E8%83%BD%E5%81%9A%E4%BB%80%E4%B9%88/">chatGPT之后，我们还能做什么?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/09</span>
+            <a class="archive-post-title" href="/2023/03/09/Android%E4%B8%ADHAL%E6%9C%8D%E5%8A%A1%E6%97%A0%E6%B3%95%E4%BD%BF%E7%94%A8%E7%BD%91%E7%BB%9C%E7%9A%84%E9%97%AE%E9%A2%98/">Android中HAL服务无法使用网络的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2023/02/27/%E8%AF%B4%E8%AF%B4%E7%B3%BB%E7%BB%9F%E5%BC%80%E5%8F%91%E4%B8%AD%E7%9A%84%E5%BA%B7%E5%A8%81%E5%AE%9A%E5%BE%8B/">说说系统开发中的康威定律</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/10</span>
+            <a class="archive-post-title" href="/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">为什么iperf测试时UDP会出现高丢包率</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2022 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2022/12/31/%E5%86%8D%E8%A7%812022/">再见2022</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/06</span>
+            <a class="archive-post-title" href="/2022/12/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BAVB-TSN/">Linux网络优化之AVB/TSN</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/30</span>
+            <a class="archive-post-title" href="/2022/09/30/%E5%A6%82%E4%BD%95%E7%94%A8FFMPEG%E5%9C%A8Android%E4%B8%8A%E5%81%9A%E8%A7%86%E9%A2%91%E8%A7%A3%E7%A0%81/">如何用FFmpeg在Android上实现音视频解码</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/27</span>
+            <a class="archive-post-title" href="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/">如何通过QEMU启动Linux系统</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/12</span>
+            <a class="archive-post-title" href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/">Linux网络优化之DPDK与XDP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2022/06/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BTCP%E4%BC%98%E5%8C%96/">Linux网络优化之TCP优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/13</span>
+            <a class="archive-post-title" href="/2022/04/13/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8B%E9%93%BE%E8%B7%AF%E5%B1%82%E4%BC%98%E5%8C%96/">Linux网络优化之链路层优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/31</span>
+            <a class="archive-post-title" href="/2022/03/31/%E9%87%8D%E5%AD%A6C++/">重学现代C++</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/18</span>
+            <a class="archive-post-title" href="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/">如何用pktgen测试网卡性能?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/17</span>
+            <a class="archive-post-title" href="/2022/03/17/%E6%94%B6%E8%97%8F%E7%9A%84%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%96%99/">「置顶」收藏的学习资料</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/16</span>
+            <a class="archive-post-title" href="/2022/02/16/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dopenssh%E5%88%B0armv7%E7%B3%BB%E7%BB%9F/">如何移植openssh到ARM开发板</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/29</span>
+            <a class="archive-post-title" href="/2022/01/29/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%AE%80%E4%BB%8B/">深度学习简介</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2021 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2021/12/31/%E6%84%9F%E6%82%9F2021/">感悟2021</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">理解Android eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/09</span>
+            <a class="archive-post-title" href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/">什么是GARP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/28</span>
+            <a class="archive-post-title" href="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/">ARP cache不更新导致的网络问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2021/07/16/%E6%80%8E%E4%B9%88%E6%8B%9B%E8%81%98SRE%E5%B7%A5%E7%A8%8B%E5%B8%88-%E7%9C%8B%E7%9C%8BGoogle%E6%98%AF%E5%A6%82%E4%BD%95%E6%8B%9B%E4%BA%BA%E7%9A%84-%E8%AF%91/">怎么招聘SRE工程师-看看Google是如何招人</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2021/06/22/%E4%B8%80%E4%B8%AASMMU%E5%86%85%E5%AD%98%E8%AE%BF%E9%97%AE%E5%BC%82%E5%B8%B8%E9%97%AE%E9%A2%98/">一个SMMU内存访问异常的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2021/04/29/%E4%BB%8EWifi%E7%83%AD%E7%82%B9%E5%8A%9F%E8%83%BD%E8%AF%B4%E4%B8%80%E8%AF%B4Android-Wifi%E6%A1%86%E6%9E%B6/">从Wifi热点功能说一说Android Wifi框架</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/08</span>
+            <a class="archive-post-title" href="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">Linux网络协议之数据发送流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/20</span>
+            <a class="archive-post-title" href="/2021/02/20/ADB%E6%98%AF%E5%A6%82%E4%BD%95%E5%B7%A5%E4%BD%9C%E7%9A%84/">一个ADB无法识别设备的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/08</span>
+            <a class="archive-post-title" href="/2021/01/08/%E8%AF%91-%E6%88%91%E7%9A%84%E5%B7%A5%E7%A8%8B%E6%A0%BC%E8%A8%80/">「译」我的工程格言</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/03</span>
+            <a class="archive-post-title" href="/2021/01/03/%E4%B8%8D%E5%BE%97%E4%B8%8D%E8%AF%B4%E7%9A%842020/">不得不说的2020</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2020 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/">MAC与PHY调试遇到的那些坑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/06</span>
+            <a class="archive-post-title" href="/2020/11/06/%E6%B1%BD%E8%BD%A6%E7%BD%91%E7%BB%9C%E6%BC%94%E5%8C%96-%E4%BB%8ECAN%E5%88%B0%E4%BB%A5%E5%A4%AA%E7%BD%91/">汽车网络演化-从CAN到以太网</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/23</span>
+            <a class="archive-post-title" href="/2020/10/23/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E7%9A%84%E9%94%81/">Linux内核中的锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2020/10/14/IPV6%E5%9C%B0%E5%9D%80%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">IPV6地址的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/03</span>
+            <a class="archive-post-title" href="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/">由Policy Routing引发的一个奇怪问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2020/05/27/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91%E4%B8%8EBUG%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">软件开发与BUG的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/12</span>
+            <a class="archive-post-title" href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">从NAPI说一说Linux内核数据的接收流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/04</span>
+            <a class="archive-post-title" href="/2020/04/04/%E8%AF%B4%E8%AF%B4%E8%BF%99%E6%AC%A1%E6%96%B0%E5%86%A0%E4%BC%A0%E6%9F%93%E7%97%85%E6%83%B3%E5%88%B0%E7%9A%84%E4%BA%8B%E6%83%85/">由新冠病毒想到的一些事情</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/01</span>
+            <a class="archive-post-title" href="/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">Android是如何实现流量统计的?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/24</span>
+            <a class="archive-post-title" href="/2020/02/24/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8SSH%E9%9A%A7%E9%81%93%E8%AE%BF%E9%97%AE%E5%B1%80%E5%9F%9F%E7%BD%91/">利用SSH隧道访问局域网</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2019 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2019/12/31/Recovery%E6%A8%A1%E5%BC%8F%E5%A6%82%E4%BD%95%E6%94%AF%E6%8C%81ADB/">Recovery模式如何支持ADB</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/07</span>
+            <a class="archive-post-title" href="/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">SELinux在Android中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/07</span>
+            <a class="archive-post-title" href="/2019/11/07/BPF%E4%B8%8EeBPF/">BPF与eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/04</span>
+            <a class="archive-post-title" href="/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">说说Process.waitfor()引起的进程阻塞问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/30</span>
+            <a class="archive-post-title" href="/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/">聊一聊TCP协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/15</span>
+            <a class="archive-post-title" href="/2019/07/15/TCP%E9%93%BE%E6%8E%A5%E5%BB%BA%E7%AB%8B%E4%B8%8E%E7%8A%B6%E6%80%81%E8%BF%81%E7%A7%BB/">TCP链接建立与状态迁移</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/05</span>
+            <a class="archive-post-title" href="/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/">PPP拨号时拿到错误DNS的问题解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/26</span>
+            <a class="archive-post-title" href="/2019/02/26/%E5%9C%A8Android-Studio%E4%B8%AD%E6%B7%BB%E5%8A%A0%E8%87%AA%E5%AE%9A%E4%B9%89framework-jar/">如何在Android Studio中添加自定义framework.jar?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/17</span>
+            <a class="archive-post-title" href="/2019/01/17/Linux%E4%B8%8B%E5%B8%B8%E7%94%A8%E7%BD%91%E7%BB%9C%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/">Linux下常用网络工具使用总结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/04</span>
+            <a class="archive-post-title" href="/2019/01/04/%E6%88%90%E7%8E%8B%E8%B4%A5%E5%AF%87%E4%B8%8E%E4%B8%9B%E6%9E%97%E6%B3%95%E5%88%99-%E7%9C%8B%E7%BA%AA%E5%BD%95%E7%89%87-%E8%8B%B1%E5%9B%BD%E5%8F%B2-%E6%9C%89%E6%84%9F/">成王败寇与丛林法则-看纪录片<英国史>有感</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2018 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/18</span>
+            <a class="archive-post-title" href="/2018/12/18/Android-netd%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Android netd工作原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/30</span>
+            <a class="archive-post-title" href="/2018/11/30/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F%E5%8F%8A%E5%85%B6%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">正则表达式及其应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/21</span>
+            <a class="archive-post-title" href="/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">socket编程与IO multiplexing</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2018/06/22/%E5%85%B3%E4%BA%8E%E6%8A%80%E6%9C%AF%E5%8F%91%E5%B1%95%E7%9A%84%E4%B8%80%E4%BA%9B%E6%80%9D%E8%80%83/">关于技术发展的一些思考</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/17</span>
+            <a class="archive-post-title" href="/2018/06/17/HAL-binder%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B-%E4%BB%A5RILJ-RILD%E9%80%9A%E4%BF%A1%E4%B8%BA%E4%BE%8B/">HAL binder工作流程-以RILJ/RILD通信为例</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">深入Android HAL binder</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/05</span>
+            <a class="archive-post-title" href="/2018/05/05/%E4%BB%8EHTTP%E5%88%B0HTTPS/">从HTTP到HTTPS</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/30</span>
+            <a class="archive-post-title" href="/2018/04/30/%E3%80%8A%E4%BA%BA%E7%B1%BB%E7%AE%80%E5%8F%B2%E3%80%8B%E6%9C%AD%E8%AE%B0/">《人类简史》札记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/23</span>
+            <a class="archive-post-title" href="/2018/02/23/Garbage-Collection-in-Java/">Java中的垃圾回收机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">Java虚拟机入门</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2017 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/23</span>
+            <a class="archive-post-title" href="/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">如何用JobScheduler进行任务调度</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/20</span>
+            <a class="archive-post-title" href="/2017/11/20/Circuit-Switching-Packet-Switching/">Circuit Switching & Packet Switching</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/18</span>
+            <a class="archive-post-title" href="/2017/11/18/Android-%E5%8A%A8%E7%94%BB/">Android 动画</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2017/10/15/GSM%E7%9F%AD%E4%BF%A1%E7%9A%84%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/">GSM短信的发送与接收</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/08</span>
+            <a class="archive-post-title" href="/2017/10/08/Java-Annotation/">Java Annotation</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/22</span>
+            <a class="archive-post-title" href="/2017/09/22/%E5%A6%82%E4%BD%95%E5%9C%A8Android%E4%B8%AD%E6%9F%A5%E7%9C%8B%E8%BF%9B%E7%A8%8B%E7%8A%B6%E6%80%81/">如何在Android中查看进程状态</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/23</span>
+            <a class="archive-post-title" href="/2017/08/23/HTTP%E5%85%A5%E9%97%A8%E4%BB%8B%E7%BB%8D/">HTTP简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/06</span>
+            <a class="archive-post-title" href="/2017/08/06/%E5%B8%B8%E7%94%A8%E5%93%88%E5%B8%8C%E5%87%BD%E6%95%B0C%E5%AE%9E%E7%8E%B0/">常用哈希函数C实现</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2017/07/16/cache%E6%8F%AD%E7%A7%98/">cache揭秘</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/09</span>
+            <a class="archive-post-title" href="/2017/07/09/Android%E8%BF%9B%E7%A8%8BCrash%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android进程Crash处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/01</span>
+            <a class="archive-post-title" href="/2017/07/01/Android%E4%B8%AD%E7%9A%84%E4%BB%BB%E5%8A%A1%E7%AE%A1%E7%90%86/">Android中的任务管理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android ANR处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2017/06/18/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E9%94%81/">Java并发编程之锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/11</span>
+            <a class="archive-post-title" href="/2017/06/11/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">Java并发编程之原子操作</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/30</span>
+            <a class="archive-post-title" href="/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Glide详解之图片加载过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/%E8%BF%91%E6%9D%A5%E4%BA%8C%E4%B8%89%E4%BA%8B/">近来二三事</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">Java并发编程之Java Memory Model</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2017/05/27/Zygote%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Zygote进程启动过程详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/24</span>
+            <a class="archive-post-title" href="/2017/05/24/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E7%BB%BC%E8%BF%B0/">Java并发编程综述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/20</span>
+            <a class="archive-post-title" href="/2017/05/20/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">Glide详解之架构分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/17</span>
+            <a class="archive-post-title" href="/2017/05/17/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%90%8C%E6%AD%A5/">Java并发编程之同步</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">Java并发编程之线程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2017/04/29/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">单例模式在Java中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/20</span>
+            <a class="archive-post-title" href="/2017/04/20/Picasso%E4%BB%8E%E4%BD%BF%E7%94%A8%E5%88%B0%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Picasso从使用到原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2017/03/07/TCP-IP%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E5%85%A5%E9%97%A8/">TCP/IP网络协议入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/06</span>
+            <a class="archive-post-title" href="/2017/03/06/Maven%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">关于Maven</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2017/02/27/%E8%BF%BD%E5%AF%BB%E7%9C%9F%E5%AE%9E%E7%9A%84%E8%87%AA%E6%88%91/">追寻真实的自我</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/25</span>
+            <a class="archive-post-title" href="/2017/02/25/%E3%80%8AEffective-Java%E3%80%8B%E6%91%98%E8%AE%B0/">《Effective Java》摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/21</span>
+            <a class="archive-post-title" href="/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Android Phone进程启动过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/18</span>
+            <a class="archive-post-title" href="/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">Android Launcher工作原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">如何在Java中调用C_C++方法</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2016 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/26</span>
+            <a class="archive-post-title" href="/2016/12/26/%E7%BD%97%E7%B4%A0%E3%80%8A%E6%9D%83%E5%A8%81%E4%B8%8E%E4%B8%AA%E4%BA%BA%E3%80%8B/">罗素《权威与个人》</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/29</span>
+            <a class="archive-post-title" href="/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/">Android RILD详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/19</span>
+            <a class="archive-post-title" href="/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android RIL概述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/04</span>
+            <a class="archive-post-title" href="/2016/11/04/%E3%80%8A%E9%80%9A%E5%BE%80%E5%A5%B4%E5%BD%B9%E4%B9%8B%E8%B7%AF%E3%80%8B%E8%AF%BB%E4%B9%A6%E6%91%98%E8%AE%B0/">《通往奴役之路》读书摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Android%E7%B3%BB%E7%BB%9F%E6%97%B6%E9%97%B4%E8%87%AA%E5%8A%A8%E6%9B%B4%E6%96%B0%E6%9C%BA%E5%88%B6/">Android系统时间自动更新机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Java%E7%A8%8B%E5%BA%8F%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B/">Java程序编译过程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/16</span>
+            <a class="archive-post-title" href="/2016/10/16/%E7%94%B1%E4%BA%BA%E5%AE%9A%E8%83%9C%E5%A4%A9%E8%AF%B4%E8%B5%B7/">由人定胜天说起</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2016/10/15/%E5%81%9C%E6%9C%BA%E9%97%AE%E9%A2%98/">停机问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2016/10/14/Linux-Shell%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">Linux Shell快速入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/13</span>
+            <a class="archive-post-title" href="/2016/10/13/Dependency-Inversion-Principle/">Dependency Inversion Principle(依赖反转原则)</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/01</span>
+            <a class="archive-post-title" href="/2016/10/01/Binder%E5%85%A5%E9%97%A8/">Android Binder入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/18</span>
+            <a class="archive-post-title" href="/2016/08/18/Android-Fota%E5%8D%87%E7%BA%A7/">Android Fota升级</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2016/03/07/Git%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4/">Git常用命令</a>
+        </li>
+    
+    </div>
+</div>
+
+        <div class="sidebar-panel-tags">
+    <div class="sidebar-tags-name">
+        
+            <span class="sidebar-tag-name" data-tags="ADB">
+                <span class="iconfont-archer">&#xe606;</span>
+                ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android Debug Bridge
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FOTA">
+                <span class="iconfont-archer">&#xe606;</span>
+                FOTA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Firm Over The Air">
+                <span class="iconfont-archer">&#xe606;</span>
+                Firm Over The Air
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RIL">
+                <span class="iconfont-archer">&#xe606;</span>
+                RIL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILD">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Property Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Property Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Frame Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Frame Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="系统时间更新">
+                <span class="iconfont-archer">&#xe606;</span>
+                系统时间更新
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NITZ">
+                <span class="iconfont-archer">&#xe606;</span>
+                NITZ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                NTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                BPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="eBPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                eBPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Binder">
+                <span class="iconfont-archer">&#xe606;</span>
+                Binder
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPC">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Virtual Machine
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Garbage Collection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Garbage Collection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Glide">
+                <span class="iconfont-archer">&#xe606;</span>
+                Glide
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Image Loading">
+                <span class="iconfont-archer">&#xe606;</span>
+                Image Loading
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTPS">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTPS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation Processor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation Processor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="并发编程">
+                <span class="iconfont-archer">&#xe606;</span>
+                并发编程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Atomicity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Atomicity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="synchronized">
+                <span class="iconfont-archer">&#xe606;</span>
+                synchronized
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Thread">
+                <span class="iconfont-archer">&#xe606;</span>
+                Thread
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Memory Model">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Memory Model
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Compiling process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Compiling process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="字节码">
+                <span class="iconfont-archer">&#xe606;</span>
+                字节码
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="class　file">
+                <span class="iconfont-archer">&#xe606;</span>
+                class　file
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Shell">
+                <span class="iconfont-archer">&#xe606;</span>
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="mutex">
+                <span class="iconfont-archer">&#xe606;</span>
+                mutex
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Spin Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Spin Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Kernel">
+                <span class="iconfont-archer">&#xe606;</span>
+                Kernel
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AVB">
+                <span class="iconfont-archer">&#xe606;</span>
+                AVB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TSN">
+                <span class="iconfont-archer">&#xe606;</span>
+                TSN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DPDK">
+                <span class="iconfont-archer">&#xe606;</span>
+                DPDK
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="XDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                XDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Maven">
+                <span class="iconfont-archer">&#xe606;</span>
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PPP">
+                <span class="iconfont-archer">&#xe606;</span>
+                PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Picasso,">
+                <span class="iconfont-archer">&#xe606;</span>
+                Picasso,
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
+                <span class="iconfont-archer">&#xe606;</span>
+                ImageLoader
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Recovery">
+                <span class="iconfont-archer">&#xe606;</span>
+                Recovery
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SELinux">
+                <span class="iconfont-archer">&#xe606;</span>
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP/IP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="三次握手">
+                <span class="iconfont-archer">&#xe606;</span>
+                三次握手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="四次挥手">
+                <span class="iconfont-archer">&#xe606;</span>
+                四次挥手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Cache">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Cache
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU Architecture">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU Architecture
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Hierarchy">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Hierarchy
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="2020">
+                <span class="iconfont-archer">&#xe606;</span>
+                2020
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="新冠病毒">
+                <span class="iconfont-archer">&#xe606;</span>
+                新冠病毒
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TLS">
+                <span class="iconfont-archer">&#xe606;</span>
+                TLS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSL">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                GARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络性能">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络性能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="带宽测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                带宽测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="pktgen">
+                <span class="iconfont-archer">&#xe606;</span>
+                pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Halting Problem">
+                <span class="iconfont-archer">&#xe606;</span>
+                Halting Problem
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Computability theory">
+                <span class="iconfont-archer">&#xe606;</span>
+                Computability theory
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="技术">
+                <span class="iconfont-archer">&#xe606;</span>
+                技术
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="5G">
+                <span class="iconfont-archer">&#xe606;</span>
+                5G
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人工智能">
+                <span class="iconfont-archer">&#xe606;</span>
+                人工智能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSH">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSH
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="远程登录">
+                <span class="iconfont-archer">&#xe606;</span>
+                远程登录
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="反向隧道">
+                <span class="iconfont-archer">&#xe606;</span>
+                反向隧道
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JNI">
+                <span class="iconfont-archer">&#xe606;</span>
+                JNI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="共享库文件">
+                <span class="iconfont-archer">&#xe606;</span>
+                共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FFmpeg">
+                <span class="iconfont-archer">&#xe606;</span>
+                FFmpeg
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="H.264">
+                <span class="iconfont-archer">&#xe606;</span>
+                H.264
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="音视频">
+                <span class="iconfont-archer">&#xe606;</span>
+                音视频
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JobScheduler">
+                <span class="iconfont-archer">&#xe606;</span>
+                JobScheduler
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AlarmManager">
+                <span class="iconfont-archer">&#xe606;</span>
+                AlarmManager
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="定时任务">
+                <span class="iconfont-archer">&#xe606;</span>
+                定时任务
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="openssh">
+                <span class="iconfont-archer">&#xe606;</span>
+                openssh
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARM嵌入式开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARM嵌入式开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hash Function">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hash Function
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SRE">
+                <span class="iconfont-archer">&#xe606;</span>
+                SRE
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Site Reliability Engineering">
+                <span class="iconfont-archer">&#xe606;</span>
+                Site Reliability Engineering
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Google">
+                <span class="iconfont-archer">&#xe606;</span>
+                Google
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="英国史">
+                <span class="iconfont-archer">&#xe606;</span>
+                英国史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="丛林法则">
+                <span class="iconfont-archer">&#xe606;</span>
+                丛林法则
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习资料">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习资料
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="正则表达式">
+                <span class="iconfont-archer">&#xe606;</span>
+                正则表达式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Regular Expression">
+                <span class="iconfont-archer">&#xe606;</span>
+                Regular Expression
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                CAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MOST">
+                <span class="iconfont-archer">&#xe606;</span>
+                MOST
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LIN">
+                <span class="iconfont-archer">&#xe606;</span>
+                LIN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Ethernet">
+                <span class="iconfont-archer">&#xe606;</span>
+                Ethernet
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="机器学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                机器学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="深度学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                深度学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Deep Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Deep Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Machine Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Machine Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AI">
+                <span class="iconfont-archer">&#xe606;</span>
+                AI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哲学">
+                <span class="iconfont-archer">&#xe606;</span>
+                哲学
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="社会">
+                <span class="iconfont-archer">&#xe606;</span>
+                社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="拥塞控制">
+                <span class="iconfont-archer">&#xe606;</span>
+                拥塞控制
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件工程">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件工程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="团队协作">
+                <span class="iconfont-archer">&#xe606;</span>
+                团队协作
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="项目管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                项目管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="waitfor">
+                <span class="iconfont-archer">&#xe606;</span>
+                waitfor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BUG">
+                <span class="iconfont-archer">&#xe606;</span>
+                BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
+                <span class="iconfont-archer">&#xe606;</span>
+                摔跤吧，爸爸
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="电影">
+                <span class="iconfont-archer">&#xe606;</span>
+                电影
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习方法">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习方法
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bob dylan">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bob dylan
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="追寻自我">
+                <span class="iconfont-archer">&#xe606;</span>
+                追寻自我
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="C++">
+                <span class="iconfont-archer">&#xe606;</span>
+                C++
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="编程语言">
+                <span class="iconfont-archer">&#xe606;</span>
+                编程语言
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Launcher">
+                <span class="iconfont-archer">&#xe606;</span>
+                Launcher
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SystemServer">
+                <span class="iconfont-archer">&#xe606;</span>
+                SystemServer
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Phone进程">
+                <span class="iconfont-archer">&#xe606;</span>
+                Phone进程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Telephony">
+                <span class="iconfont-archer">&#xe606;</span>
+                Telephony
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NetworkManagerService">
+                <span class="iconfont-archer">&#xe606;</span>
+                NetworkManagerService
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Crash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Crash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Inversion">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Inversion
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DIP">
+                <span class="iconfont-archer">&#xe606;</span>
+                DIP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Injection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Injection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Uncle Bob">
+                <span class="iconfont-archer">&#xe606;</span>
+                Uncle Bob
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="依赖反转">
+                <span class="iconfont-archer">&#xe606;</span>
+                依赖反转
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="图片加载">
+                <span class="iconfont-archer">&#xe606;</span>
+                图片加载
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Network tools">
+                <span class="iconfont-archer">&#xe606;</span>
+                Network tools
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ip route">
+                <span class="iconfont-archer">&#xe606;</span>
+                ip route
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="tcpdump">
+                <span class="iconfont-archer">&#xe606;</span>
+                tcpdump
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iptables">
+                <span class="iconfont-archer">&#xe606;</span>
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MAC">
+                <span class="iconfont-archer">&#xe606;</span>
+                MAC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PHY">
+                <span class="iconfont-archer">&#xe606;</span>
+                PHY
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="车载以太网">
+                <span class="iconfont-archer">&#xe606;</span>
+                车载以太网
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="socket programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                socket programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="I/O multiplexing">
+                <span class="iconfont-archer">&#xe606;</span>
+                I/O multiplexing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="network programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                network programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Effective Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Effective Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Design Pattern">
+                <span class="iconfont-archer">&#xe606;</span>
+                Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="通往奴役之路">
+                <span class="iconfont-archer">&#xe606;</span>
+                通往奴役之路
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哈耶克">
+                <span class="iconfont-archer">&#xe606;</span>
+                哈耶克
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="读书">
+                <span class="iconfont-archer">&#xe606;</span>
+                读书
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Policy Routing">
+                <span class="iconfont-archer">&#xe606;</span>
+                Policy Routing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="策略路由">
+                <span class="iconfont-archer">&#xe606;</span>
+                策略路由
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                Netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Zygote">
+                <span class="iconfont-archer">&#xe606;</span>
+                Zygote
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android应用启动">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android应用启动
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="UDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                UDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Conway's Law">
+                <span class="iconfont-archer">&#xe606;</span>
+                Conway's Law
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="康威定律">
+                <span class="iconfont-archer">&#xe606;</span>
+                康威定律
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络使用权限
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="chatGPT">
+                <span class="iconfont-archer">&#xe606;</span>
+                chatGPT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LLM">
+                <span class="iconfont-archer">&#xe606;</span>
+                LLM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AIGC">
+                <span class="iconfont-archer">&#xe606;</span>
+                AIGC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="域名解析">
+                <span class="iconfont-archer">&#xe606;</span>
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="投屏">
+                <span class="iconfont-archer">&#xe606;</span>
+                投屏
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DLNA">
+                <span class="iconfont-archer">&#xe606;</span>
+                DLNA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Airplay">
+                <span class="iconfont-archer">&#xe606;</span>
+                Airplay
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtualization">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtualization
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="QNX">
+                <span class="iconfont-archer">&#xe606;</span>
+                QNX
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtio">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能分析">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能分析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="systrace">
+                <span class="iconfont-archer">&#xe606;</span>
+                systrace
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="perfetto">
+                <span class="iconfont-archer">&#xe606;</span>
+                perfetto
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="价值">
+                <span class="iconfont-archer">&#xe606;</span>
+                价值
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="探索">
+                <span class="iconfont-archer">&#xe606;</span>
+                探索
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="fio">
+                <span class="iconfont-archer">&#xe606;</span>
+                fio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="文件系统">
+                <span class="iconfont-archer">&#xe606;</span>
+                文件系统
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroups">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroups
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PSI">
+                <span class="iconfont-archer">&#xe606;</span>
+                PSI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内存管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                内存管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LMKD">
+                <span class="iconfont-archer">&#xe606;</span>
+                LMKD
+            </span>
+        
+    </div>
+    <div class="iconfont-archer sidebar-tags-empty">&#xe678;</div>
+    <div class="tag-load-fail" style="display: none; color: #ccc; font-size: 0.6rem;">
+        缺失模块，请参考主题文档进行安装配置：https://github.com/fi3ework/hexo-theme-archer#%E5%AE%89%E8%A3%85%E4%B8%BB%E9%A2%98
+    </div> 
+    <div class="sidebar-tags-list"></div>
+</div>
+
+        <div class="sidebar-panel-categories">
+    <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Linux">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Linux
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="移动通讯">
+            <span class="iconfont-archer">&#xe60a;</span>
+            移动通讯
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Java">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Java
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="网络协议">
+            <span class="iconfont-archer">&#xe60a;</span>
+            网络协议
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="项目构建">
+            <span class="iconfont-archer">&#xe60a;</span>
+            项目构建
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="读书笔记">
+            <span class="iconfont-archer">&#xe60a;</span>
+            读书笔记
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="思考">
+            <span class="iconfont-archer">&#xe60a;</span>
+            思考
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Design Pattern">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="算法/数据结构">
+            <span class="iconfont-archer">&#xe60a;</span>
+            算法/数据结构
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="软件工程">
+            <span class="iconfont-archer">&#xe60a;</span>
+            软件工程
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Regular Expression">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Regular Expression
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="社会万象">
+            <span class="iconfont-archer">&#xe60a;</span>
+            社会万象
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="C++">
+            <span class="iconfont-archer">&#xe60a;</span>
+            C++
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Software Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Software Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="虚拟化">
+            <span class="iconfont-archer">&#xe60a;</span>
+            虚拟化
+        </span>
+    
+    </div>
+    <div class="iconfont-archer sidebar-categories-empty">&#xe678;</div>
+    <div class="sidebar-categories-list"></div>
+</div>
+
+    </div>
+</div>
+
+        <!-- site-meta -->
+        <script>
+    var siteMetaRoot = "/"
+    if (siteMetaRoot === "undefined") {
+        siteMetaRoot = '/'
+    }
+    var siteMeta = {
+        url: "https://sniffer.site",
+        root: siteMetaRoot,
+        author: "Jason Wang"
+    }
+</script>
+
+        <!-- import experimental options here -->
+        <!-- Custom Font -->
+
+
+        <!-- main func -->
+        <script src="/scripts/main.js?v=20211217"></script>
+        <!-- dark mode -->
+        <script src="/scripts/dark.js?v=20211217"></script>
+        <!-- fancybox -->
+        <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js" defer></script>
+        <!-- algolia -->
+        
+            <div class="site-search site-search-loading">
+    <div class="algolia-popup popup">
+        <div class="algolia-search">
+            <div class="algolia-search-input-icon">
+                <i class="fa fa-search"></i>
+            </div>
+            <div class="algolia-search-input" id="algolia-search-input"></div>
+            <div class="popup-btn-close">
+                <i class="iconfont-archer">&#xe609;</i>
+            </div>
+        </div>
+
+        <div class="algolia-results">
+            <div id="algolia-stats" class="algolia-stats"></div>
+            <div id="algolia-hits"></div>
+            <div id="algolia-pagination" class="algolia-pagination"></div>
+        </div>
+    </div>
+</div>
+
+            <script src="/scripts/search.js?v=20211217" defer></script>
+        
+        <!-- busuanzi -->
+        
+            <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+        
+        <!-- CNZZ -->
+        
+        <!-- async load share.js -->
+        
+            <script src="/scripts/share.js?v=20211217" async></script>
+        
+        <!-- mermaid -->
+        
+            <script src='https://cdn.jsdelivr.net/npm/mermaid@8.11.0/dist/mermaid.min.js'></script>
+            <script>
+                if (window.mermaid) {
+                    mermaid.initialize({theme: 'dark'});
+                }
+            </script>
+        
+    </body>
+</html>
