@@ -456,6 +456,60 @@
             
         
         <article class="index-post">
+            <a class="abstract-title" href="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/">
+                
+                <span class="abstract-title-text">如何通过QEMU启动Linux系统</span>
+            </a>
+            <div class="abstract-content">
+                <p>看Linux驱动相关的代码， 却没有一个好的调试环境可以跟踪内核相关的调用流程。于是，想着用QEMU虚拟机来搭建一个Linux系统。花了大半天时间，终于能够启动一个简单的Linux系统了。中间踩了不少坑，找了不少资料，这里简单总结下整个过程。</p>
+<blockquote>
+<p>以下操作都是基于Ubuntu 18.04 x86_64平台</p>
+</blockquote>
+<p>最开始参考了<a target="_blank" rel="noopener" href="https://yuankun.me/posts/running-raw-linux-kernel-in-qemu/">如何使用QEMU跑内核</a>，使用系统自带的QEMU工具，结果提示如下错误:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">qemu-system-aarch64 rom check and register reset failed</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>怀疑是QEMU的版本太低导致，于是只好又重新编译QEMU源码，最后总算大功告成。总的说来，大致要做的事情有这么几个:</p>
+<ul>
+<li>编译Linux内核，利用busybox来生成一个小的rootfs（关于什么是rootfs，可以参考<a target="_blank" rel="noopener" href="https://tldp.org/LDP/sag/html/root-fs.html">The rootfs FS</a>)</li>
+<li>编译QEMU，确保正常配置ARM64架构的虚拟环境</li>
+<li>一切就绪，通过<code>qemu-system-aarch64</code>跑起来虚拟机来</li>
+</ul>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2022/08/30">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2022/08/27</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Kernel">Kernel</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Qemu">Qemu</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="busybox">busybox</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
             <a class="abstract-title" href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/">
                 
                 <span class="abstract-title-text">Linux网络优化之DPDK与XDP</span>
@@ -822,60 +876,6 @@
         <a class="post-tag" href="javascript:void(0);" data-tags="成长">成长</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="个人总结">个人总结</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">
-                
-                <span class="abstract-title-text">理解Android eBPF</span>
-            </a>
-            <div class="abstract-content">
-                <p>Android从9.0版本开始全面支持eBPF(<code>extended Berkeley Packet Filters</code>), 其主要用在流量统计上, 也可以用来监控CPU&#x2F;IO&#x2F;内存等模块的状态.简单来说, <code>eBPF</code>可以与内核的<code>kprobe</code>&#x2F;<code>tracepoints</code>&#x2F;<code>skfilter</code>等模块相结合, 将eBPF的函数hook到内核事件从而监控相应的系统状态.</p>
-<p>Android为eBPF提供了许多封装的库, 并提供了eBPF加载器<code>bpfloader</code>:</p>
-<ul>
-<li><code>bpfloader</code>: 位于<code>/system/bpf/bpfloader</code>, 系统启动时负责加载位于<code>/system/etc/bpf</code> 中的eBPF目标文件</li>
-<li><code>libbpf_android</code>: 位于<code>/system/bpf/libbpf_android</code>提供创建bpf容器&#x2F;加载bpf目标文件的接口</li>
-<li><code>libbpf</code>: 位于<code>/external/bcc</code>, 封装了bpf的系统调用, 提供如attach&#x2F;dettach程序的接口</li>
-<li><code>libnetdbpf</code>: 位于<code>/system/netd/libnetdbpf</code>, 实现了netd流量统计功能的函数</li>
-</ul>
-<p>目前在Android(Q)上有两处eBPF的代码: 一个是<code>/system/netd/bpf_progs/netd.c</code>, 主要是用于流量统计；一个是<code>/system/bpfprogs/time_in_state.c</code>用于监控CPU运行频率以及上下文切换的耗时.</p>
-<p>接下来我们就从三个部分来深入理解下Android是如何利用eBPF的:</p>
-<ul>
-<li>eBPF程序与目标文件格式</li>
-<li>Android eBPF加载与执行流程</li>
-<li>Android如何基于eBPF实现流量统计</li>
-</ul>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2023/02/08">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2021/11/26</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="extended Berkeley Packet Filters">extended Berkeley Packet Filters</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="eBPF">eBPF</a>
     
 </div>
 
@@ -1555,7 +1555,48 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2794,7 +2835,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 113
+        Total : 114
         </div>
         <!-- search  -->
         
@@ -2812,6 +2853,12 @@
             <div class="archive-year"> 2024 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/24</span>
+            <a class="archive-post-title" href="/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">高通QNX平台DCVS介绍</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">07/18</span>
@@ -4741,6 +4788,16 @@
             <span class="sidebar-tag-name" data-tags="时间">
                 <span class="iconfont-archer">&#xe606;</span>
                 时间
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DCVS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DCVS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="高通">
+                <span class="iconfont-archer">&#xe606;</span>
+                高通
             </span>
         
     </div>

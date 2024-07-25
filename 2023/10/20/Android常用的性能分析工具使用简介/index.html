@@ -30,7 +30,7 @@
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/perfetto-ui-record-new-traces.png">
 <meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android-profiler-ui.png">
 <meta property="article:published_time" content="2023-10-20T03:45:04.000Z">
-<meta property="article:modified_time" content="2024-07-07T08:51:20.604Z">
+<meta property="article:modified_time" content="2024-07-24T06:48:22.058Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Android">
 <meta property="article:tag" content="性能分析">
@@ -565,13 +565,13 @@
 
 <p>默认会抓取15s的日志，然后自动保存到一个<code>trace.html</code>的HTLM文件中；这个问题我们可以通过在<code>Chrome</code>浏览器中输入<code>chrome://tracing/</code>查看，也可以使用<a target="_blank" rel="noopener" href="https://ui.perfetto.dev/"><code>perfetto</code></a>进行日志的浏览分析。</p>
 <p>更多的使用规则可以参考<a target="_blank" rel="noopener" href="https://stuff.mit.edu/afs/sipb/project/android/docs/tools/help/systrace.html">systrace usage</a></p>
-<h2 id="dumpsys"><a href="#dumpsys" class="headerlink" title="dumpsys"></a>dumpsys</h2><p><code>dumpsys</code>是<code>Android</code>自带的一个工具，除了用于<code>dump</code>系统中注册的服务状态外，还可以用于各个进出的CPU占用、内存分配等情况，在分析一些系统的问题可能会有帮助:</p>
+<h2 id="dumpsys"><a href="#dumpsys" class="headerlink" title="dumpsys"></a><strong>dumpsys</strong></h2><p><code>dumpsys</code>是<code>Android</code>自带的一个工具，除了用于<code>dump</code>系统中注册的服务状态外，还可以用于各个进出的CPU占用、内存分配等情况，在分析一些系统的问题可能会有帮助:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">usage: dumpsys</span><br><span class="line">         To dump all services.</span><br><span class="line">or:</span><br><span class="line">       dumpsys [-t TIMEOUT] [--priority LEVEL] [--pid] [--thread] [--<span class="built_in">help</span> | -l | --skip SERVICES | SERVICE [ARGS]]</span><br><span class="line">         --<span class="built_in">help</span>: shows this <span class="built_in">help</span></span><br><span class="line">         -l: only list services, <span class="keyword">do</span> not dump them</span><br><span class="line">         -t TIMEOUT_SEC: TIMEOUT to use <span class="keyword">in</span> seconds instead of default 10 seconds</span><br><span class="line">         -T TIMEOUT_MS: TIMEOUT to use <span class="keyword">in</span> milliseconds instead of default 10 seconds</span><br><span class="line">         --pid: dump PID instead of usual dump</span><br><span class="line">         --thread: dump thread usage instead of usual dump</span><br><span class="line">         --proto: filter services that support dumping data <span class="keyword">in</span> proto format. Dumps</span><br><span class="line">               will be <span class="keyword">in</span> proto format.</span><br><span class="line">         --priority LEVEL: filter services based on specified priority</span><br><span class="line">               LEVEL must be one of CRITICAL | HIGH | NORMAL</span><br><span class="line">         --skip SERVICES: dumps all services but SERVICES (comma-separated list)</span><br><span class="line">         SERVICE [ARGS]: dumps only service SERVICE, optionally passing ARGS to it</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>如果我们只需要<code>dump</code>部分服务，可以先<code>dumpsys -l</code>获取到当前的服务列表, 然后保存对应的服务的<code>dump</code>日志:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">dumpsys SurfaceFlinger</span><br><span class="line"></span><br><span class="line">dumpsys cpuinfo</span><br><span class="line"></span><br><span class="line">dumpsys meminfo</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<h2 id="simpleperf"><a href="#simpleperf" class="headerlink" title="simpleperf"></a>simpleperf</h2><p><code>simpleperf</code>是Android原生自带的一个用于采集APP或者系统日志的分析工具，其实际上包含了一系列工具库，包括可以在Android Native的直接运行的工具<code>simpleperf</code>；可以在PC上执行的脚本集合，包括生成火焰图的<code>inferno.py</code>, 用于分析APP（包括Native进程）的<code>app_profile.py</code>，所有的这些包括源代码都可以在AOSP的源代码仓库路径<code>system/extras/simpleperf</code>中找到。</p>
+<h2 id="simpleperf"><a href="#simpleperf" class="headerlink" title="simpleperf"></a><strong>simpleperf</strong></h2><p><code>simpleperf</code>是Android原生自带的一个用于采集APP或者系统日志的分析工具，其实际上包含了一系列工具库，包括可以在Android Native的直接运行的工具<code>simpleperf</code>；可以在PC上执行的脚本集合，包括生成火焰图的<code>inferno.py</code>, 用于分析APP（包括Native进程）的<code>app_profile.py</code>，所有的这些包括源代码都可以在AOSP的源代码仓库路径<code>system/extras/simpleperf</code>中找到。</p>
 <p>先来看下如何使用<code>simpleperf</code>在Android本地上抓取分析的日志(如果没有<code>simpleperf</code>，可以到<code>simpleperf</code>目录下载或者自行编译一个push到系统中)；输入<code>simpleperf -h</code>查看使用说明:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Usage: simpleperf [common options] subcommand [args_for_subcommand]</span><br><span class="line">common options:</span><br><span class="line">    -h/--help     Print this <span class="built_in">help</span> information.</span><br><span class="line">    --<span class="built_in">log</span> &lt;severity&gt; Set the minimum severity of logging. Possible severities</span><br><span class="line">                     include verbose, debug, warning, info, error, fatal.</span><br><span class="line">                     Default is info.</span><br><span class="line">    --log-to-android-buffer  Write <span class="built_in">log</span> to android <span class="built_in">log</span> buffer instead of stderr.</span><br><span class="line">    --version     Print version of simpleperf.</span><br><span class="line">subcommands:</span><br><span class="line">    api-collect         Collect recording data generated by app api</span><br><span class="line">    api-prepare         Prepare recording via app api</span><br><span class="line">    debug-unwind        Debug/test offline unwinding.</span><br><span class="line">    dump                dump perf record file</span><br><span class="line">    <span class="built_in">help</span>                <span class="built_in">print</span> <span class="built_in">help</span> information <span class="keyword">for</span> simpleperf</span><br><span class="line">    inject              parse etm instruction tracing data</span><br><span class="line">    kmem                collect kernel memory allocation information</span><br><span class="line">    list                list available event types</span><br><span class="line">    merge               merge multiple perf.data into one</span><br><span class="line">    monitor             monitor events and <span class="built_in">print</span> their textual representations to stdout</span><br><span class="line">    record              record sampling info <span class="keyword">in</span> perf.data</span><br><span class="line">    report              report sampling information <span class="keyword">in</span> perf.data</span><br><span class="line">    report-sample       report raw sample information <span class="keyword">in</span> perf.data</span><br><span class="line">    <span class="built_in">stat</span>                gather performance counter information</span><br><span class="line">    trace-sched         Trace system-wide process runtime events.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
@@ -588,7 +588,7 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># Stat using default events (cpu-cycles,instructions,...), and monitor process 7394 for 10 seconds.</span></span><br><span class="line">$ simpleperf <span class="built_in">stat</span> -p 7394 --duration 10</span><br><span class="line">Performance counter statistics:</span><br><span class="line"></span><br><span class="line"><span class="comment">#         count  event_name                # count / runtime</span></span><br><span class="line">     16,513,564  cpu-cycles                <span class="comment"># 1.612904 GHz</span></span><br><span class="line">      4,564,133  stalled-cycles-frontend   <span class="comment"># 341.490 M/sec</span></span><br><span class="line">      6,520,383  stalled-cycles-backend    <span class="comment"># 591.666 M/sec</span></span><br><span class="line">      4,900,403  instructions              <span class="comment"># 612.859 M/sec</span></span><br><span class="line">         47,821  branch-misses             <span class="comment"># 6.085 M/sec</span></span><br><span class="line">  25.274251(ms)  task-clock                <span class="comment"># 0.002520 cpus used</span></span><br><span class="line">              4  context-switches          <span class="comment"># 158.264 /sec</span></span><br><span class="line">            466  page-faults               <span class="comment"># 18.438 K/sec</span></span><br><span class="line"></span><br><span class="line">Total <span class="built_in">test</span> time: 10.027923 seconds.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>更多详情可以参考<a target="_blank" rel="noopener" href="https://android.googlesource.com/platform/system/extras/+/master/simpleperf/doc/executable_commands_reference.md">simpleperf usage</a>或者AOSP中的代码目录<code>system/extras/simpleperf</code>。</p>
-<h2 id="perfetto"><a href="#perfetto" class="headerlink" title="perfetto"></a>perfetto</h2><p><a target="_blank" rel="noopener" href="https://perfetto.dev/"><code>perfetto</code></a>是Google开源的用于系统性能分析、Trace日志抓取的工具，是一个综合了Trace日志抓取、分析以及UI展示的工具链。<code>perfetto</code>采集的数据主要来自<code>ftrace</code>(收集内核信息)，<code>atrace</code>(收集服务与应用的Trace日志)以及<code>heapprofd</code>(用于收集APP的内存使用情况)；Android 10以后的版本都默认集成了一个<code>perfetto</code>的可执行程序用于Trace的抓取:</p>
+<h2 id="perfetto"><a href="#perfetto" class="headerlink" title="perfetto"></a><strong>perfetto</strong></h2><p><a target="_blank" rel="noopener" href="https://perfetto.dev/"><code>perfetto</code></a>是Google开源的用于系统性能分析、Trace日志抓取的工具，是一个综合了Trace日志抓取、分析以及UI展示的工具链。<code>perfetto</code>采集的数据主要来自<code>ftrace</code>(收集内核信息)，<code>atrace</code>(收集服务与应用的Trace日志)以及<code>heapprofd</code>(用于收集APP的内存使用情况)；Android 10以后的版本都默认集成了一个<code>perfetto</code>的可执行程序用于Trace的抓取:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Usage: perfetto</span><br><span class="line">  --background     -d      : Exits immediately and continues tracing <span class="keyword">in</span></span><br><span class="line">                            background</span><br><span class="line">  --config         -c      : /path/to/trace/config/file or - <span class="keyword">for</span> stdin</span><br><span class="line">  --out            -o      : /path/to/out/trace/file or - <span class="keyword">for</span> stdout</span><br><span class="line">  --upload                 : Upload field trace (Android only)</span><br><span class="line">  --dropbox        TAG     : DEPRECATED: Use --upload instead</span><br><span class="line">                            TAG should always be <span class="built_in">set</span> to <span class="string">&#x27;perfetto&#x27;</span></span><br><span class="line">  --no-guardrails          : Ignore guardrails triggered when using --upload</span><br><span class="line">                            (<span class="keyword">for</span> testing).</span><br><span class="line">  --txt                    : Parse config as pbtxt. Not <span class="keyword">for</span> production use.</span><br><span class="line">                            Not a stable API.</span><br><span class="line">  --reset-guardrails       : Resets the state of the guardails and exits</span><br><span class="line">                            (<span class="keyword">for</span> testing).</span><br><span class="line">  --query                  : Queries the service state and prints it as</span><br><span class="line">                            human-readable text.</span><br><span class="line">  --query-raw              : Like --query, but prints raw proto-encoded bytes</span><br><span class="line">                            of tracing_service_state.proto.</span><br><span class="line">  --save-for-bugreport     : If a trace with bugreport_score &gt; 0 is running, it</span><br><span class="line">                            saves it into a file. Outputs the path when <span class="keyword">done</span>.</span><br><span class="line">  --<span class="built_in">help</span>           -h</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">light configuration flags: (only when NOT using -c/--config)</span><br><span class="line">  --time           -t      : Trace duration N[s,m,h] (default: 10s)</span><br><span class="line">  --buffer         -b      : Ring buffer size N[mb,gb] (default: 32mb)</span><br><span class="line">  --size           -s      : Max file size N[mb,gb] (default: in-memory ring-buffer only)</span><br><span class="line">  --app            -a      : Android (atrace) app name</span><br><span class="line">  ATRACE_CAT               : Record ATRACE_CAT (e.g. wm)</span><br><span class="line">  FTRACE_GROUP/FTRACE_NAME : Record ftrace event (e.g. <span class="built_in">sched</span>/sched_switch)</span><br><span class="line"></span><br><span class="line">statsd-specific flags:</span><br><span class="line">  --alert-id           : ID of the alert that triggered this trace.</span><br><span class="line">  --config-id          : ID of the triggering config.</span><br><span class="line">  --config-uid         : UID of app <span class="built_in">which</span> registered the config.</span><br><span class="line">  --subscription-id    : ID of the subscription that triggered this trace.</span><br><span class="line"></span><br><span class="line">Detach mode. DISCOURAGED, <span class="built_in">read</span> https://perfetto.dev/docs/concepts/detached-mode :</span><br><span class="line">  --detach=key          : Detach from the tracing session with the given key.</span><br><span class="line">  --attach=key [--stop] : Re-attach to the session (optionally stop tracing once reattached).</span><br><span class="line">  --is_detached=key     : Check <span class="keyword">if</span> the session can be re-attached (0:Yes, 2:No, 1:Error).</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p><code>perfetto</code>包含以下两种模式，可确定用于记录跟踪数据的数据源：</p>
@@ -623,7 +623,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/">https://sniffer.site/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/">October 20th 2023, 11:45:04 am</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/">2024-07-07, 16:51:20</a>
+            <p>更新日期：<a href="https://sniffer.site/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/">2024-07-24, 14:48:22</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1368,7 +1368,48 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2607,7 +2648,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 113
+        Total : 114
         </div>
         <!-- search  -->
         
@@ -2625,6 +2666,12 @@
             <div class="archive-year"> 2024 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/24</span>
+            <a class="archive-post-title" href="/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">高通QNX平台DCVS介绍</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">07/18</span>
@@ -4554,6 +4601,16 @@
             <span class="sidebar-tag-name" data-tags="时间">
                 <span class="iconfont-archer">&#xe606;</span>
                 时间
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DCVS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DCVS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="高通">
+                <span class="iconfont-archer">&#xe606;</span>
+                高通
             </span>
         
     </div>
