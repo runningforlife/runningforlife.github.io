@@ -22,7 +22,7 @@
     <meta name="description" content="关于编程,生活,工作">
 <meta property="og:type" content="website">
 <meta property="og:title" content="JasonWang&#39;s Blog">
-<meta property="og:url" content="https://sniffer.site/tags/IPC/index.html">
+<meta property="og:url" content="https://sniffer.site/tags/buildroot/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="关于编程,生活,工作">
 <meta property="og:locale" content="zh_CN">
@@ -456,39 +456,46 @@
             
         
         <article class="index-post">
-            <a class="abstract-title" href="/2016/10/01/Binder%E5%85%A5%E9%97%A8/">
+            <a class="abstract-title" href="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/">
                 
-                <span class="abstract-title-text">Android Binder入门</span>
+                <span class="abstract-title-text">如何通过QEMU启动Linux系统</span>
             </a>
             <div class="abstract-content">
-                <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a><strong>背景</strong></h1><p>如今的操作系统都支持多进程并发执行， 系统一般都存在多种不同的服务运行在多个进程当中。那么，进程与进程之间如何通信，即跨进程通信（IPC， Inter-Process Communication）是如何进行的呢？ Linux已有好几种IPC机制：</p>
+                <p>看Linux驱动相关的代码， 却没有一个好的调试环境可以跟踪内核相关的调用流程。于是，想着用QEMU虚拟机来搭建一个Linux系统。花了大半天时间，终于能够启动一个简单的Linux系统了。中间踩了不少坑，找了不少资料，这里简单总结下整个过程。</p>
+<blockquote>
+<p>以下操作都是基于Ubuntu 18.04 x86_64平台</p>
+</blockquote>
+<p>最开始参考了<a target="_blank" rel="noopener" href="https://yuankun.me/posts/running-raw-linux-kernel-in-qemu/">如何使用QEMU跑内核</a>，使用系统自带的QEMU工具，结果提示如下错误:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">qemu-system-aarch64 rom check and register reset failed</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>怀疑是QEMU的版本太低导致，于是只好又重新编译QEMU源码，最后总算大功告成。总的说来，大致要做的事情有这么几个:</p>
 <ul>
-<li>Signals: 最早的IPC方式，一个进程通过发送信号给另一个有相同UID&#x2F;GID的进程或者在同一进程组的进程</li>
-<li>Pipes（包括 named pipes): Pipes是一个单向的用于连接一个进程的标准输出与另一个进程的标准输入的字节流通道</li>
-<li>Sockets: 双向的通道，两个进程通过打开同一个socket进行通信</li>
-<li>Message queues: 一个进程将消息写入消息队列，另一个进程从改队列中读取消息</li>
-<li>Semaphores: 信号量是一个可以被多个进程读写的共有变量</li>
-<li>Shared Memeory: 一个系统的内存区域，通过将其映射到两个不同进程的虚拟地址空间，因此每个进程都可以访问该地址空间</li>
-<li>D-Bus(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/D-Bus">Desktop Bus</a>): 用于桌面组件与服务通讯的协议</li>
+<li>编译Linux内核，利用busybox来生成一个小的rootfs（关于什么是rootfs，可以参考<a target="_blank" rel="noopener" href="https://tldp.org/LDP/sag/html/root-fs.html">The rootfs FS</a>)</li>
+<li>编译QEMU，确保正常配置ARM64架构的虚拟环境</li>
+<li>一切就绪，通过<code>qemu-system-aarch64</code>跑起来虚拟机来</li>
 </ul>
             </div>
             <!-- read more -->
             
             <div class="abstract-post-meta">
                 <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/08/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2016/10/01</span>
+                <div class="abstract-date" title="Last updated: 2024/08/07">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2022/08/27</span>
                 </div>
                 <!-- tags -->
                 
                     <div class= abstract-tags >
     
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="Binder">Binder</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="Kernel">Kernel</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="IPC">IPC</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="Qemu">Qemu</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="busybox">busybox</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="buildroot">buildroot</a>
     
 </div>
 
