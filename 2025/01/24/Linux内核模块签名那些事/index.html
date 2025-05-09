@@ -27,7 +27,7 @@
 <meta property="og:description" content="最近有同事反馈一个系统启动失败的问题，根因是系统的驱动模块加载失败导致system_server无法正常启动。lsmod查看，没有有任何的驱动加载，尝试insmod &#x2F;vendor&#x2F;lib&#x2F;modules&#x2F;cnss2.ko会提示： 123insmod: failed to to load cnss2.ko : Key was rejected by service  说明对应模块的签名与内核不一致">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-01-24T06:16:03.000Z">
-<meta property="article:modified_time" content="2025-01-24T10:15:28.602Z">
+<meta property="article:modified_time" content="2025-02-15T03:53:25.054Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="内核">
@@ -364,7 +364,7 @@
                 
                 
                     <div class="post-intro-read">
-                        <span>字数统计: <span class="post-count word-count">1.3k</span>阅读时长: <span class="post-count reading-time">6 min</span></span>
+                        <span>字数统计: <span class="post-count word-count">1.4k</span>阅读时长: <span class="post-count reading-time">6 min</span></span>
                     </div>
                 
                 <div class="post-intro-meta">
@@ -533,7 +533,7 @@
 
 
 <h2 id="内核模块签名"><a href="#内核模块签名" class="headerlink" title="内核模块签名"></a><strong>内核模块签名</strong></h2><p>内核为了增强安全，会在编译阶段生成一个签名并放在模块的末尾，在模块尝试加载时主动对模块的签名进行校验，如果签名不匹配则会拒绝安装。这样可以减少未签名或者恶意的模块安装到内核，从而威胁到内核的正常运行。</p>
-<p>内核的签名遵从<code>PKCS7(Public Key Cryptography Standards)</code>加密规范，；加密秘钥支持多种<code>SHA1</code>&#x2F;<code>SHA224</code>&#x2F;<code>SHA256</code>等多种长度，可以通过内核配置<code>CONFIG_MODULE_SIG_HASH</code>进行配置。Linux内核从3.7版本开始支持模块的签名校验机制。如果想要开启此功能，需要打开如下几个配置：</p>
+<p>内核的签名遵从<code>PKCS7(Public Key Cryptography Standards)</code>加密规范，；加密秘钥支持<code>SHA1</code>&#x2F;<code>SHA224</code>&#x2F;<code>SHA256</code>等多种长度，可以通过内核配置<code>CONFIG_MODULE_SIG_HASH</code>进行配置。Linux内核从3.7版本开始支持模块的签名校验机制。如果想要开启此功能，需要打开如下几个配置：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">CONFIG_MODULE_SIG=y</span><br><span class="line">CONFIG_MODULE_SIG_FORCE=y</span><br><span class="line">CONFIG_MODULE_SIG_ALL=y</span><br><span class="line">CONFIG_MODULE_SIG_SHA1=y</span><br><span class="line">#根据实际需要选择哈希算法</span><br><span class="line">#CONFIG_MODULE_SIG_SHA224=y</span><br><span class="line">#CONFIG_MODULE_SIG_SHA256=y</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>查看内核根目录的<code>Makefile</code>脚本可以看到，如果开启了<code>CONFIG_MODULE_SIG_ALL</code>&#x2F;<code>CONFIG_MODULE_SIG</code>两个配置，则会基于内核生成的证书对系统所有外部模块进行签名</p>
@@ -559,7 +559,7 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">perl extract-sys-certs.pl vmlinux ./vmlinux.x509</span><br><span class="line"></span><br><span class="line">perl check_mod_sig.pl ./vmlinux.x509 cnss.ko</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>如果我们要去掉内核模块中的签名，可以使用<code>strip</code>(<code>Android</code>平台需要使用<code>arm</code>平台的命令工具<code>prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/aarch64-linux-android/bin/strip</code>)将签名去除，然后通过<code>sign-file</code>这个工具重新进行签名：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">strip --keep-file-symbols cnss2.ko</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">#需要加--strip-debug，否则可能会将KO中的某些符号删除，导致模块无法加载</span></span><br><span class="line">strip --strip-debug --keep-file-symbols cnss2.ko</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>仿照内核的<code>Makefile</code>进行模块的手动签名，签名成功后可以看到文件末尾多了<code>~Module signature appended~</code>这个字符串:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"># mod_sign_cmd = scripts/sign-file $(CONFIG_MODULE_SIG_HASH) $(MODULE_SIG_KEY_SRCPREFIX)$(CONFIG_MODULE_SIG_KEY) certs/signing_key.x509</span><br><span class="line"></span><br><span class="line">./sign-file sha1 certs/signing_key.pem certs/signing_key.x509 cnss2.ko</span><br><span class="line"></span><br></pre></td></tr></table></figure>
@@ -578,13 +578,18 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/">https://sniffer.site/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/">January 24th 2025, 2:16:03 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/">2025-01-24, 18:15:28</a>
+            <p>更新日期：<a href="https://sniffer.site/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/">2025-02-15, 11:53:25</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
     <!-- paginator -->
     <ul class="post-paginator">
         <li class="next">
+            
+                <div class="nextSlogan">Next Post</div>
+                <a href="/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/" title="一个CPU steal-time高的问题">
+                    <div class="nextTitle">一个CPU steal-time高的问题</div>
+                </a>
             
         </li>
         <li class="previous">
@@ -1343,25 +1348,12 @@
         
         
         
+        
+        
+        
+        
+        
     
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
         
         
@@ -2674,7 +2666,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 118
+        Total : 119
         </div>
         <!-- search  -->
         
@@ -2692,6 +2684,12 @@
             <div class="archive-year"> 2025 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">一个CPU steal-time高的问题</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">01/24</span>
@@ -4700,6 +4698,16 @@
             <span class="sidebar-tag-name" data-tags="模块签名">
                 <span class="iconfont-archer">&#xe606;</span>
                 模块签名
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
     </div>
