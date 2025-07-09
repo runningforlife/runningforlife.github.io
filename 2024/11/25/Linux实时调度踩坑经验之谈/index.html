@@ -29,7 +29,7 @@
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/linux-rt-process-long-run.jpg">
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/rt-task-cpu-contention.jpg">
 <meta property="article:published_time" content="2024-11-25T11:03:31.000Z">
-<meta property="article:modified_time" content="2024-12-04T12:32:05.528Z">
+<meta property="article:modified_time" content="2025-05-22T10:04:44.434Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Kernel">
 <meta property="article:tag" content="实时调度">
@@ -367,7 +367,7 @@
                 
                 
                     <div class="post-intro-read">
-                        <span>字数统计: <span class="post-count word-count">2.6k</span>阅读时长: <span class="post-count reading-time">10 min</span></span>
+                        <span>字数统计: <span class="post-count word-count">2.7k</span>阅读时长: <span class="post-count reading-time">10 min</span></span>
                     </div>
                 
                 <div class="post-intro-meta">
@@ -546,8 +546,8 @@
 <li>实时进程会抢占其他非实时任务的CPU，长时间占据CPU，导致系统吞吐量下降，引起性能问题</li>
 <li>由于优先级设置不当，高优先级的实时任务会抢占低优先级实时任务的CPU，导致某些任务处理延迟</li>
 </ul>
-<p>接下来我们就一起来看看这两类问题的表现，以及如何在实际开发中避免。在此之前，首先来简要的看一看Linux内核中实时调度策略的实现。</p>
-<h2 id="Linux内核的实时调度"><a href="#Linux内核的实时调度" class="headerlink" title="Linux内核的实时调度"></a>Linux内核的实时调度</h2><p>除了常规的公平调度<code>CFS(Complete Fair Scheduling)</code>之外，Linux内核还支持两类实时调度类型：</p>
+<p>接下来我们就一起来看看这两类问题的表现，以及如何在实际开发中避免。在此之前，首先来简单看一看Linux内核中实时调度策略的实现。</p>
+<h2 id="Linux内核的实时调度"><a href="#Linux内核的实时调度" class="headerlink" title="Linux内核的实时调度"></a><strong>Linux内核的实时调度</strong></h2><p>除了常规的公平调度<code>CFS(Complete Fair Scheduling)</code>之外，Linux内核还支持两类实时调度类型：</p>
 <ul>
 <li>随机轮盘调度(<code>Round-robin</code>， <code>SCHED_RR</code>)：该调度策略的事实任务有固定的时间片（默认是<code>100ms</code>）,任务执行完一段时间后，时间片减少；时间片用完后，进程换出，会放入到运行队列末尾，等待下一轮调度；这样确保相同优先级的任务可以轮流执行</li>
 <li>先进先出调度（<code>First-In, First-Out</code>, <code>SCHED_FIFO</code>）：该调度策略没有时间片的限制，一旦调度执行会一直占用CPU；如果该任务的代码有问题导致阻塞，就可能出现CPU被长时间占用而无法换出的问题。</li>
@@ -561,17 +561,17 @@
 <p>实时调度的调度队列是一个双向链表，所有优先级相同的任务都放入到<code>active.queue[prio]</code>这个队列里（实时调度的最大优先级<code>MAX_RT_PRIO</code>），<code>active.bitmap</code>用于记录哪个优先级对应的队列有任务；对实时调度实现原理感兴趣的可以研究下内核的代码<code>kernel/sched/rt.c</code>。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">rt_prio_array</span> &#123;</span></span><br><span class="line">  DECLARE_BITMAP(bitmap, MAX_RT_PRIO+<span class="number">1</span>); <span class="comment">/* include 1 bit for delimiter */</span></span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">queue</span>[<span class="title">MAX_RT_PRIO</span>];</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">rt_rq</span> &#123;</span></span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">rt_prio_array</span> <span class="title">active</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<h2 id="实时调度坑之一-实时任务长时间占据CPU"><a href="#实时调度坑之一-实时任务长时间占据CPU" class="headerlink" title="实时调度坑之一-实时任务长时间占据CPU"></a>实时调度坑之一-实时任务长时间占据CPU</h2><p>之前在一个项目开发过程中碰到一个问题：系统中一个跟摄像头相关的实时任务长时间占用了<code>CPU0</code>，持续运行了<code>100ms+</code>，而音频相关的软中断恰好也在<code>CPU0</code>上处理（物理中断默认绑定在<code>CPU0</code>上，对应的软中断会跟物理中断在同一个CPU上处理），导致音频的软中断无法抢占到<code>CPU</code>，发生响应延迟，导致音频卡顿。</p>
+<h2 id="实时调度坑之一-实时任务长时间占据CPU"><a href="#实时调度坑之一-实时任务长时间占据CPU" class="headerlink" title="实时调度坑之一-实时任务长时间占据CPU"></a><strong>实时调度坑之一-实时任务长时间占据CPU</strong></h2><p>之前在一个项目开发过程中碰到一个问题：系统中一个跟摄像头相关的实时任务长时间占用了<code>CPU0</code>，持续运行了<code>100+ms</code>，而音频相关的软中断恰好也在<code>CPU0</code>上处理（物理中断默认绑定在<code>CPU0</code>上，对应的软中断会跟物理中断在同一个CPU上处理），导致音频的软中断无法抢占到<code>CPU</code>，发生响应延迟，导致音频卡顿。</p>
 <p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/linux-rt-process-long-run.jpg" alt="RT线程执行时间过长"></p>
 <p>那么，软中断为啥没能竞争过用户空间的实时任务了？根因在于内核中的软中断<code>softirqd</code>线程创建时默认使用<code>SCHED_NORMAL</code>公平调度策略，因此优先级是低于实时调度(<code>RT</code>)的，这也能解释为为什么软中断无法抢占到<code>CPU</code>，导致音频卡顿。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta"># kthread.c</span></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">kthread</span><span class="params">(<span class="type">void</span> *_create)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">static</span> <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">sched_param</span> <span class="title">param</span> =</span> &#123; .sched_priority = <span class="number">0</span> &#125;;</span><br><span class="line">    <span class="comment">/* Copy data: it&#x27;s on kthread&#x27;s stack */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kthread_create_info</span> *<span class="title">create</span> =</span> _create;</span><br><span class="line">    <span class="type">int</span> (*threadfn)(<span class="type">void</span> *data) = create-&gt;threadfn;</span><br><span class="line">    <span class="type">void</span> *data = create-&gt;data;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">completion</span> *<span class="title">done</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kthread</span> *<span class="title">self</span>;</span></span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    self = to_kthread(current);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Release the structure when caller killed by a fatal signal. */</span></span><br><span class="line">    done = xchg(&amp;create-&gt;done, <span class="literal">NULL</span>);</span><br><span class="line">    <span class="keyword">if</span> (!done) &#123;</span><br><span class="line">        kfree(create-&gt;full_name);</span><br><span class="line">        kfree(create);</span><br><span class="line">        kthread_exit(-EINTR);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    self-&gt;full_name = create-&gt;full_name;</span><br><span class="line">    self-&gt;threadfn = threadfn;</span><br><span class="line">    self-&gt;data = data;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * The new thread inherited kthreadd&#x27;s priority and CPU mask. Reset</span></span><br><span class="line"><span class="comment">     * back to default in case they have been changed.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    sched_setscheduler_nocheck(current, SCHED_NORMAL, &amp;param);</span><br><span class="line">    set_cpus_allowed_ptr(current, housekeeping_cpumask(HK_TYPE_KTHREAD));</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* OK, tell user we&#x27;re spawned, wait for stop or wakeup */</span></span><br><span class="line">    __set_current_state(TASK_UNINTERRUPTIBLE);</span><br><span class="line">    create-&gt;result = current;</span><br><span class="line">    <span class="comment">/*</span></span><br><span class="line"><span class="comment">     * Thread is going to call schedule(), do not preempt it,</span></span><br><span class="line"><span class="comment">     * or the creator may spend more time in wait_task_inactive().</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    preempt_disable();</span><br><span class="line">    complete(done);</span><br><span class="line">    schedule_preempt_disabled();</span><br><span class="line">    preempt_enable();</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>这类问题要解决有两个方法，一个是直接将用户空间的线程调度策略设置为普通公平调度，一个是开启物理中断的<code>CPU</code>亲和性，确保软中断处理不绑定到特定的<code>CPU</code>上，从而错开与实时调度任务的执行，也可以将软中断设置为实时调度策略（这个影响较大，不推荐）。</p>
-<h2 id="实时调度坑之二-优先级设置不当"><a href="#实时调度坑之二-优先级设置不当" class="headerlink" title="实时调度坑之二-优先级设置不当"></a>实时调度坑之二-优先级设置不当</h2><p>与问题一不一样的是，问题二是两个实时任务的竞争引起的音频卡顿的问题（<code>Android</code>中大部分的实时调度任务都是音频）：一个应用进入前台后（Android中前台进程是<code>top-app</code>，绑定<code>CPU0~3</code>，我们开启了Android的一个特定<code>sys.use_fifo_ui</code>，会使得应用的<code>UI</code>线程使用实时调度策略），会偶现音频播放出现杂音。通过复现抓到的<code>trace</code>可以看到，内核音频线程(<code>297</code>)有好几处长时间的(大于<code>13ms</code>以上)休眠，此时同一个<code>CPU0</code>上运行的就是前台的任务的主线程<code>6600</code>，可以看到只有等主线程执行完成释放<code>CPU0</code>，音频内核线程<code>297</code>才会唤醒，而此时音频可能已经出现了丢帧，从而出现杂音的问题。</p>
+<h2 id="实时调度坑之二-优先级设置不当"><a href="#实时调度坑之二-优先级设置不当" class="headerlink" title="实时调度坑之二-优先级设置不当"></a><strong>实时调度坑之二-优先级设置不当</strong></h2><p>与问题一不一样的是，问题二是两个实时任务的竞争引起的音频卡顿的问题（<code>Android</code>中大部分的实时调度任务都是音频）：一个应用进入前台后（Android中前台进程是<code>top-app</code>，绑定<code>CPU0~3</code>，我们开启了Android的一个特定<code>sys.use_fifo_ui</code>，会使得应用的<code>UI</code>线程使用实时调度策略），会偶现音频播放出现杂音。通过复现抓到的<code>trace</code>可以看到，内核音频线程(<code>297</code>)有好几处长时间的(大于<code>13ms</code>以上)休眠，此时同一个<code>CPU0</code>上运行的就是前台的任务的主线程<code>6600</code>，可以看到只有等主线程执行完成释放<code>CPU0</code>，音频内核线程<code>297</code>才会唤醒，而此时音频可能已经出现了丢帧，从而出现杂音的问题。</p>
 <p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/rt-task-cpu-contention.jpg" alt="RT实时任务竞争CPU"></p>
 <p>那么，为啥同样是实时调度的任务，内核的音频线程没法抢占到<code>CPU</code>呢？从实时调度的原理来看，可以推测是内核实时线程的优先级低于前台任务的主线程，实际在设备确认发现，音频线程的优先级与主线程优先级恰好相等，都是<code>98</code>(实时线程的最大优先级是<code>100</code>)。</p>
 <p>与上一个问题类似，要解决问题二，要么关闭<code>Android</code>的主线程优化<code>sys.use_fifo_ui</code>，将其设置为<code>0</code>，从而避开与内核音频线程的竞争；要么提高内核音频线程的优先级，在创建线程时将内核线程的<code>nice</code>值降低（优先级提高）。实测发现方案二有效，最终我们也采用了方案二来解决问题。</p>
-<h2 id="如何限制实时任务的执行时间"><a href="#如何限制实时任务的执行时间" class="headerlink" title="如何限制实时任务的执行时间"></a>如何限制实时任务的执行时间</h2><p>从实时调度的调度策略来看，如果实时进程的代码存在问题，就很有可能导致CPU长时间被占用，系统卡住。内核为了解决该问题，针对实时任务的执行时间进行限定。在<code>proc</code>目录下有两个参数：</p>
+<h2 id="如何限制实时任务的执行时间"><a href="#如何限制实时任务的执行时间" class="headerlink" title="如何限制实时任务的执行时间"></a><strong>如何限制实时任务的执行时间</strong></h2><p>从实时调度的调度策略来看，如果实时进程的代码存在问题，就很有可能导致CPU长时间被占用，系统卡住。内核为了解决该问题，针对实时任务的执行时间进行限定。在<code>proc</code>目录下有两个参数：</p>
 <ul>
 <li><code>sched_rt_period_us</code>： 表示最大的调度时长（可以理解为100%的CPU带宽），大小范围从<code>-1</code>到<code>INT_MAX-1</code>，默认是1s，</li>
 <li><code>sched_rt_runtime_us</code>: 表示实时任务最大可运行时长，默认是0.95s,表示实时任务可以使用0.95s的CPU时间，而其他调度类的进程可以使用余下的0.05s</li>
@@ -582,9 +582,9 @@
 <p>通过调节这两个参数，我们可以限制实时类调度任务的时间片分配，从而确保其他任务可以执行。除此之外，通过设定<code>cgroup</code>的配置<code>CONFIG_RT_GROUP_SCHED</code>，也可以通过控制分组来限定某些分组的实时任务占用的时间片；启动该配置后，在对应的cgroup目录可以看到如下配置：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">cpu.rt_period_us</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
-<p>通过设定该参数，可以在不同的分组采用不一样的实时任务分配策略，确保某些分组比如后台的实时任务不长时间占用CPU，从而解决其他任务无法抢占到CPU的问题</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>对<code>Linux</code>这种通用的操作系统来说，进程的调度要考虑的因素非常多：既要考虑到低延迟的任务处理，降低响应延时，比如音频、UI的渲染，同时要考虑并发处理多个任务，保持系统的高吞吐量，这两个目标通常是相互冲突的，需要在仔细权衡。在使用实时调度策略的时候，我们还是要谨慎处理，避免实时任务竞争<code>CPU</code>引起的问题。</p>
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<p>通过设定该参数，可以在不同的分组采用不一样的实时任务分配策略，确保某些分组比如后台的实时任务不长时间占用CPU，从而解决其他任务无法抢占到CPU的问题。另外，内核为了确保实时任务的低延迟，通过一个调度配置<code>RT_RUNTIME_SHARE</code>来开启各个CPU的时间片共享，就是说，如果当前实时任务队列的时间片用完后，可以向其他CPU借用时间片，从而保证该实时任务能执行，而不至于被其他常规的任务抢占CPU被阻塞。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>对<code>Linux</code>这种通用的操作系统来说，进程的调度要考虑的因素非常多：既要考虑到低延迟的任务处理，降低响应延时，比如音频、UI的渲染，同时要考虑并发处理多个任务，保持系统的高吞吐量，这两个目标通常是相互冲突的，需要在仔细权衡。在使用实时调度策略的时候，我们还是要谨慎处理，避免实时任务竞争<code>CPU</code>引起的问题。</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
 <li><a target="_blank" rel="noopener" href="https://wiki.linuxfoundation.org/realtime/documentation/technical_basics/sched_rt_throttling">https://wiki.linuxfoundation.org/realtime/documentation/technical_basics/sched_rt_throttling</a></li>
 <li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/scheduler/sched-rt-group.txt">https://www.kernel.org/doc/Documentation/scheduler/sched-rt-group.txt</a></li>
 <li><a target="_blank" rel="noopener" href="https://wiki.linuxfoundation.org/realtime/start">https://wiki.linuxfoundation.org/realtime/start</a></li>
@@ -597,7 +597,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/">https://sniffer.site/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/">November 25th 2024, 7:03:31 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/">2024-12-04, 20:32:05</a>
+            <p>更新日期：<a href="https://sniffer.site/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/">2025-05-22, 18:04:44</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1377,7 +1377,49 @@
         
         
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2726,7 +2768,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 120
+        Total : 122
         </div>
         <!-- search  -->
         
@@ -2744,6 +2786,18 @@
             <div class="archive-year"> 2025 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2025/06/18/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%BA%8C-LXC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">深入Linux容器LXC之二-LXC源码分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">深入Linux容器LXC之一-LXC的实现原理</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">05/14</span>
@@ -4779,6 +4833,16 @@
             <span class="sidebar-tag-name" data-tags="VLAN">
                 <span class="iconfont-archer">&#xe606;</span>
                 VLAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
             </span>
         
     </div>

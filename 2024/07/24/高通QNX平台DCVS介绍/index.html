@@ -29,7 +29,7 @@
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/qcom-qnx-dcvs.png">
 <meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/8155-gpu-freq-levels.jpeg">
 <meta property="article:published_time" content="2024-07-24T11:17:15.000Z">
-<meta property="article:modified_time" content="2024-07-25T03:57:20.671Z">
+<meta property="article:modified_time" content="2025-06-20T08:30:45.511Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="QNX">
 <meta property="article:tag" content="DCVS">
@@ -367,7 +367,7 @@
                 
                 
                     <div class="post-intro-read">
-                        <span>字数统计: <span class="post-count word-count">1.9k</span>阅读时长: <span class="post-count reading-time">8 min</span></span>
+                        <span>字数统计: <span class="post-count word-count">2k</span>阅读时长: <span class="post-count reading-time">8 min</span></span>
                     </div>
                 
                 <div class="post-intro-meta">
@@ -591,7 +591,7 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># 设置GPU频率为500MHZ(level 3)</span></span><br><span class="line"><span class="built_in">echo</span> gpu_perf_governor 1 &gt; /dev/kgsl-control</span><br><span class="line"><span class="built_in">echo</span> gpu_gfx_core_clock_level 3 &gt; /dev/kgsl-control</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>如果需要实时查看当前<code>GPU</code>的工作频率与负载，可以通过设定日志等级，然后通过<code>slog2info</code>查看：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># 设置GPU日志等级</span></span><br><span class="line"><span class="built_in">echo</span> gpu_set_log_level 4 &gt; /dev/kgsl-control</span><br><span class="line"><span class="built_in">echo</span> gpubusystats 100 &gt; /dev/kgsl-control</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看GPU实时负载</span></span><br><span class="line">slog2info -w |grep -i gsl</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># 设置GPU日志等级</span></span><br><span class="line"><span class="built_in">echo</span> gpu_set_log_level 4 &gt; /dev/kgsl-control</span><br><span class="line"><span class="built_in">echo</span> gpubusystats 100 &gt; /dev/kgsl-control</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看单个进程的GPU占用</span></span><br><span class="line"><span class="built_in">echo</span> gpu_per_process_busy 1000 &gt;/dev/kgsl-control</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看GPU实时负载</span></span><br><span class="line">slog2info -b KGSL -w |grep -i percentage</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <h2 id="QNX中查看系统工作频率"><a href="#QNX中查看系统工作频率" class="headerlink" title="QNX中查看系统工作频率"></a><strong>QNX中查看系统工作频率</strong></h2><p>高通平台的<code>QNX</code>系统中有一个<code>clock.sh</code>脚本，可以用来读取、设定系统核心的工作频率，比如<code>CPU</code>, <code>GPU</code>, <code>DDR</code>, <code>UFS</code>:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># clock.sh -h</span></span><br><span class="line">clock debug tool</span><br><span class="line">usage: clock.sh &lt;<span class="built_in">command</span>&gt; &lt;[arg]&gt; [options]</span><br><span class="line"></span><br><span class="line">Provides an interface to the qcore clock driver. Results are stored</span><br><span class="line"><span class="keyword">in</span> /tmp/clockdebug_log, <span class="built_in">which</span> is <span class="keyword">then</span> printed to stdout.</span><br><span class="line"></span><br><span class="line">global options:</span><br><span class="line">  -b,--batch   <span class="built_in">enable</span> batch commands</span><br><span class="line"></span><br><span class="line">commands:</span><br><span class="line">  <span class="built_in">enable</span>       &lt;clock || powerdomain || dcvs || avs&gt;</span><br><span class="line">  <span class="built_in">disable</span>      &lt;clock || powerdomain || dcvs&gt; [--force]</span><br><span class="line">  getfreq      &lt;clock&gt; </span><br><span class="line">  setfreq      &lt;clock&gt; &lt;frequency (min KHz)&gt;</span><br><span class="line">  setdiv       &lt;clock&gt; &lt;div&gt;</span><br><span class="line">  setflags     &lt;clock || powerdomain || top&gt; &lt;mask&gt;</span><br><span class="line">  setlimit     &lt;clock&gt; [--min, --max (default)] &lt;frequency (KHz)&gt;</span><br><span class="line">  config       &lt;clock&gt; &lt;val&gt;</span><br><span class="line">  reset        &lt;clock&gt; [--assert, --deassert, --pulse (default)]</span><br><span class="line">  info         &lt;clock || powerdomain || top || list&gt; [--enabled, --on, --ref, --xovote, --cached]</span><br><span class="line">  freqplan     &lt;clock&gt; </span><br><span class="line">  maxperf      &lt;cluster_name&gt; </span><br><span class="line">  minperf      &lt;cluster_name&gt; </span><br><span class="line">  perfinfo     &lt;cluster_name&gt; </span><br><span class="line">  gpio         [--off]</span><br><span class="line">  debugmux     &lt;clocck_name&gt;</span><br><span class="line">  getrefcount  &lt;clock_name&gt;</span><br><span class="line">  <span class="built_in">log</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
@@ -611,7 +611,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">https://sniffer.site/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">July 24th 2024, 7:17:15 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">2024-07-25, 11:57:20</a>
+            <p>更新日期：<a href="https://sniffer.site/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">2025-06-20, 16:30:45</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1391,7 +1391,49 @@
         
         
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2740,7 +2782,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 120
+        Total : 122
         </div>
         <!-- search  -->
         
@@ -2758,6 +2800,18 @@
             <div class="archive-year"> 2025 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2025/06/18/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%BA%8C-LXC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">深入Linux容器LXC之二-LXC源码分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">深入Linux容器LXC之一-LXC的实现原理</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">05/14</span>
@@ -4793,6 +4847,16 @@
             <span class="sidebar-tag-name" data-tags="VLAN">
                 <span class="iconfont-archer">&#xe606;</span>
                 VLAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
             </span>
         
     </div>
