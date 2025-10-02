@@ -1,0 +1,5187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <!-- title -->
+
+
+    
+
+<!-- keywords -->
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="author" content="Jason Wang">
+    <meta name="renderer" content="webkit">
+    <meta name="copyright" content="Jason Wang">
+    
+        <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
+    
+    <meta name="description" content="关于编程,生活,工作">
+    <meta name="description" content="对于任务调度器来说，在发生调度时需要决定选择某个进程调度到哪个CPU执行，同时还需要基于系统当前的负载，实时的调整CPU运行的频率。Linux进程调度器为了适配各种不同场景的设备，如服务器，嵌入式设备，通常需要在多个性能目标上进行权衡取舍：  需要确保调度尽可能公平，保证每个任务都有机会得到执行 快速响应用户请求，比如对于交互式的用户任务，需要降低调度延迟，快速调度任务执行 实现更高的系统吞吐量，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="进程调度中的PELT与WALT">
+<meta property="og:url" content="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="对于任务调度器来说，在发生调度时需要决定选择某个进程调度到哪个CPU执行，同时还需要基于系统当前的负载，实时的调整CPU运行的频率。Linux进程调度器为了适配各种不同场景的设备，如服务器，嵌入式设备，通常需要在多个性能目标上进行权衡取舍：  需要确保调度尽可能公平，保证每个任务都有机会得到执行 快速响应用户请求，比如对于交互式的用户任务，需要降低调度延迟，快速调度任务执行 实现更高的系统吞吐量，">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/walt-demand-calculation.png">
+<meta property="article:published_time" content="2025-10-02T02:58:01.000Z">
+<meta property="article:modified_time" content="2025-10-02T03:54:25.603Z">
+<meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="PELT">
+<meta property="article:tag" content="WALT">
+<meta property="article:tag" content="进程调度">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/walt-demand-calculation.png">
+    <meta http-equiv="Cache-control" content="no-cache">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="icon" href="/assets/favicon.ico">
+    
+    <title>进程调度中的PELT与WALT · JasonWang&#39;s Blog</title>
+    <!-- /*! loadCSS. [c]2017 Filament Group, Inc. MIT License */
+/* This file is meant as a standalone workflow for
+- testing support for link[rel=preload]
+- enabling async CSS loading in browsers that do not support rel=preload
+- applying rel preload css once loaded, whether supported or not.
+*/ -->
+<script>
+    (function (w) {
+        'use strict'
+        // rel=preload support test
+        if (!w.loadCSS) {
+            w.loadCSS = function () {}
+        }
+        // define on the loadCSS obj
+        var rp = (loadCSS.relpreload = {})
+        // rel=preload feature support test
+        // runs once and returns a function for compat purposes
+        rp.support = (function () {
+            var ret
+            try {
+                ret = w.document.createElement('link').relList.supports('preload')
+            } catch (e) {
+                ret = false
+            }
+            return function () {
+                return ret
+            }
+        })()
+
+        // if preload isn't supported, get an asynchronous load by using a non-matching media attribute
+        // then change that media back to its intended value on load
+        rp.bindMediaToggle = function (link) {
+            // remember existing media attr for ultimate state, or default to 'all'
+            var finalMedia = link.media || 'all'
+
+            function enableStylesheet() {
+                link.media = finalMedia
+            }
+
+            // bind load handlers to enable media
+            if (link.addEventListener) {
+                link.addEventListener('load', enableStylesheet)
+            } else if (link.attachEvent) {
+                link.attachEvent('onload', enableStylesheet)
+            }
+
+            // Set rel and non-applicable media type to start an async request
+            // note: timeout allows this to happen async to let rendering continue in IE
+            setTimeout(function () {
+                link.rel = 'stylesheet'
+                link.media = 'only x'
+            })
+            // also enable media after 3 seconds,
+            // which will catch very old browsers (android 2.x, old firefox) that don't support onload on link
+            setTimeout(enableStylesheet, 3000)
+        }
+
+        // loop through link elements in DOM
+        rp.poly = function () {
+            // double check this to prevent external calls from running
+            if (rp.support()) {
+                return
+            }
+            var links = w.document.getElementsByTagName('link')
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i]
+                // qualify links to those with rel=preload and as=style attrs
+                if (
+                    link.rel === 'preload' &&
+                    link.getAttribute('as') === 'style' &&
+                    !link.getAttribute('data-loadcss')
+                ) {
+                    // prevent rerunning on link
+                    link.setAttribute('data-loadcss', true)
+                    // bind listeners to toggle media back
+                    rp.bindMediaToggle(link)
+                }
+            }
+        }
+
+        // if unsupported, run the polyfill
+        if (!rp.support()) {
+            // run once at least
+            rp.poly()
+
+            // rerun poly on an interval until onload
+            var run = w.setInterval(rp.poly, 500)
+            if (w.addEventListener) {
+                w.addEventListener('load', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            } else if (w.attachEvent) {
+                w.attachEvent('onload', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            }
+        }
+
+        // commonjs
+        if (typeof exports !== 'undefined') {
+            exports.loadCSS = loadCSS
+        } else {
+            w.loadCSS = loadCSS
+        }
+    })(typeof global !== 'undefined' ? global : this)
+</script>
+
+    <style type="text/css">
+    @font-face {
+        font-family: 'Oswald-Regular';
+        src: url("/font/Oswald-Regular.ttf");
+    }
+
+    body {
+        margin: 0;
+    }
+
+    header,
+    footer,
+    .back-top,
+    .sidebar,
+    .container,
+    .site-intro-meta,
+    .toc-wrapper {
+        display: none;
+    }
+
+    .site-intro {
+        position: relative;
+        z-index: 3;
+        width: 100%;
+        /* height: 50vh; */
+        overflow: hidden;
+    }
+
+    .site-intro-placeholder {
+        position: absolute;
+        z-index: -2;
+        top: 0;
+        left: 0;
+        width: calc(100% + 300px);
+        height: 100%;
+        background: repeating-linear-gradient(-45deg, #444 0, #444 80px, #333 80px, #333 160px);
+        background-position: center center;
+        transform: translate3d(-226px, 0, 0);
+        animation: gradient-move 2.5s ease-out 0s infinite;
+    }
+
+    @keyframes gradient-move {
+        0% {
+            transform: translate3d(-226px, 0, 0);
+        }
+        100% {
+            transform: translate3d(0, 0, 0);
+        }
+    }
+</style>
+
+    <link rel="preload" href="/css/style.css?v=20211217" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="/css/dark.css?v=20211217" as="style">
+    <link rel="stylesheet" href="/css/dark.css">
+    <link rel="stylesheet" href="/css/mobile.css?v=20211217" media="(max-width: 960px)">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js" as="script">
+    <link rel="preload" href="/scripts/main.js?v=20211217" as="script">
+    <link rel="preload" href="/scripts/dark.js?v=20211217" as="script">
+    <link rel="preload" href="/font/Oswald-Regular.ttf" as="font" crossorigin>
+    <link rel="preload" href="https://at.alicdn.com/t/font_327081_1dta1rlogw17zaor.woff" as="font" crossorigin>
+    <!-- algolia -->
+    
+        <script>
+            var hits = JSON.parse('{"per_page":10}')
+            var labels = JSON.parse('{"input_placeholder":"Search for Posts","hits_empty":"We did not find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}')
+
+            var algolia = {
+                applicationID: '1POSCBVZ02',
+                apiKey: 'bf09f0197d475fa69488099407011316',
+                indexName: 'getstarted_actors',
+                hits: hits,
+                labels: labels
+            }
+        </script>
+    
+    <!-- 百度统计  -->
+    
+    <!-- 谷歌统计  -->
+    
+        <script>
+            (function (i, s, o, g, r, a, m) {
+                i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+                (i[r].q = i[r].q || []).push(arguments)
+                }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+            })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
+            ga('create', 'G-828GR9BHP9', 'auto');
+            ga('send', 'pageview');
+        </script>
+    
+<meta name="generator" content="Hexo 6.1.0"><link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+</head>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script type="text/javascript">
+        if (typeof window.$ == undefined) {
+            console.warn('jquery load from jsdelivr failed, will load local script')
+            document.write('<script src="/lib/jquery.min.js" />')
+        }
+    </script>
+    
+        <body class="post-body">
+    
+        <!-- header -->
+        <header class="header header-mobile">
+    <!-- top read progress line -->
+    <div class="header-element">
+        <div class="read-progress"></div>
+    </div>
+    <!-- sidebar menu button -->
+    <div class="header-element">
+        
+            <div class="header-sidebar-menu">
+        
+            
+                <div style="padding-left: 1px;">&#xe775;</div>
+            
+        </div>
+    </div>
+    <!-- header actions -->
+    <div class="header-actions">
+        <!-- theme mode switch button -->
+        <span class="header-theme-btn header-element">
+            <i class="fas fa-adjust"></i>
+        </span>
+        <!-- back to home page text -->
+        <span class="home-link header-element">
+            <a href=/>JasonWang's Blog</a>
+        </span>
+    </div>
+    <!-- toggle banner for post layout -->
+    
+        
+            <div class="banner">
+        
+            <div class="blog-title header-element">
+                <a href="/">JasonWang&#39;s Blog</a>
+            </div>
+            <div class="post-title header-element">
+                <a href="#" class="post-name">进程调度中的PELT与WALT</a>
+            </div>
+        </div>
+    
+</header>
+
+        <!-- fixed footer -->
+        <footer class="footer-fixed">
+    <!-- back to top button -->
+    <div class="footer-fixed-element">
+        
+            <div class="back-top back-top-hidden">
+        
+        
+            <div>&#xe639;</div>
+        
+        </div>
+    </div>
+</footer>
+
+        <!-- wrapper -->
+        <div class="wrapper">
+            <div class="site-intro" style="
+
+
+
+
+
+
+
+    height:50vh;
+
+">
+    
+    <!-- 主页  -->
+    
+        
+    <!-- 404页  -->
+            
+    <div class="site-intro-placeholder"></div>
+    <div class="site-intro-img" style="background-image: url(/intro/post-bg.jpeg)"></div>
+    <div class="site-intro-meta">
+        <!-- 标题  -->
+        <h1 class="intro-title">
+            <!-- 主页  -->
+            
+                进程调度中的PELT与WALT
+            <!-- 404 -->
+            
+        </h1>
+        <!-- 副标题 -->
+        <p class="intro-subtitle">
+            <!-- 主页副标题  -->
+            
+                
+            <!-- 404 -->
+            
+        </p>
+        <!-- 文章页 meta -->
+        
+            <div class="post-intros">
+                <!-- 文章页标签  -->
+                
+                    <div class= post-intro-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="PELT">PELT</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="WALT">WALT</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="进程调度">进程调度</a>
+    
+</div>
+
+                
+                
+                    <div class="post-intro-read">
+                        <span>字数统计: <span class="post-count word-count">5.1k</span>阅读时长: <span class="post-count reading-time">21 min</span></span>
+                    </div>
+                
+                <div class="post-intro-meta">
+                    <!-- 撰写日期 -->
+                    <span class="iconfont-archer post-intro-calander">&#xe676;</span>
+                    <span class="post-intro-time">2025/10/02</span>
+                    <!-- busuanzi -->
+                    <!--
+                        <span id="busuanzi_container_page_pv" class="busuanzi-pv">
+                            <span class="iconfont-archer post-intro-busuanzi">&#xe602;</span>
+                            <span id="busuanzi_value_page_pv"></span>
+                        </span>
+                     -->
+                    <!-- 文章分享 -->
+                    <span class="share-wrapper">
+                        <span class="iconfont-archer share-icon">&#xe71d;</span>
+                        <span class="share-text">Share</span>
+                        <ul class="share-list">
+                            <li class="iconfont-archer share-qr" data-type="qr">&#xe75b;
+                                <div class="share-qrcode"></div>
+                            </li>
+                            <li class="iconfont-archer" data-type="weibo">&#xe619;</li>
+                            <li class="iconfont-archer" data-type="qzone">&#xe62e;</li>
+                            <li class="iconfont-archer" data-type="twitter">&#xe634;</li>
+                            <li class="iconfont-archer" data-type="facebook">&#xe67a;</li>
+                        </ul>
+                    </span>
+                </div>
+            </div>
+        
+    </div>
+</div>
+
+            <script>
+  // get user agent
+  function getBrowserVersions() {
+    var u = window.navigator.userAgent
+    return {
+      userAgent: u,
+      trident: u.indexOf('Trident') > -1, //IE内核
+      presto: u.indexOf('Presto') > -1, //opera内核
+      webKit: u.indexOf('AppleWebKit') > -1, //苹果、谷歌内核
+      gecko: u.indexOf('Gecko') > -1 && u.indexOf('KHTML') == -1, //火狐内核
+      mobile: !!u.match(/AppleWebKit.*Mobile.*/), //是否为移动终端
+      ios: !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/), //ios终端
+      android: u.indexOf('Android') > -1 || u.indexOf('Linux') > -1, //android终端或者uc浏览器
+      iPhone: u.indexOf('iPhone') > -1 || u.indexOf('Mac') > -1, //是否为iPhone或者安卓QQ浏览器
+      iPad: u.indexOf('iPad') > -1, //是否为iPad
+      webApp: u.indexOf('Safari') == -1, //是否为web应用程序，没有头部与底部
+      weixin: u.indexOf('MicroMessenger') == -1, //是否为微信浏览器
+      uc: u.indexOf('UCBrowser') > -1, //是否为android下的UC浏览器
+    }
+  }
+  var browser = {
+    versions: getBrowserVersions(),
+  }
+  console.log('userAgent: ' + browser.versions.userAgent)
+
+  // callback
+  function fontLoaded() {
+    console.log('font loaded')
+    if (document.getElementsByClassName('site-intro-meta')) {
+      document
+        .getElementsByClassName('intro-title')[0]
+        .classList.add('intro-fade-in')
+      document
+        .getElementsByClassName('intro-subtitle')[0]
+        .classList.add('intro-fade-in')
+      var postIntros = document.getElementsByClassName('post-intros')[0]
+      if (postIntros) {
+        postIntros.classList.add('post-fade-in')
+      }
+    }
+  }
+
+  // UC不支持跨域，所以直接显示
+  function asyncCb() {
+    if (browser.versions.uc) {
+      console.log('UCBrowser')
+      fontLoaded()
+    } else {
+      WebFont.load({
+        custom: {
+          families: ['Oswald-Regular'],
+        },
+        loading: function () {
+          // 所有字体开始加载
+          // console.log('font loading');
+        },
+        active: function () {
+          // 所有字体已渲染
+          fontLoaded()
+        },
+        inactive: function () {
+          // 字体预加载失败，无效字体或浏览器不支持加载
+          console.log('inactive: timeout')
+          fontLoaded()
+        },
+        timeout: 5000, // Set the timeout to two seconds
+      })
+    }
+  }
+
+  function asyncErr() {
+    console.warn('script load from CDN failed, will load local script')
+  }
+
+  // load webfont-loader async, and add callback function
+  function async(u, cb, err) {
+    var d = document,
+      t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0]
+    o.src = u
+    if (cb) {
+      o.addEventListener(
+        'load',
+        function (e) {
+          cb(null, e)
+        },
+        false
+      )
+    }
+    if (err) {
+      o.addEventListener(
+        'error',
+        function (e) {
+          err(null, e)
+        },
+        false
+      )
+    }
+    s.parentNode.insertBefore(o, s)
+  }
+
+  var asyncLoadWithFallBack = function (arr, success, reject) {
+    var currReject = function () {
+      reject()
+      arr.shift()
+      if (arr.length) async(arr[0], success, currReject)
+    }
+
+    async(arr[0], success, currReject)
+  }
+
+  asyncLoadWithFallBack(
+    [
+      'https://cdn.jsdelivr.net/npm/webfontloader@1.6.28/webfontloader.min.js',
+      'https://cdn.bootcss.com/webfont/1.6.28/webfontloader.js',
+      "/lib/webfontloader.min.js",
+    ],
+    asyncCb,
+    asyncErr
+  )
+</script>
+
+            <img class="loading" src="/assets/loading.svg" style="display: block; margin: 6rem auto 0 auto; width: 6rem; height: 6rem;" />
+            <div class="container container-unloaded">
+                <main class="main post-page">
+    <article class="article-entry">
+        <p>对于任务调度器来说，在发生调度时需要决定选择某个进程调度到哪个CPU执行，同时还需要基于系统当前的负载，实时的调整CPU运行的频率。Linux进程调度器为了适配各种不同场景的设备，如服务器，嵌入式设备，通常需要在多个性能目标上进行权衡取舍：</p>
+<ul>
+<li>需要确保调度尽可能公平，保证每个任务都有机会得到执行</li>
+<li>快速响应用户请求，比如对于交互式的用户任务，需要降低调度延迟，快速调度任务执行</li>
+<li>实现更高的系统吞吐量，可以满足更多的任务并发执行</li>
+<li>同时尽可能降低系统功耗，在系统空闲或者负载降低时尽可能减小工作频率，减少能耗</li>
+</ul>
+<span id="more"></span>
+
+<p>通常来说，这些目标是相互冲突的，在公平调度器（<code>CFS(Complete Fair Scheduler)</code>）出来之前，之前的调度器并没有很好的解决这些问题。最开始<code>Linux</code>内核采用的是<code>O(n)</code>调度器，每次执行任务调度时会扫描就绪队列上的所有进程，计算进程的优先级，再从中选择一个最高优先级的任务执行，<code>O(n)</code>调度器的调度时间随着系统进程数量增加呈现线性增长，因此很难以进行扩展。为了解决该问题，2002年内核中引入<code>O(1)</code>调度器，其基本思想是，将进程的优先级分为动态优先级与静态优先级，静态优先级用于计算每个任务可运行的时间片长度，动态优先级在调度时用到，每次调度的都会选择动态优先级最高的任务运行。<code>O(1)</code>调度器采用了一个动态优先级数组来存放可运行的任务，因此可以在<code>O(1)</code>时间内选择一个最优的任务。</p>
+<p><code>O(1)</code>调度器虽然解决了调度延迟的问题，但无法准确的判断系统中交互式与批处理两种类似的任务，从而导致交互延迟；<code>O(1)</code>调度器发明人<code>Ingo Molnar</code>在<code>Con Kolivas</code>发明的调度器<code>RSDL(The Rotating Staircase Deadline Scheduler)</code>基础上实现了一个全新的调度器<code>CFS</code>: <code>CFS</code>换了一种思路，不再单纯通过优先级来选择执行的任务，而是通过计算进程消耗的<code>CPU</code>时间来决定哪个任务可以被调度，它会根据系统的任务优先级来计算出每个任务所需要的<code>虚拟时间(vruntime)</code>，调度时只需要选择<code>虚拟时间(vruntime)</code>最小的任务执行即可。</p>
+<p><code>CFS</code>虽然做到了足够的<code>公平</code>，但未考虑到任务的延迟<code>lag</code>，比如某个任务预期需要执行<code>20ms</code>，而实际上只拿到了<code>10ms</code>的<code>CPU</code>时间，这个差值认为是一个任务的延迟，在这种情况下按照<code>CFS</code>的调度策略执行，在极端情况下可能会导致该任务无法立即调度，从而导致响应的延迟。为了减少这种任务的调度延迟，<a target="_blank" rel="noopener" href="https://lwn.net/Articles/925371/">新的调度器(<code>EEVDF(Earlist Eligible Virtual Deadline First)</code>)</a>基于该延迟计算出每个任务的截止时间(<code>deadline</code>)，在实际调度时会选择截止时间最小的任务执行，以此改善任务调度的延迟。</p>
+<p><code>CFS</code>在<code>SMP</code>这种对称的系统中可以很好的发挥作用，因为调度时无需考虑单个<code>CPU</code>的差异，但如果处理如<code>AMP</code>（非对称系统）， <code>HMP</code>（异构系统）等更复杂的情况就显得力不从心。在<code>3.18</code>之前的内核版本中，<code>CFS</code>调度器都是根据每个运行队列上的负载来执行负载跟踪(<code>PRLT,Per Runqueue Load Tracking</code>)，<code>PRLT</code>有个比较明显的缺点，无法准确的知道每个进程对整体负载的贡献，因此难以准确对任务的负载的轻重做出判断，在<code>ARM</code>大小核的框架下，可能导致任务错配，比如<code>重</code>任务放到了小核上执行，而<code>轻</code>任务则放到了大核上，从而降低了系统的运行效率。<code>Linux</code>内核从<code>3.18</code>版本开始，引入了<code>PELT(Per-Entity Load Tracking)</code>，以便更准确的跟踪系统的负载；高通针对<code>PELT</code>响应慢的问题，提出了<code>WALT(Window Assisted Load Tracking)</code>算法，目前所有高通的平台都默认使用<code>WALT</code>来跟踪负载。</p>
+<p>这篇文章，我们主要介绍下负载跟踪算法<code>PELT</code>、<code>WALT</code>的实现原理以及对两个算法进行对比。</p>
+<blockquote>
+<p>本文基于Linux内核版本5.4分析</p>
+</blockquote>
+<h2 id="PELT"><a href="#PELT" class="headerlink" title="PELT"></a><strong>PELT</strong></h2><p><code>PELT(Per-Entity Load Tracking)</code>中的<code>Entity</code>对应一个调度实体，可以是一个进程，也可以是一个<code>cgroup</code>中的所有进程。为了跟踪每个<code>Entity</code>的负载，系统时间（物理时间，非虚拟调度时间）被分成<code>1024us(1ms)</code>的时间序列，在每一个<code>1024us</code>的周期内，一个调度实体对系统的负载贡献可以根据该实体处于<code>runnable</code>状态（正在执行或者等待CPU调度执行）的时间来计算：如果该周期内，<code>runnable</code>的时间为<code>x</code>，相应的该实体对系统负载的贡献为<code>x/1024</code>。但如果要考虑更长时间（超过<code>1ms</code>）的负载状态，就需要将多个周期内的负载进行加权处理（离当前越近对当前系统负载贡献越小）得到系统的整体负载。假定$L_i$表示负载计算周期$p_i$的调度实体负载，那么该实体对系统负载的贡献可以表达为（指数权重滑动平均,EWMA）：</p>
+<p>$$ L &#x3D; L_0 + L_1<em>y + L_2 * y^2 + L_3 * y^3 + … &#x3D; \sum_{i&#x3D;1}^n L_i</em>y^i $$</p>
+<p>这里参数<code>y</code>是衰减权重值，一般按照$y_32&#x3D;0.5, y≈0.9786$得到，表示调度实体经过32个计算周期后，其对当前系统负载的贡献值为<code>0.5</code>；而当前时刻的负载对系统负载的贡献权重为<code>1</code>；类似的，我们向前滚动一个计算周期（<code>1ms</code>），则可以得到该任务新的负载贡献值：</p>
+<p>$$ L &#x3D; L_0’ + y <em>(L_0 + L_1</em>y + L_2 * y^2 + L_3 * y^3 + …) \<br>    &#x3D; L_0’ + L_0 * y + L_1*y^2 + L_2 * y^3 + L_3 * y^4 + …) $$</p>
+<p>可以看到当前时间负载就是该调度实体当前的负载，再加上前一个周期的负载乘以衰减系数<code>y</code>即可；因此，想要计算出当前负载，一般只需要计算出$val*y^n$即可，我们已知$y^n &#x3D; \frac{1}{2}$，可以将$y^n$的计算转换为如下：</p>
+<p>$$ y^n &#x3D; \frac{1}{(2)^\frac{n}{p}} * y^{n%p} $$</p>
+<p>这里的<code>p</code>表示负载计算的衰减周期，一般为<code>32ms</code>；实际上，我们只需要把<code>0 &lt; n &lt;= 32</code>这些情况的数据计算出来，对于<code>n &gt; 32</code>的情况，只需要通过如下公司计算出来即可，比如计算<code>n=35</code>的情况：</p>
+<p>$$ y^{35} &#x3D; \frac{1}{(2)^\frac{35}{32}} * y^{35%32} &#x3D; \frac{1}{2} * y^3 $$</p>
+<p>为了避免浮点运算，提高计算效率，内核会提前计算好<code>0 &lt; n &lt;= 32</code>的情况，将$y^n*2^32$的值计算好，保存到一个<code>runnable_avg_yN_inv</code>数组里，这样实际计算的时候只需要查表即可得到$y^n$的值;具体计算的代码可以参考<code>Documentation/scheduler/sched-pelt.c</code>:</p>
+<p>$$ runnable_avg_yN_inv[i] &#x3D; (2^{32} - 1) * y^i $$</p>
+<p>基于该预计算的数据，内核在计算调度任务的负载时，直接通过如下函数<code>decay_load</code>就可以得到对应时刻负载的衰减权重系数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Approximate:</span></span><br><span class="line"><span class="comment"> *   val * y^n,    where y^32 ~= 0.5 (~1 scheduling period)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> u64 <span class="title function_">decay_load</span><span class="params">(u64 val, u64 n)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> local_n;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (unlikely(n &gt; LOAD_AVG_PERIOD * <span class="number">63</span>))</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* after bounds checking we can collapse to 32-bit */</span></span><br><span class="line">	local_n = n;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * As y^PERIOD = 1/2, we can combine</span></span><br><span class="line"><span class="comment">	 *    y^n = 1/2^(n/PERIOD) * y^(n%PERIOD)</span></span><br><span class="line"><span class="comment">	 * With a look-up table which covers y^n (n&lt;PERIOD)</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * To achieve constant time decay_load.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (unlikely(local_n &gt;= LOAD_AVG_PERIOD)) &#123;</span><br><span class="line">		val &gt;&gt;= local_n / LOAD_AVG_PERIOD;</span><br><span class="line">		local_n %= LOAD_AVG_PERIOD;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	val = mul_u64_u32_shr(val, runnable_avg_yN_inv[local_n], <span class="number">32</span>);</span><br><span class="line">	<span class="keyword">return</span> val;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>实际计算当前时刻的负载要更麻烦些，具体可以参考内核代码<code>sched/pelt.c</code>中的函数<code>accumulate_sum</code>；为了跟踪系统负载，内核在任务结构体<code>struct task_struct</code>中增加了一个<code>struct sched_avg</code>的结构体，用以保存系统负载相关的状态:</p>
+<ul>
+<li><code>last_update_time</code>: 上一次系统负载更新的时间点，基于与上次更新的时间差，我们可以计算对应的<code>load_avg/util_avg</code>的值</li>
+<li><code>load_sum/runnable_load_sum/util_sum</code>：根据上述中的权重衰减级数得到的系统负载值，<code>load_sum</code>是衰减周期内所有负载的总和，包括了<code>running/runnable</code>两种状态的时间；<code>util_sum</code>仅包含<code>running</code>时间。对于普通任务来说，<code>runnable_load_sum</code>等于<code>util_sum</code>，对于一个分组调度实体来说，<code>runnable_load_sum</code>是所有该分组任务的<code>running+runnable</code>时间的总和</li>
+<li><code>period_contrib</code>: 计算中间值，用于保存负载计算时时间窗口的临时值</li>
+<li><code>load_avg/runnable_avg/util_avg</code>： 根据<code>*_sum</code>计算得到的平均值</li>
+<li><code>util_est</code>: 任务阻塞后，其负载会不断衰减。如果一个重载任务阻塞太长时间，根据标准<code>PELT</code>计算出来的负载会非常小，当该任务被唤醒时，由于负载较小会让调度器做出错误的判断。因此引入了这个成员，记录阻塞之前的负载均值<code>load_avg</code>信息</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sched_avg</span> &#123;</span></span><br><span class="line">	u64				last_update_time;</span><br><span class="line">	u64				load_sum;</span><br><span class="line">	u64				runnable_sum;</span><br><span class="line">	u32				util_sum;</span><br><span class="line">	u32				period_contrib;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			load_avg;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			runnable_avg;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			util_avg;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">util_est</span>			<span class="title">util_est</span>;</span></span><br><span class="line">&#125; ____cacheline_aligned;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><code>Linux</code>内核调度器在执行任务调度的时候或者内核时钟中断来时，会实时更新当前系统的负载，比如在任务入队（<code>enqueue_task_fair</code>）、出队（<code>dequeue_task_fair</code>）或者切换不同的<code>cgroup</code>分组(<code>task_change_group_fair</code>)的时候会主动更新当前负载;以任务入队函数<code>enqueue_entity</code>为例，在更新完任务的优先级相关的时间片信息后，会通过<code>update_load_avg</code>更新系统负载。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line"><span class="title function_">enqueue_entity</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *se, <span class="type">int</span> flags)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">bool</span> renorm = !(flags &amp; ENQUEUE_WAKEUP) || (flags &amp; ENQUEUE_MIGRATED);</span><br><span class="line">	<span class="type">bool</span> curr = cfs_rq-&gt;curr == se;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * If we&#x27;re the current task, we must renormalise before calling</span></span><br><span class="line"><span class="comment">	 * update_curr().</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (renorm &amp;&amp; curr)</span><br><span class="line">		se-&gt;vruntime += cfs_rq-&gt;min_vruntime;</span><br><span class="line"></span><br><span class="line">	update_curr(cfs_rq);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Otherwise, renormalise after, such that we&#x27;re placed at the current</span></span><br><span class="line"><span class="comment">	 * moment in time, instead of some random moment in the past. Being</span></span><br><span class="line"><span class="comment">	 * placed in the past could significantly boost this task to the</span></span><br><span class="line"><span class="comment">	 * fairness detriment of existing tasks.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (renorm &amp;&amp; !curr)</span><br><span class="line">		se-&gt;vruntime += cfs_rq-&gt;min_vruntime;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * When enqueuing a sched_entity, we must:</span></span><br><span class="line"><span class="comment">	 *   - Update loads to have both entity and cfs_rq synced with now.</span></span><br><span class="line"><span class="comment">	 *   - Add its load to cfs_rq-&gt;runnable_avg</span></span><br><span class="line"><span class="comment">	 *   - For group_entity, update its weight to reflect the new share of</span></span><br><span class="line"><span class="comment">	 *     its group cfs_rq</span></span><br><span class="line"><span class="comment">	 *   - Add its new weight to cfs_rq-&gt;load.weight</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	update_load_avg(cfs_rq, se, UPDATE_TG | DO_ATTACH);  <span class="comment">//更新任务分组</span></span><br><span class="line">	se_update_runnable(se);</span><br><span class="line">	update_cfs_group(se);</span><br><span class="line">	account_entity_enqueue(cfs_rq, se);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (flags &amp; ENQUEUE_WAKEUP)</span><br><span class="line">		place_entity(cfs_rq, se, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	check_schedstat_required();</span><br><span class="line">	update_stats_enqueue(cfs_rq, se, flags);</span><br><span class="line">	check_spread(cfs_rq, se);</span><br><span class="line">	<span class="keyword">if</span> (!curr)</span><br><span class="line">		__enqueue_entity(cfs_rq, se);</span><br><span class="line">	se-&gt;on_rq = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * When bandwidth control is enabled, cfs might have been removed</span></span><br><span class="line"><span class="comment">	 * because of a parent been throttled but cfs-&gt;nr_running &gt; 1. Try to</span></span><br><span class="line"><span class="comment">	 * add it unconditionnally.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (cfs_rq-&gt;nr_running == <span class="number">1</span> || cfs_bandwidth_used())</span><br><span class="line">		list_add_leaf_cfs_rq(cfs_rq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (cfs_rq-&gt;nr_running == <span class="number">1</span>)</span><br><span class="line">		check_enqueue_throttle(cfs_rq);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>函数<code>update_load_avg</code>主要作用是更新系统的负载状态，包括更新当前调度任务的负载，对应任务队列的负载，同时需要更新任务所在的分组的负载状态：</p>
+<ul>
+<li><code>__update_load_avg_se</code>: 更新当前调度实体的负载信息</li>
+<li><code>update_cfs_rq_load_avg</code>: 更新调度实体对应的任务队列上的负载</li>
+<li><code>propagate_entity_load_avg</code>: 将调度实体的负载信息在控制分组内进行传递</li>
+<li><code>cfs_rq_util_change</code>: 如果负载有更新，需要通知系统调频模块选择一个适当的CPU频率</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* Update task and its cfs_rq load average */</span></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> <span class="title function_">update_load_avg</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *se, <span class="type">int</span> flags)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 now = cfs_rq_clock_pelt(cfs_rq);</span><br><span class="line">	<span class="type">int</span> decayed;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Track task load average for carrying it to new CPU after migrated, and</span></span><br><span class="line"><span class="comment">	 * track group sched_entity load average for task_h_load calc in migration</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (se-&gt;avg.last_update_time &amp;&amp; !(flags &amp; SKIP_AGE_LOAD))</span><br><span class="line">		__update_load_avg_se(now, cfs_rq, se);</span><br><span class="line"></span><br><span class="line">	decayed  = update_cfs_rq_load_avg(now, cfs_rq);</span><br><span class="line">	decayed |= propagate_entity_load_avg(se);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!se-&gt;avg.last_update_time &amp;&amp; (flags &amp; DO_ATTACH)) &#123;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * DO_ATTACH means we&#x27;re here from enqueue_entity().</span></span><br><span class="line"><span class="comment">		 * !last_update_time means we&#x27;ve passed through</span></span><br><span class="line"><span class="comment">		 * migrate_task_rq_fair() indicating we migrated.</span></span><br><span class="line"><span class="comment">		 *</span></span><br><span class="line"><span class="comment">		 * IOW we&#x27;re enqueueing a task on a new CPU.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		attach_entity_load_avg(cfs_rq, se);</span><br><span class="line">		update_tg_load_avg(cfs_rq);</span><br><span class="line"></span><br><span class="line">	&#125; <span class="keyword">else</span> <span class="keyword">if</span> (decayed) &#123;</span><br><span class="line">		cfs_rq_util_change(cfs_rq, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (flags &amp; UPDATE_TG)</span><br><span class="line">			update_tg_load_avg(cfs_rq);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="WALT"><a href="#WALT" class="headerlink" title="WALT"></a><strong>WALT</strong></h2><p><code>WALT(Window Assisted Load Tracking)</code>一种基于时间窗口（一般默认为<code>16ms</code>，高通的代码里会根据系统时钟中断频率<code>HZ</code>来调整窗口大小）的负载跟踪算法，是高通针对手机移动平台提出的一种负载跟踪方案。其基本思想是，基于一个固定的时间窗口来计算任务负载，同时会考虑过去几个窗口内（默认是计算<code>5</code>个窗口内的负载均值）的负载情况，实际计算时会取当前负载与历史负载均值的最大值作为任务的当前负载。</p>
+<p><code>WALT</code>算法在当前<code>struct task_struct</code>中嵌入了一个<code>struct walt_task_struct</code>用于保存负载相关的信息，包括当前窗口的负载，历史负载，以及<code>CPU</code>能力归一化后的负载:</p>
+<ul>
+<li><code>mark_start</code>: 任务开始执行的时间标记</li>
+<li><code>sum</code>: 当前窗口任务总的运行时间（包括运行时间和等待时间，做了频率缩放）</li>
+<li><code>sum_history</code>: 上一个窗口任务总的运行时间（不包括休眠时间）</li>
+<li><code>demand</code>: 上一个窗口最大的任务负载，用于调节CPU工作频率</li>
+<li><code>curr_window_cpu</code>: 当前窗口任务在各个<code>CPU</code>上的运行时间</li>
+<li><code>prev_window_cpu</code>: 上一个窗口任务在各个<code>CPU</code>上的运行时间</li>
+<li><code>pred_demand</code>: 当前窗口预测的任务负载(用于<code>EAS</code>功耗感知调度)</li>
+<li><code>demand_scaled</code>: 当前窗口任务的归一化后负载（缩放到了1024）</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">walt_task_struct</span> &#123;</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * &#x27;mark_start&#x27; marks the beginning of an event (task waking up, task</span></span><br><span class="line"><span class="comment">	 * starting to execute, task being preempted) within a window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;sum&#x27; represents how runnable a task has been within current</span></span><br><span class="line"><span class="comment">	 * window. It incorporates both running time and wait time and is</span></span><br><span class="line"><span class="comment">	 * frequency scaled.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;sum_history&#x27; keeps track of history of &#x27;sum&#x27; seen over previous</span></span><br><span class="line"><span class="comment">	 * RAVG_HIST_SIZE windows. Windows where task was entirely sleeping are</span></span><br><span class="line"><span class="comment">	 * ignored.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;demand&#x27; represents maximum sum seen over previous</span></span><br><span class="line"><span class="comment">	 * sysctl_sched_ravg_hist_size windows. &#x27;demand&#x27; could drive frequency</span></span><br><span class="line"><span class="comment">	 * demand for tasks.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;curr_window_cpu&#x27; represents task&#x27;s contribution to cpu busy time on</span></span><br><span class="line"><span class="comment">	 * various CPUs in the current window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;prev_window_cpu&#x27; represents task&#x27;s contribution to cpu busy time on</span></span><br><span class="line"><span class="comment">	 * various CPUs in the previous window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;curr_window&#x27; represents the sum of all entries in curr_window_cpu</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;prev_window&#x27; represents the sum of all entries in prev_window_cpu</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;pred_demand&#x27; represents task&#x27;s current predicted cpu busy time</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;busy_buckets&#x27; groups historical busy time into different buckets</span></span><br><span class="line"><span class="comment">	 * used for prediction</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;demand_scaled&#x27; represents task&#x27;s demand scaled to 1024</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	u64				mark_start;</span><br><span class="line">	u32				sum, demand;</span><br><span class="line">	u32				coloc_demand;</span><br><span class="line">	u32				sum_history[RAVG_HIST_SIZE_MAX];</span><br><span class="line">	u32				*curr_window_cpu, *prev_window_cpu;</span><br><span class="line">	u32				curr_window, prev_window;</span><br><span class="line">	u32				pred_demand;</span><br><span class="line">	u8				busy_buckets[NUM_BUSY_BUCKETS];</span><br><span class="line">	u16				demand_scaled;</span><br><span class="line">	u16				pred_demand_scaled;</span><br><span class="line">	u64				active_time;</span><br><span class="line">	<span class="type">int</span>				boost;</span><br><span class="line">	<span class="type">bool</span>				wake_up_idle;</span><br><span class="line">	<span class="type">bool</span>				misfit;</span><br><span class="line">	<span class="type">bool</span>				rtg_high_prio;</span><br><span class="line">	u8				low_latency;</span><br><span class="line">	u64				boost_period;</span><br><span class="line">	u64				boost_expires;</span><br><span class="line">	u64				last_sleep_ts;</span><br><span class="line">	u32				init_load_pct;</span><br><span class="line">	u32				unfilter;</span><br><span class="line">	u64				last_wake_ts;</span><br><span class="line">	u64				last_enqueued_ts;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">walt_related_thread_group</span> __<span class="title">rcu</span> *<span class="title">grp</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span>		<span class="title">grp_list</span>;</span></span><br><span class="line">	u64				cpu_cycles;</span><br><span class="line">	<span class="type">cpumask_t</span>			cpus_requested;</span><br><span class="line">	<span class="type">bool</span>				iowaited;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p><code>WALT</code>负载计算是根据系统的事件来触发的，比如系统时间中断，任务状态变化（任务创建、唤醒、切换等），负载均衡，中断等都会重新计算任务的负载信息，比如执行调度函数<code>_schedule</code>时，会调用<code>walt_update_task_ravg</code>更新任务负载信息：</p>
+<ul>
+<li>首先调用<code>update_window_start</code>函数更新任务窗口开始时间</li>
+<li><code>update_task_rq_cpu_cycles</code>更新任务队列的CPU运行的周期</li>
+<li><code>update_task_demand</code>更新任务的负载信息，这个是<code>WALT</code>算法的关键函数</li>
+<li><code>update_cpu_busy_time</code>更新CPU在该窗口内的运行时间信息</li>
+<li><code>update_task_pred_demand</code>更新任务的预测负载信息</li>
+<li><code>run_walt_irq_work</code>触发一个软中断，用于更新当前CPU的工作频率</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* Reflect task activity on its demand and cpu&#x27;s busy time statistics */</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">walt_update_task_ravg</span><span class="params">(<span class="keyword">struct</span> task_struct *p, <span class="keyword">struct</span> rq *rq, <span class="type">int</span> event,</span></span><br><span class="line"><span class="params">						u64 wallclock, u64 irqtime)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 old_window_start;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!rq-&gt;wrq.window_start || p-&gt;wts.mark_start == wallclock)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	lockdep_assert_held(&amp;rq-&gt;lock);</span><br><span class="line"></span><br><span class="line">	old_window_start = update_window_start(rq, wallclock, event);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!p-&gt;wts.mark_start) &#123;</span><br><span class="line">		update_task_cpu_cycles(p, cpu_of(rq), wallclock);</span><br><span class="line">		<span class="keyword">goto</span> done;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	update_task_rq_cpu_cycles(p, rq, event, wallclock, irqtime);</span><br><span class="line">	update_task_demand(p, rq, event, wallclock);</span><br><span class="line">	update_cpu_busy_time(p, rq, event, wallclock, irqtime);</span><br><span class="line">	update_task_pred_demand(rq, p, event);</span><br><span class="line">	<span class="keyword">if</span> (event == PUT_PREV_TASK &amp;&amp; p-&gt;state)</span><br><span class="line">		p-&gt;wts.iowaited = p-&gt;in_iowait;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">done:</span><br><span class="line">	p-&gt;wts.mark_start = wallclock;</span><br><span class="line"></span><br><span class="line">	run_walt_irq_work(old_window_start, rq);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<p>真正更新任务负载的函数是<code>update_task_demand</code>。负载的计算主要有三种不同的情况：</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/walt-demand-calculation.png" alt="walt-demand-calculation"></p>
+<ol>
+<li>如果系统事件在当前窗口(<code>ws &lt; ms &lt;wc</code>)内发生，那么只需要更新当前窗口的任务负载</li>
+<li>如果系统事件横跨了两个窗口(<code>ms &lt; ws &lt; wc</code>)，任务开始的时间在上一个窗口，那么需要更新当前窗口的任务负载和上一个窗口的任务负载</li>
+<li>如果系统事件横跨多个窗口（<code>ms &lt; ws &lt; wc</code>)），即任务开始的时间在之前的某个窗口，那么需要更新所有的历史窗口的任务负载</li>
+</ol>
+<p>任务计算运行时间的方式就是根据<code>ws</code>和<code>ms</code>的差值缩放到<code>1024</code>(CPU的最大默认能力)，基于任务的运行时间，<code>WALT</code>选择历史窗口中平均负载值与当前任务负载中较大的一个作为真正的负载，缩放后得到<code>demand_scaled</code>作为系统调频、任务放置等决策依据,具体可以参考函数<code>update_history</code>的实现：</p>
+<p>$$ delta &#x3D; (ws - ms) * cur_cpu_freq&#x2F;max_cpu_freq * cpu_capacity &#x2F; 1024 &#x2F;&#x2F; 任务缩放后的执行时间 $$</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Account cpu demand of task and/or update task&#x27;s cpu demand history</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * ms = p-&gt;wts.mark_start;</span></span><br><span class="line"><span class="comment"> * wc = wallclock</span></span><br><span class="line"><span class="comment"> * ws = rq-&gt;wrq.window_start</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> u64 <span class="title function_">update_task_demand</span><span class="params">(<span class="keyword">struct</span> task_struct *p, <span class="keyword">struct</span> rq *rq,</span></span><br><span class="line"><span class="params">			       <span class="type">int</span> event, u64 wallclock)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 mark_start = p-&gt;wts.mark_start;</span><br><span class="line">	u64 delta, window_start = rq-&gt;wrq.window_start;</span><br><span class="line">	<span class="type">int</span> new_window, nr_full_windows;</span><br><span class="line">	u32 window_size = sched_ravg_window;</span><br><span class="line">	u64 runtime;</span><br><span class="line"></span><br><span class="line">	new_window = mark_start &lt; window_start;</span><br><span class="line">	<span class="keyword">if</span> (!account_busy_for_task_demand(rq, p, event)) &#123;</span><br><span class="line">		<span class="keyword">if</span> (new_window)</span><br><span class="line">			<span class="comment">/*</span></span><br><span class="line"><span class="comment">			 * If the time accounted isn&#x27;t being accounted as</span></span><br><span class="line"><span class="comment">			 * busy time, and a new window started, only the</span></span><br><span class="line"><span class="comment">			 * previous window need be closed out with the</span></span><br><span class="line"><span class="comment">			 * pre-existing demand. Multiple windows may have</span></span><br><span class="line"><span class="comment">			 * elapsed, but since empty windows are dropped,</span></span><br><span class="line"><span class="comment">			 * it is not necessary to account those.</span></span><br><span class="line"><span class="comment">			 */</span></span><br><span class="line">			update_history(rq, p, p-&gt;wts.sum, <span class="number">1</span>, event);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!new_window) &#123;</span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * The simple case - busy time contained within the existing</span></span><br><span class="line"><span class="comment">		 * window.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">return</span> add_to_task_demand(rq, p, wallclock - mark_start);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Busy time spans at least two windows. Temporarily rewind</span></span><br><span class="line"><span class="comment">	 * window_start to first window boundary after mark_start.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	delta = window_start - mark_start;</span><br><span class="line">	nr_full_windows = div64_u64(delta, window_size);</span><br><span class="line">	window_start -= (u64)nr_full_windows * (u64)window_size;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Process (window_start - mark_start) first */</span></span><br><span class="line">	runtime = add_to_task_demand(rq, p, window_start - mark_start);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Push new sample(s) into task&#x27;s demand history */</span></span><br><span class="line">	update_history(rq, p, p-&gt;wts.sum, <span class="number">1</span>, event);</span><br><span class="line">	<span class="keyword">if</span> (nr_full_windows) &#123;</span><br><span class="line">		u64 scaled_window = scale_exec_time(window_size, rq);</span><br><span class="line"></span><br><span class="line">		update_history(rq, p, scaled_window, nr_full_windows, event);</span><br><span class="line">		runtime += nr_full_windows * scaled_window;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Roll window_start back to current to process any remainder</span></span><br><span class="line"><span class="comment">	 * in current window.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	window_start += (u64)nr_full_windows * (u64)window_size;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Process (wallclock - window_start) next */</span></span><br><span class="line">	mark_start = window_start;</span><br><span class="line">	runtime += add_to_task_demand(rq, p, wallclock - mark_start);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> runtime;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>最后系统调频时，基于<code>WALT</code>计算出来的负载，可以以此调整CPU运行的频率，具体可以参考<code>cpufreq_schedutil.c</code>:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">long</span> <span class="title function_">sugov_get_util</span><span class="params">(<span class="keyword">struct</span> sugov_cpu *sg_cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">rq</span> *<span class="title">rq</span> =</span> cpu_rq(sg_cpu-&gt;cpu);</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> max = arch_scale_cpu_capacity(sg_cpu-&gt;cpu);</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> util;</span><br><span class="line"></span><br><span class="line">	sg_cpu-&gt;max = max;</span><br><span class="line">	sg_cpu-&gt;bw_dl = cpu_bw_dl(rq);</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_SCHED_WALT</span></span><br><span class="line">	util = cpu_util_freq_walt(sg_cpu-&gt;cpu, &amp;sg_cpu-&gt;walt_load);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> uclamp_rq_util_with(rq, util, <span class="literal">NULL</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">	util = cpu_util_cfs(rq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> schedutil_cpu_util(sg_cpu-&gt;cpu, util, max, FREQUENCY_UTIL, <span class="literal">NULL</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="PELT与WALT的对比"><a href="#PELT与WALT的对比" class="headerlink" title="PELT与WALT的对比"></a><strong>PELT与WALT的对比</strong></h2><p><code>PELT</code>是<code>ARM</code>公司开发的一种负载跟踪算法，基于滑动平均的方式预测任务负载，但由于其缺乏对大小核(<code>Big.Little</code>)架构的支持，加上其负载衰减慢，因此并不合适手机等终端设备这种负载突发、变化频繁的系统，<code>WALT</code>针对上述的缺点做了改建优化，总结来说，两者的区别如下:</p>
+<ul>
+<li><code>PELT</code>负载跟踪只考虑到了<code>SMP</code>这种架构，对于当前手机芯片<code>HMP</code>这种异构体系并不合适；而且，<code>PELT</code>只是考虑到了<code>CFS</code>调度类的负载跟踪，并没有考虑到系统其他调度类，如<code>RT</code>&#x2F;<code>DEADLINE</code>等，因此缺乏对系统负载的全局性考虑。</li>
+<li>考虑到移动平台大小核(<code>Big.Little</code>)的体系架构，会将负载基于<code>CPU</code>能力与频率进行归一化处理，从而更准确的判断任务负载与CPU能力之间的匹配</li>
+<li>从调度、调频的延迟来看，由于<code>PLET</code>考虑了更长的时间周期，因此无法快速响应负载，对于像<code>Android</code>这样的移动平台来说，可能会出现系统响应变慢；<code>WALT</code>能更快速的响应突发的负载，但相对来说可能会带来更多的能耗</li>
+</ul>
+<p><code>Linaro</code>的官网上有一个文档对<code>PLET</code>与<code>WALT</code>的比较进行了详细的分析，可以参考下<a target="_blank" rel="noopener" href="https://static.linaro.org/connect/bkk16/Presentations/Tuesday/BKK16-208.pdf">PELT vs Window tracking<br>and EAS on SMP multi-cluster</a>。</p>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/lizhijun_buaa/article/details/135954017">https://blog.csdn.net/lizhijun_buaa/article/details/135954017</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/lingjiajun/p/12317090.html">https://www.cnblogs.com/lingjiajun/p/12317090.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/531853/">https://lwn.net/Articles/531853/</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.wowotech.net/process_management/PELT.html">http://www.wowotech.net/process_management/PELT.html</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.wowotech.net/tag/pelt">http://www.wowotech.net/tag/pelt</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/feelabclihu/article/details/108414156">https://blog.csdn.net/feelabclihu/article/details/108414156</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.anandtech.com/show/12620/improving-the-exynos-9810-galaxy-s9-part-2/2">https://www.anandtech.com/show/12620/improving-the-exynos-9810-galaxy-s9-part-2/2</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/925371/">https://lwn.net/Articles/925371/</a></li>
+<li><a target="_blank" rel="noopener" href="https://android.googlesource.com/kernel/msm/+/android-msm-bullhead-3.10-marshmallow-dr/Documentation/scheduler/sched-hmp.txt">https://android.googlesource.com/kernel/msm/+/android-msm-bullhead-3.10-marshmallow-dr/Documentation/scheduler/sched-hmp.txt</a></li>
+</ul>
+
+    </article>
+    <!-- license -->
+    
+        <div class="license-wrapper">
+            <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
+            <!-- <p>原文链接：<a href="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/</a> -->
+            <!-- <p>发表日期：<a href="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">October 2nd 2025, 10:58:01 am</a> -->
+            <p>更新日期：<a href="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">2025-10-02, 11:54:25</a>
+            <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
+        </div>
+    
+    <!-- paginator -->
+    <ul class="post-paginator">
+        <li class="next">
+            
+        </li>
+        <li class="previous">
+            
+                <div class="prevSlogan">Previous Post</div>
+                <a href="/2025/08/16/%E6%97%B6%E9%97%B4%E5%90%8C%E6%AD%A5%E5%8D%8F%E8%AE%AEPTP%E9%82%A3%E4%BA%9B%E4%BA%8B/" title="时间同步协议PTP那些事">
+                    <div class="prevTitle">时间同步协议PTP那些事</div>
+                </a>
+            
+        </li>
+    </ul>
+    <!-- comment -->
+    
+        <div class="post-comment">
+            <!-- 来必力 City 版安装代码 -->
+
+
+            
+
+            
+
+            
+
+            <!-- utteranc评论 -->
+
+    <script src='https://utteranc.es/client.js'
+        repo='runningforlife/utterances-comment'
+        issue-term='pathname'
+        label=''
+        theme='github-light'
+        crossorigin='anonymous'
+        async>
+    </script>
+
+
+            <!-- partial('_partial/comment/changyan') -->
+            <!--PC版-->
+
+
+            
+            
+
+            
+
+        </div>
+    
+    <!-- timeliness note -->
+    <!-- idea from: https://hexo.fluid-dev.com/posts/hexo-injector/#%E6%96%87%E7%AB%A0%E6%97%B6%E6%95%88%E6%80%A7%E6%8F%90%E7%A4%BA -->
+    
+    <!-- Mathjax -->
+    
+        
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            }
+        };
+    </script>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.0/es5/tex-mml-chtml.js"></script>
+
+
+    
+</main>
+
+                <!-- profile -->
+                
+            </div>
+            <footer class="footer footer-unloaded">
+    <!-- social  -->
+    
+        <div class="social">
+            
+    
+        
+            
+                <a href="mailto:wlh2119@gmail.com" class="iconfont-archer email" title=email ></a>
+            
+        
+    
+        
+            
+                <a href="//github.com/runningforlife" class="iconfont-archer github" target="_blank" title=github></a>
+            
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="https://weibo.com/2573460570/profile?topnav=1&wvr=6" class="iconfont-archer weibo" target="_blank" title=weibo></a>
+            
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="/atom.xml" class="iconfont-archer rss" target="_blank" title=rss></a>
+            
+        
+    
+
+
+        </div>
+    
+    <!-- powered by Hexo  -->
+    <div class="copyright">
+        <span id="hexo-power">Powered by <a href="https://hexo.io/" target="_blank">Hexo</a></span><span class="iconfont-archer power">&#xe635;</span><span id="theme-info">theme <a href="https://github.com/fi3ework/hexo-theme-archer" target="_blank">Archer</a></span>
+    </div>
+    <!-- website approve for Chinese user -->
+    
+    <!-- 不蒜子  -->
+    
+        <div class="busuanzi-container">
+            
+             
+                <span id="busuanzi_container_site_pv">PV: <span id="busuanzi_value_site_pv"></span> :)</span>
+            
+        </div>
+    	
+</footer>
+
+        </div>
+        <!-- toc -->
+        
+            <div class="toc-wrapper toc-wrapper-loding" style=
+
+
+
+
+
+
+
+    top:50vh;
+
+>
+                <div class="toc-catalog">
+                    <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
+                </div>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#PELT"><span class="toc-number">1.</span> <span class="toc-text">PELT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#WALT"><span class="toc-number">2.</span> <span class="toc-text">WALT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PELT%E4%B8%8EWALT%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="toc-number">3.</span> <span class="toc-text">PELT与WALT的对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
+            </div>
+        
+        <!-- sidebar -->
+        <div class="sidebar sidebar-hide">
+    <ul class="sidebar-tabs sidebar-tabs-active-0">
+        <li class="sidebar-tab-archives"><span class="iconfont-archer">&#xe67d;</span><span class="tab-name">Archive</span></li>
+        <li class="sidebar-tab-tags"><span class="iconfont-archer">&#xe61b;</span><span class="tab-name">Tag</span></li>
+        <li class="sidebar-tab-categories"><span class="iconfont-archer">&#xe666;</span><span class="tab-name">Cate</span></li>
+    </ul>
+    <div class="sidebar-content sidebar-content-show-archive">
+        <div class="sidebar-panel-archives">
+    <!-- 在 ejs 中将 archive 按照时间排序 -->
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+    
+    
+    
+    <div class="total-and-search">
+        <div class="total-archive">
+        Total : 124
+        </div>
+        <!-- search  -->
+        
+            <div class="site-search site-search-loading popup-trigger">
+                <span class="iconfont-archer search-icon">&#xe627;</span>
+            </div>
+        
+    </div>
+    
+    <div class="post-archive">
+    
+        
+            
+            
+            <div class="archive-year"> 2025 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/02</span>
+            <a class="archive-post-title" href="/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">进程调度中的PELT与WALT</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/16</span>
+            <a class="archive-post-title" href="/2025/08/16/%E6%97%B6%E9%97%B4%E5%90%8C%E6%AD%A5%E5%8D%8F%E8%AE%AEPTP%E9%82%A3%E4%BA%9B%E4%BA%8B/">时间同步协议PTP那些事</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2025/06/18/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%BA%8C-LXC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">深入Linux容器LXC之二-LXC源码分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">深入Linux容器LXC之一-LXC的实现原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/14</span>
+            <a class="archive-post-title" href="/2025/05/14/%E8%AF%B4%E4%B8%80%E8%AF%B4VLAN/">说一说VLAN</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">一个CPU steal-time高的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/24</span>
+            <a class="archive-post-title" href="/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/">Linux内核模块签名那些事</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2024 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2024/12/31/%E9%BE%99%E5%B9%B4%E5%B9%B4%E7%BB%88%E6%80%BB%E7%BB%93/">龙年年终总结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/24</span>
+            <a class="archive-post-title" href="/2024/12/24/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3Android%E8%BF%9B%E7%A8%8B%E5%86%BB%E7%BB%93/">深入理解Android进程冻结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/25</span>
+            <a class="archive-post-title" href="/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/">Linux实时调度踩到的那些坑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/24</span>
+            <a class="archive-post-title" href="/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">高通QNX平台DCVS介绍</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/18</span>
+            <a class="archive-post-title" href="/2024/07/18/%E7%94%9F%E5%91%BD-%E6%97%B6%E9%97%B4%E4%B8%8E%E5%AE%87%E5%AE%99/">生命与宇宙-看《时间简史》的感想</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">Android如何使用PSI管理内存</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/15</span>
+            <a class="archive-post-title" href="/2024/04/15/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8cgroup%E4%BC%98%E5%8C%96Android%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD/">如何利用cgroups优化Android系统性能</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/28</span>
+            <a class="archive-post-title" href="/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">如何移植fio到Android平台</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/30</span>
+            <a class="archive-post-title" href="/2024/01/30/%E4%BD%A0%E5%A5%BD,2024/">你好,2024</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2023 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2023/11/26/%E8%AE%A4%E8%AF%86%E4%BD%A0%E7%9A%84%E5%A4%A7%E8%84%91/">认识你的大脑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/20</span>
+            <a class="archive-post-title" href="/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/">Android常用的性能分析工具</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/15</span>
+            <a class="archive-post-title" href="/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">虚拟化之三virtio的实现原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/09</span>
+            <a class="archive-post-title" href="/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">虚拟化之二QNX虚拟化平台简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/30</span>
+            <a class="archive-post-title" href="/2023/06/30/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%80%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">虚拟化之一虚拟机的基本概念</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2023/05/27/%E6%8A%95%E5%B1%8F%E4%B8%AD%E7%9A%84%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E5%8D%8F%E8%AE%AE/">投屏中的服务发现协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/17</span>
+            <a class="archive-post-title" href="/2023/04/17/Android%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8CDNS%E8%A7%A3%E6%9E%90/">Android如何进行DNS解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/23</span>
+            <a class="archive-post-title" href="/2023/03/23/chatGPT%E4%B9%8B%E5%90%8E%EF%BC%8C%E6%88%91%E4%BB%AC%E8%BF%98%E8%83%BD%E5%81%9A%E4%BB%80%E4%B9%88/">chatGPT之后，我们还能做什么?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/09</span>
+            <a class="archive-post-title" href="/2023/03/09/Android%E4%B8%ADHAL%E6%9C%8D%E5%8A%A1%E6%97%A0%E6%B3%95%E4%BD%BF%E7%94%A8%E7%BD%91%E7%BB%9C%E7%9A%84%E9%97%AE%E9%A2%98/">Android中HAL服务无法使用网络的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2023/02/27/%E8%AF%B4%E8%AF%B4%E7%B3%BB%E7%BB%9F%E5%BC%80%E5%8F%91%E4%B8%AD%E7%9A%84%E5%BA%B7%E5%A8%81%E5%AE%9A%E5%BE%8B/">说说系统开发中的康威定律</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/10</span>
+            <a class="archive-post-title" href="/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">为什么iperf测试时UDP会出现高丢包率</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2022 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2022/12/31/%E5%86%8D%E8%A7%812022/">再见2022</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/06</span>
+            <a class="archive-post-title" href="/2022/12/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BAVB-TSN/">Linux网络优化之AVB/TSN</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/30</span>
+            <a class="archive-post-title" href="/2022/09/30/%E5%A6%82%E4%BD%95%E7%94%A8FFMPEG%E5%9C%A8Android%E4%B8%8A%E5%81%9A%E8%A7%86%E9%A2%91%E8%A7%A3%E7%A0%81/">如何用FFmpeg在Android上实现音视频解码</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/27</span>
+            <a class="archive-post-title" href="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/">如何通过QEMU启动Linux系统</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/12</span>
+            <a class="archive-post-title" href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/">Linux网络优化之DPDK与XDP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2022/06/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BTCP%E4%BC%98%E5%8C%96/">Linux网络优化之TCP优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/13</span>
+            <a class="archive-post-title" href="/2022/04/13/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8B%E9%93%BE%E8%B7%AF%E5%B1%82%E4%BC%98%E5%8C%96/">Linux网络优化之链路层优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/31</span>
+            <a class="archive-post-title" href="/2022/03/31/%E9%87%8D%E5%AD%A6C++/">重学现代C++</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/18</span>
+            <a class="archive-post-title" href="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/">如何用pktgen测试网卡性能?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/17</span>
+            <a class="archive-post-title" href="/2022/03/17/%E6%94%B6%E8%97%8F%E7%9A%84%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%96%99/">「置顶」收藏的学习资料</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/16</span>
+            <a class="archive-post-title" href="/2022/02/16/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dopenssh%E5%88%B0armv7%E7%B3%BB%E7%BB%9F/">如何移植openssh到ARM开发板</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/29</span>
+            <a class="archive-post-title" href="/2022/01/29/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%AE%80%E4%BB%8B/">深度学习简介</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2021 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2021/12/31/%E6%84%9F%E6%82%9F2021/">感悟2021</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">理解Android eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/09</span>
+            <a class="archive-post-title" href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/">什么是GARP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/28</span>
+            <a class="archive-post-title" href="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/">ARP cache不更新导致的网络问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2021/07/16/%E6%80%8E%E4%B9%88%E6%8B%9B%E8%81%98SRE%E5%B7%A5%E7%A8%8B%E5%B8%88-%E7%9C%8B%E7%9C%8BGoogle%E6%98%AF%E5%A6%82%E4%BD%95%E6%8B%9B%E4%BA%BA%E7%9A%84-%E8%AF%91/">怎么招聘SRE工程师-看看Google是如何招人</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2021/06/22/%E4%B8%80%E4%B8%AASMMU%E5%86%85%E5%AD%98%E8%AE%BF%E9%97%AE%E5%BC%82%E5%B8%B8%E9%97%AE%E9%A2%98/">一个SMMU内存访问异常的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2021/04/29/%E4%BB%8EWifi%E7%83%AD%E7%82%B9%E5%8A%9F%E8%83%BD%E8%AF%B4%E4%B8%80%E8%AF%B4Android-Wifi%E6%A1%86%E6%9E%B6/">从Wifi热点功能说一说Android Wifi框架</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/08</span>
+            <a class="archive-post-title" href="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">Linux网络协议之数据发送流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/20</span>
+            <a class="archive-post-title" href="/2021/02/20/ADB%E6%98%AF%E5%A6%82%E4%BD%95%E5%B7%A5%E4%BD%9C%E7%9A%84/">一个ADB无法识别设备的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/08</span>
+            <a class="archive-post-title" href="/2021/01/08/%E8%AF%91-%E6%88%91%E7%9A%84%E5%B7%A5%E7%A8%8B%E6%A0%BC%E8%A8%80/">「译」我的工程格言</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/03</span>
+            <a class="archive-post-title" href="/2021/01/03/%E4%B8%8D%E5%BE%97%E4%B8%8D%E8%AF%B4%E7%9A%842020/">不得不说的2020</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2020 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/">MAC与PHY调试遇到的那些坑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/06</span>
+            <a class="archive-post-title" href="/2020/11/06/%E6%B1%BD%E8%BD%A6%E7%BD%91%E7%BB%9C%E6%BC%94%E5%8C%96-%E4%BB%8ECAN%E5%88%B0%E4%BB%A5%E5%A4%AA%E7%BD%91/">汽车网络演化-从CAN到以太网</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/23</span>
+            <a class="archive-post-title" href="/2020/10/23/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E7%9A%84%E9%94%81/">Linux内核中的锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2020/10/14/IPV6%E5%9C%B0%E5%9D%80%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">IPV6地址的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/03</span>
+            <a class="archive-post-title" href="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/">由Policy Routing引发的一个奇怪问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2020/05/27/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91%E4%B8%8EBUG%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">软件开发与BUG的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/12</span>
+            <a class="archive-post-title" href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">从NAPI说一说Linux内核数据的接收流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/04</span>
+            <a class="archive-post-title" href="/2020/04/04/%E8%AF%B4%E8%AF%B4%E8%BF%99%E6%AC%A1%E6%96%B0%E5%86%A0%E4%BC%A0%E6%9F%93%E7%97%85%E6%83%B3%E5%88%B0%E7%9A%84%E4%BA%8B%E6%83%85/">由新冠病毒想到的一些事情</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/01</span>
+            <a class="archive-post-title" href="/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">Android是如何实现流量统计的?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/24</span>
+            <a class="archive-post-title" href="/2020/02/24/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8SSH%E9%9A%A7%E9%81%93%E8%AE%BF%E9%97%AE%E5%B1%80%E5%9F%9F%E7%BD%91/">利用SSH隧道访问局域网</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2019 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2019/12/31/Recovery%E6%A8%A1%E5%BC%8F%E5%A6%82%E4%BD%95%E6%94%AF%E6%8C%81ADB/">Recovery模式如何支持ADB</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/07</span>
+            <a class="archive-post-title" href="/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">SELinux在Android中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/07</span>
+            <a class="archive-post-title" href="/2019/11/07/BPF%E4%B8%8EeBPF/">BPF与eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/04</span>
+            <a class="archive-post-title" href="/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">说说Process.waitfor()引起的进程阻塞问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/30</span>
+            <a class="archive-post-title" href="/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/">聊一聊TCP协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/15</span>
+            <a class="archive-post-title" href="/2019/07/15/TCP%E9%93%BE%E6%8E%A5%E5%BB%BA%E7%AB%8B%E4%B8%8E%E7%8A%B6%E6%80%81%E8%BF%81%E7%A7%BB/">TCP链接建立与状态迁移</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/05</span>
+            <a class="archive-post-title" href="/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/">PPP拨号时拿到错误DNS的问题解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/26</span>
+            <a class="archive-post-title" href="/2019/02/26/%E5%9C%A8Android-Studio%E4%B8%AD%E6%B7%BB%E5%8A%A0%E8%87%AA%E5%AE%9A%E4%B9%89framework-jar/">如何在Android Studio中添加自定义framework.jar?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/17</span>
+            <a class="archive-post-title" href="/2019/01/17/Linux%E4%B8%8B%E5%B8%B8%E7%94%A8%E7%BD%91%E7%BB%9C%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/">Linux下常用网络工具使用总结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/04</span>
+            <a class="archive-post-title" href="/2019/01/04/%E6%88%90%E7%8E%8B%E8%B4%A5%E5%AF%87%E4%B8%8E%E4%B8%9B%E6%9E%97%E6%B3%95%E5%88%99-%E7%9C%8B%E7%BA%AA%E5%BD%95%E7%89%87-%E8%8B%B1%E5%9B%BD%E5%8F%B2-%E6%9C%89%E6%84%9F/">成王败寇与丛林法则-看纪录片<英国史>有感</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2018 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/18</span>
+            <a class="archive-post-title" href="/2018/12/18/Android-netd%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Android netd工作原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/30</span>
+            <a class="archive-post-title" href="/2018/11/30/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F%E5%8F%8A%E5%85%B6%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">正则表达式及其应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/21</span>
+            <a class="archive-post-title" href="/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">socket编程与IO multiplexing</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2018/06/22/%E5%85%B3%E4%BA%8E%E6%8A%80%E6%9C%AF%E5%8F%91%E5%B1%95%E7%9A%84%E4%B8%80%E4%BA%9B%E6%80%9D%E8%80%83/">关于技术发展的一些思考</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/17</span>
+            <a class="archive-post-title" href="/2018/06/17/HAL-binder%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B-%E4%BB%A5RILJ-RILD%E9%80%9A%E4%BF%A1%E4%B8%BA%E4%BE%8B/">HAL binder工作流程-以RILJ/RILD通信为例</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">深入Android HAL binder</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/05</span>
+            <a class="archive-post-title" href="/2018/05/05/%E4%BB%8EHTTP%E5%88%B0HTTPS/">从HTTP到HTTPS</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/30</span>
+            <a class="archive-post-title" href="/2018/04/30/%E3%80%8A%E4%BA%BA%E7%B1%BB%E7%AE%80%E5%8F%B2%E3%80%8B%E6%9C%AD%E8%AE%B0/">《人类简史》札记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/23</span>
+            <a class="archive-post-title" href="/2018/02/23/Garbage-Collection-in-Java/">Java中的垃圾回收机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">Java虚拟机入门</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2017 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/23</span>
+            <a class="archive-post-title" href="/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">如何用JobScheduler进行任务调度</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/20</span>
+            <a class="archive-post-title" href="/2017/11/20/Circuit-Switching-Packet-Switching/">Circuit Switching & Packet Switching</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/18</span>
+            <a class="archive-post-title" href="/2017/11/18/Android-%E5%8A%A8%E7%94%BB/">Android 动画</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2017/10/15/GSM%E7%9F%AD%E4%BF%A1%E7%9A%84%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/">GSM短信的发送与接收</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/08</span>
+            <a class="archive-post-title" href="/2017/10/08/Java-Annotation/">Java Annotation</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/22</span>
+            <a class="archive-post-title" href="/2017/09/22/%E5%A6%82%E4%BD%95%E5%9C%A8Android%E4%B8%AD%E6%9F%A5%E7%9C%8B%E8%BF%9B%E7%A8%8B%E7%8A%B6%E6%80%81/">如何在Android中查看进程状态</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/23</span>
+            <a class="archive-post-title" href="/2017/08/23/HTTP%E5%85%A5%E9%97%A8%E4%BB%8B%E7%BB%8D/">HTTP简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/06</span>
+            <a class="archive-post-title" href="/2017/08/06/%E5%B8%B8%E7%94%A8%E5%93%88%E5%B8%8C%E5%87%BD%E6%95%B0C%E5%AE%9E%E7%8E%B0/">常用哈希函数C实现</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2017/07/16/cache%E6%8F%AD%E7%A7%98/">cache揭秘</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/09</span>
+            <a class="archive-post-title" href="/2017/07/09/Android%E8%BF%9B%E7%A8%8BCrash%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android进程Crash处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/01</span>
+            <a class="archive-post-title" href="/2017/07/01/Android%E4%B8%AD%E7%9A%84%E4%BB%BB%E5%8A%A1%E7%AE%A1%E7%90%86/">Android中的任务管理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android ANR处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2017/06/18/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E9%94%81/">Java并发编程之锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/11</span>
+            <a class="archive-post-title" href="/2017/06/11/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">Java并发编程之原子操作</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/30</span>
+            <a class="archive-post-title" href="/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Glide详解之图片加载过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/%E8%BF%91%E6%9D%A5%E4%BA%8C%E4%B8%89%E4%BA%8B/">近来二三事</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">Java并发编程之Java Memory Model</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2017/05/27/Zygote%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Zygote进程启动过程详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/24</span>
+            <a class="archive-post-title" href="/2017/05/24/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E7%BB%BC%E8%BF%B0/">Java并发编程综述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/20</span>
+            <a class="archive-post-title" href="/2017/05/20/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">Glide详解之架构分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/17</span>
+            <a class="archive-post-title" href="/2017/05/17/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%90%8C%E6%AD%A5/">Java并发编程之同步</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">Java并发编程之线程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2017/04/29/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">单例模式在Java中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/20</span>
+            <a class="archive-post-title" href="/2017/04/20/Picasso%E4%BB%8E%E4%BD%BF%E7%94%A8%E5%88%B0%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Picasso从使用到原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2017/03/07/TCP-IP%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E5%85%A5%E9%97%A8/">TCP/IP网络协议入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/06</span>
+            <a class="archive-post-title" href="/2017/03/06/Maven%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">关于Maven</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2017/02/27/%E8%BF%BD%E5%AF%BB%E7%9C%9F%E5%AE%9E%E7%9A%84%E8%87%AA%E6%88%91/">追寻真实的自我</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/25</span>
+            <a class="archive-post-title" href="/2017/02/25/%E3%80%8AEffective-Java%E3%80%8B%E6%91%98%E8%AE%B0/">《Effective Java》摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/21</span>
+            <a class="archive-post-title" href="/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Android Phone进程启动过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/18</span>
+            <a class="archive-post-title" href="/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">Android Launcher工作原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">如何在Java中调用C_C++方法</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2016 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/26</span>
+            <a class="archive-post-title" href="/2016/12/26/%E7%BD%97%E7%B4%A0%E3%80%8A%E6%9D%83%E5%A8%81%E4%B8%8E%E4%B8%AA%E4%BA%BA%E3%80%8B/">罗素《权威与个人》</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/29</span>
+            <a class="archive-post-title" href="/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/">Android RILD详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/19</span>
+            <a class="archive-post-title" href="/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android RIL概述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/04</span>
+            <a class="archive-post-title" href="/2016/11/04/%E3%80%8A%E9%80%9A%E5%BE%80%E5%A5%B4%E5%BD%B9%E4%B9%8B%E8%B7%AF%E3%80%8B%E8%AF%BB%E4%B9%A6%E6%91%98%E8%AE%B0/">《通往奴役之路》读书摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Android%E7%B3%BB%E7%BB%9F%E6%97%B6%E9%97%B4%E8%87%AA%E5%8A%A8%E6%9B%B4%E6%96%B0%E6%9C%BA%E5%88%B6/">Android系统时间自动更新机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Java%E7%A8%8B%E5%BA%8F%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B/">Java程序编译过程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/16</span>
+            <a class="archive-post-title" href="/2016/10/16/%E7%94%B1%E4%BA%BA%E5%AE%9A%E8%83%9C%E5%A4%A9%E8%AF%B4%E8%B5%B7/">由人定胜天说起</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2016/10/15/%E5%81%9C%E6%9C%BA%E9%97%AE%E9%A2%98/">停机问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2016/10/14/Linux-Shell%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">Linux Shell快速入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/13</span>
+            <a class="archive-post-title" href="/2016/10/13/Dependency-Inversion-Principle/">Dependency Inversion Principle(依赖反转原则)</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/01</span>
+            <a class="archive-post-title" href="/2016/10/01/Binder%E5%85%A5%E9%97%A8/">Android Binder入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/18</span>
+            <a class="archive-post-title" href="/2016/08/18/Android-Fota%E5%8D%87%E7%BA%A7/">Android Fota升级</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2016/03/07/Git%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4/">Git常用命令</a>
+        </li>
+    
+    </div>
+</div>
+
+        <div class="sidebar-panel-tags">
+    <div class="sidebar-tags-name">
+        
+            <span class="sidebar-tag-name" data-tags="ADB">
+                <span class="iconfont-archer">&#xe606;</span>
+                ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android Debug Bridge
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FOTA">
+                <span class="iconfont-archer">&#xe606;</span>
+                FOTA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Firm Over The Air">
+                <span class="iconfont-archer">&#xe606;</span>
+                Firm Over The Air
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RIL">
+                <span class="iconfont-archer">&#xe606;</span>
+                RIL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILD">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Property Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Property Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Frame Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Frame Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="系统时间更新">
+                <span class="iconfont-archer">&#xe606;</span>
+                系统时间更新
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NITZ">
+                <span class="iconfont-archer">&#xe606;</span>
+                NITZ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                NTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                BPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="eBPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                eBPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Binder">
+                <span class="iconfont-archer">&#xe606;</span>
+                Binder
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPC">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Virtual Machine
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Garbage Collection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Garbage Collection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Glide">
+                <span class="iconfont-archer">&#xe606;</span>
+                Glide
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Image Loading">
+                <span class="iconfont-archer">&#xe606;</span>
+                Image Loading
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTPS">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTPS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation Processor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation Processor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="并发编程">
+                <span class="iconfont-archer">&#xe606;</span>
+                并发编程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Atomicity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Atomicity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="synchronized">
+                <span class="iconfont-archer">&#xe606;</span>
+                synchronized
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Thread">
+                <span class="iconfont-archer">&#xe606;</span>
+                Thread
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Memory Model">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Memory Model
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Compiling process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Compiling process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="字节码">
+                <span class="iconfont-archer">&#xe606;</span>
+                字节码
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="class　file">
+                <span class="iconfont-archer">&#xe606;</span>
+                class　file
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Shell">
+                <span class="iconfont-archer">&#xe606;</span>
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="mutex">
+                <span class="iconfont-archer">&#xe606;</span>
+                mutex
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Spin Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Spin Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Kernel">
+                <span class="iconfont-archer">&#xe606;</span>
+                Kernel
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AVB">
+                <span class="iconfont-archer">&#xe606;</span>
+                AVB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TSN">
+                <span class="iconfont-archer">&#xe606;</span>
+                TSN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DPDK">
+                <span class="iconfont-archer">&#xe606;</span>
+                DPDK
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="XDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                XDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Maven">
+                <span class="iconfont-archer">&#xe606;</span>
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PPP">
+                <span class="iconfont-archer">&#xe606;</span>
+                PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Picasso,">
+                <span class="iconfont-archer">&#xe606;</span>
+                Picasso,
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
+                <span class="iconfont-archer">&#xe606;</span>
+                ImageLoader
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Recovery">
+                <span class="iconfont-archer">&#xe606;</span>
+                Recovery
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SELinux">
+                <span class="iconfont-archer">&#xe606;</span>
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP/IP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="三次握手">
+                <span class="iconfont-archer">&#xe606;</span>
+                三次握手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="四次挥手">
+                <span class="iconfont-archer">&#xe606;</span>
+                四次挥手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Cache">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Cache
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU Architecture">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU Architecture
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Hierarchy">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Hierarchy
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="2020">
+                <span class="iconfont-archer">&#xe606;</span>
+                2020
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="新冠病毒">
+                <span class="iconfont-archer">&#xe606;</span>
+                新冠病毒
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TLS">
+                <span class="iconfont-archer">&#xe606;</span>
+                TLS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSL">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                GARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络性能">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络性能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="带宽测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                带宽测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="pktgen">
+                <span class="iconfont-archer">&#xe606;</span>
+                pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Halting Problem">
+                <span class="iconfont-archer">&#xe606;</span>
+                Halting Problem
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Computability theory">
+                <span class="iconfont-archer">&#xe606;</span>
+                Computability theory
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="技术">
+                <span class="iconfont-archer">&#xe606;</span>
+                技术
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="5G">
+                <span class="iconfont-archer">&#xe606;</span>
+                5G
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人工智能">
+                <span class="iconfont-archer">&#xe606;</span>
+                人工智能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSH">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSH
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="远程登录">
+                <span class="iconfont-archer">&#xe606;</span>
+                远程登录
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="反向隧道">
+                <span class="iconfont-archer">&#xe606;</span>
+                反向隧道
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JNI">
+                <span class="iconfont-archer">&#xe606;</span>
+                JNI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="共享库文件">
+                <span class="iconfont-archer">&#xe606;</span>
+                共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FFmpeg">
+                <span class="iconfont-archer">&#xe606;</span>
+                FFmpeg
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="H.264">
+                <span class="iconfont-archer">&#xe606;</span>
+                H.264
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="音视频">
+                <span class="iconfont-archer">&#xe606;</span>
+                音视频
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JobScheduler">
+                <span class="iconfont-archer">&#xe606;</span>
+                JobScheduler
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AlarmManager">
+                <span class="iconfont-archer">&#xe606;</span>
+                AlarmManager
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="定时任务">
+                <span class="iconfont-archer">&#xe606;</span>
+                定时任务
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="openssh">
+                <span class="iconfont-archer">&#xe606;</span>
+                openssh
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARM嵌入式开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARM嵌入式开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hash Function">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hash Function
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SRE">
+                <span class="iconfont-archer">&#xe606;</span>
+                SRE
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Site Reliability Engineering">
+                <span class="iconfont-archer">&#xe606;</span>
+                Site Reliability Engineering
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Google">
+                <span class="iconfont-archer">&#xe606;</span>
+                Google
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="英国史">
+                <span class="iconfont-archer">&#xe606;</span>
+                英国史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="丛林法则">
+                <span class="iconfont-archer">&#xe606;</span>
+                丛林法则
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习资料">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习资料
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="正则表达式">
+                <span class="iconfont-archer">&#xe606;</span>
+                正则表达式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Regular Expression">
+                <span class="iconfont-archer">&#xe606;</span>
+                Regular Expression
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                CAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MOST">
+                <span class="iconfont-archer">&#xe606;</span>
+                MOST
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LIN">
+                <span class="iconfont-archer">&#xe606;</span>
+                LIN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Ethernet">
+                <span class="iconfont-archer">&#xe606;</span>
+                Ethernet
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="机器学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                机器学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="深度学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                深度学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Deep Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Deep Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Machine Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Machine Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AI">
+                <span class="iconfont-archer">&#xe606;</span>
+                AI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哲学">
+                <span class="iconfont-archer">&#xe606;</span>
+                哲学
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="社会">
+                <span class="iconfont-archer">&#xe606;</span>
+                社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="拥塞控制">
+                <span class="iconfont-archer">&#xe606;</span>
+                拥塞控制
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件工程">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件工程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="团队协作">
+                <span class="iconfont-archer">&#xe606;</span>
+                团队协作
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="项目管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                项目管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="waitfor">
+                <span class="iconfont-archer">&#xe606;</span>
+                waitfor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BUG">
+                <span class="iconfont-archer">&#xe606;</span>
+                BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
+                <span class="iconfont-archer">&#xe606;</span>
+                摔跤吧，爸爸
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="电影">
+                <span class="iconfont-archer">&#xe606;</span>
+                电影
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习方法">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习方法
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bob dylan">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bob dylan
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="追寻自我">
+                <span class="iconfont-archer">&#xe606;</span>
+                追寻自我
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="C++">
+                <span class="iconfont-archer">&#xe606;</span>
+                C++
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="编程语言">
+                <span class="iconfont-archer">&#xe606;</span>
+                编程语言
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Launcher">
+                <span class="iconfont-archer">&#xe606;</span>
+                Launcher
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SystemServer">
+                <span class="iconfont-archer">&#xe606;</span>
+                SystemServer
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Phone进程">
+                <span class="iconfont-archer">&#xe606;</span>
+                Phone进程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Telephony">
+                <span class="iconfont-archer">&#xe606;</span>
+                Telephony
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NetworkManagerService">
+                <span class="iconfont-archer">&#xe606;</span>
+                NetworkManagerService
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Crash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Crash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Inversion">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Inversion
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DIP">
+                <span class="iconfont-archer">&#xe606;</span>
+                DIP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Injection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Injection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Uncle Bob">
+                <span class="iconfont-archer">&#xe606;</span>
+                Uncle Bob
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="依赖反转">
+                <span class="iconfont-archer">&#xe606;</span>
+                依赖反转
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="图片加载">
+                <span class="iconfont-archer">&#xe606;</span>
+                图片加载
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Network tools">
+                <span class="iconfont-archer">&#xe606;</span>
+                Network tools
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ip route">
+                <span class="iconfont-archer">&#xe606;</span>
+                ip route
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="tcpdump">
+                <span class="iconfont-archer">&#xe606;</span>
+                tcpdump
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iptables">
+                <span class="iconfont-archer">&#xe606;</span>
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MAC">
+                <span class="iconfont-archer">&#xe606;</span>
+                MAC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PHY">
+                <span class="iconfont-archer">&#xe606;</span>
+                PHY
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="车载以太网">
+                <span class="iconfont-archer">&#xe606;</span>
+                车载以太网
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="socket programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                socket programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="I/O multiplexing">
+                <span class="iconfont-archer">&#xe606;</span>
+                I/O multiplexing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="network programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                network programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Effective Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Effective Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Design Pattern">
+                <span class="iconfont-archer">&#xe606;</span>
+                Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="通往奴役之路">
+                <span class="iconfont-archer">&#xe606;</span>
+                通往奴役之路
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哈耶克">
+                <span class="iconfont-archer">&#xe606;</span>
+                哈耶克
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="读书">
+                <span class="iconfont-archer">&#xe606;</span>
+                读书
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Policy Routing">
+                <span class="iconfont-archer">&#xe606;</span>
+                Policy Routing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="策略路由">
+                <span class="iconfont-archer">&#xe606;</span>
+                策略路由
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                Netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Zygote">
+                <span class="iconfont-archer">&#xe606;</span>
+                Zygote
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android应用启动">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android应用启动
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="UDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                UDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Conway's Law">
+                <span class="iconfont-archer">&#xe606;</span>
+                Conway's Law
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="康威定律">
+                <span class="iconfont-archer">&#xe606;</span>
+                康威定律
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络使用权限
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="chatGPT">
+                <span class="iconfont-archer">&#xe606;</span>
+                chatGPT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LLM">
+                <span class="iconfont-archer">&#xe606;</span>
+                LLM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AIGC">
+                <span class="iconfont-archer">&#xe606;</span>
+                AIGC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="域名解析">
+                <span class="iconfont-archer">&#xe606;</span>
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="投屏">
+                <span class="iconfont-archer">&#xe606;</span>
+                投屏
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DLNA">
+                <span class="iconfont-archer">&#xe606;</span>
+                DLNA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Airplay">
+                <span class="iconfont-archer">&#xe606;</span>
+                Airplay
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtualization">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtualization
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="QNX">
+                <span class="iconfont-archer">&#xe606;</span>
+                QNX
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtio">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能分析">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能分析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="systrace">
+                <span class="iconfont-archer">&#xe606;</span>
+                systrace
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="perfetto">
+                <span class="iconfont-archer">&#xe606;</span>
+                perfetto
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="价值">
+                <span class="iconfont-archer">&#xe606;</span>
+                价值
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="探索">
+                <span class="iconfont-archer">&#xe606;</span>
+                探索
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="fio">
+                <span class="iconfont-archer">&#xe606;</span>
+                fio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="文件系统">
+                <span class="iconfont-archer">&#xe606;</span>
+                文件系统
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroups">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroups
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PSI">
+                <span class="iconfont-archer">&#xe606;</span>
+                PSI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内存管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                内存管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LMKD">
+                <span class="iconfont-archer">&#xe606;</span>
+                LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="生命">
+                <span class="iconfont-archer">&#xe606;</span>
+                生命
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="宇宙">
+                <span class="iconfont-archer">&#xe606;</span>
+                宇宙
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="时间">
+                <span class="iconfont-archer">&#xe606;</span>
+                时间
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DCVS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DCVS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="高通">
+                <span class="iconfont-archer">&#xe606;</span>
+                高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="实时调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="VLAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                VLAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="时间同步">
+                <span class="iconfont-archer">&#xe606;</span>
+                时间同步
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                PTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Precise Time Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Precise Time Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="gPTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                gPTP
+            </span>
+        
+    </div>
+    <div class="iconfont-archer sidebar-tags-empty">&#xe678;</div>
+    <div class="tag-load-fail" style="display: none; color: #ccc; font-size: 0.6rem;">
+        缺失模块，请参考主题文档进行安装配置：https://github.com/fi3ework/hexo-theme-archer#%E5%AE%89%E8%A3%85%E4%B8%BB%E9%A2%98
+    </div> 
+    <div class="sidebar-tags-list"></div>
+</div>
+
+        <div class="sidebar-panel-categories">
+    <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Linux">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Linux
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="移动通讯">
+            <span class="iconfont-archer">&#xe60a;</span>
+            移动通讯
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Java">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Java
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="网络协议">
+            <span class="iconfont-archer">&#xe60a;</span>
+            网络协议
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="项目构建">
+            <span class="iconfont-archer">&#xe60a;</span>
+            项目构建
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="读书笔记">
+            <span class="iconfont-archer">&#xe60a;</span>
+            读书笔记
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="思考">
+            <span class="iconfont-archer">&#xe60a;</span>
+            思考
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Design Pattern">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="算法/数据结构">
+            <span class="iconfont-archer">&#xe60a;</span>
+            算法/数据结构
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="软件工程">
+            <span class="iconfont-archer">&#xe60a;</span>
+            软件工程
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Regular Expression">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Regular Expression
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="社会万象">
+            <span class="iconfont-archer">&#xe60a;</span>
+            社会万象
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="C++">
+            <span class="iconfont-archer">&#xe60a;</span>
+            C++
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Software Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Software Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="虚拟化">
+            <span class="iconfont-archer">&#xe60a;</span>
+            虚拟化
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Linux">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Linux
+        </span>
+    
+    </div>
+    <div class="iconfont-archer sidebar-categories-empty">&#xe678;</div>
+    <div class="sidebar-categories-list"></div>
+</div>
+
+    </div>
+</div>
+
+        <!-- site-meta -->
+        <script>
+    var siteMetaRoot = "/"
+    if (siteMetaRoot === "undefined") {
+        siteMetaRoot = '/'
+    }
+    var siteMeta = {
+        url: "https://sniffer.site",
+        root: siteMetaRoot,
+        author: "Jason Wang"
+    }
+</script>
+
+        <!-- import experimental options here -->
+        <!-- Custom Font -->
+
+
+        <!-- main func -->
+        <script src="/scripts/main.js?v=20211217"></script>
+        <!-- dark mode -->
+        <script src="/scripts/dark.js?v=20211217"></script>
+        <!-- fancybox -->
+        <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js" defer></script>
+        <!-- algolia -->
+        
+            <div class="site-search site-search-loading">
+    <div class="algolia-popup popup">
+        <div class="algolia-search">
+            <div class="algolia-search-input-icon">
+                <i class="fa fa-search"></i>
+            </div>
+            <div class="algolia-search-input" id="algolia-search-input"></div>
+            <div class="popup-btn-close">
+                <i class="iconfont-archer">&#xe609;</i>
+            </div>
+        </div>
+
+        <div class="algolia-results">
+            <div id="algolia-stats" class="algolia-stats"></div>
+            <div id="algolia-hits"></div>
+            <div id="algolia-pagination" class="algolia-pagination"></div>
+        </div>
+    </div>
+</div>
+
+            <script src="/scripts/search.js?v=20211217" defer></script>
+        
+        <!-- busuanzi -->
+        
+            <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+        
+        <!-- CNZZ -->
+        
+        <!-- async load share.js -->
+        
+            <script src="/scripts/share.js?v=20211217" async></script>
+        
+        <!-- mermaid -->
+        
+            <script src='https://cdn.jsdelivr.net/npm/mermaid@8.11.0/dist/mermaid.min.js'></script>
+            <script>
+                if (window.mermaid) {
+                    mermaid.initialize({theme: 'dark'});
+                }
+            </script>
+        
+    </body>
+</html>
