@@ -27,6 +27,7 @@
 <meta property="og:description" content="关于编程,生活,工作">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:author" content="Jason Wang">
+<meta property="article:tag" content="Android,Linux,内核,网络协议,虚拟化,容器">
 <meta name="twitter:card" content="summary">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
@@ -469,33 +470,203 @@
             
         
         <article class="index-post">
-            <a class="abstract-title" href="/2017/02/25/%E3%80%8AEffective-Java%E3%80%8B%E6%91%98%E8%AE%B0/">
+            <a class="abstract-title" href="/2017/08/06/%E5%B8%B8%E7%94%A8%E5%93%88%E5%B8%8C%E5%87%BD%E6%95%B0C%E5%AE%9E%E7%8E%B0/">
                 
-                <span class="abstract-title-text">《Effective Java》摘记</span>
+                <span class="abstract-title-text">常用哈希函数C实现</span>
             </a>
             <div class="abstract-content">
-                <p>第一遍看完感觉没有学到什么，又看了一遍，然后自己找了些实例对比着理解了书上的要点，算是对Java编程有了更多的认识。以下是 《Effective Java 2nd edition》的摘记。</p>
-<h2 id="Consider-static-factory-methods-instead-of-constructors"><a href="#Consider-static-factory-methods-instead-of-constructors" class="headerlink" title="Consider static factory methods instead of constructors"></a><strong>Consider <em>static factory methods</em> instead of constructors</strong></h2><p>相比构造函数，静态工厂方法有哪些优点了？首先，静态工厂方法有自己的名字，这可以增强程序的可读性；其次，静态工厂方法每次调用时，不用创建新的对象实例；第三，静态工厂方法可以返回其返回类型的任何子类型对象。</p>
-<p>示例：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">Boolean</span> <span class="keyword">implements</span> <span class="title class_">java</span>.io.Serializable,</span><br><span class="line">                                      Comparable&lt;Boolean&gt;</span><br><span class="line">&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Boolean</span> <span class="variable">TRUE</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Boolean</span>(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Boolean</span> <span class="variable">FALSE</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Boolean</span>(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">//根据boolean值返回相应的Boolean对象</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Boolean <span class="title function_">valueOf</span><span class="params">(<span class="type">boolean</span> b)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> (b ? TRUE : FALSE);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+                <p>哈希函数（<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Hash_function">hash function</a>)是一个将某个集合内的元素映射到一个大小固定的元素集合的函数，其在数据查找、数据去重等方面有着许多的应用。这里，就来看看常用的一些哈希函数是如何来实现的。</p>
+<h2 id="0-RsHash"><a href="#0-RsHash" class="headerlink" title="0. RsHash"></a><strong>0. RsHash</strong></h2><p>最简单的一种Hash函数实现方法，来自于Rober Sedgwicks的C语言算法书:</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">unsigned</span> <span class="type">int</span> <span class="title">RsHash</span><span class="params">(<span class="type">const</span> <span class="type">char</span>* str, <span class="type">unsigned</span> <span class="type">int</span> len)</span></span>&#123;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> b = <span class="number">378551</span>;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> a = <span class="number">63689</span>;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> hash = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; len; ++i)&#123;</span><br><span class="line">        hash = hash * a + (*str++);</span><br><span class="line">        a *= b;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> hash;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2021/08/11">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/08/06</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Hash Function">Hash Function</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
+            <a class="abstract-title" href="/2017/07/16/cache%E6%8F%AD%E7%A7%98/">
+                
+                <span class="abstract-title-text">cache揭秘</span>
+            </a>
+            <div class="abstract-content">
+                <p>缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。目前大多数的计算机系统都会在软件或者硬件层面集成有各种cache, 比如:</p>
+<ul>
+<li>L2(Level 2 cache,3-10个CPU周期)作为L1(Level 1 cache, 1-3个CPU周期)的缓存, 同样L3又作为L2的缓存, 从而形成一个<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/CPU_cache">多级缓存的结构</a></li>
+<li>TLB(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Translation_lookaside_buffer">Translation Lookaside Buffer</a>)用于系统页表查找的缓存, 可以加速虚拟内存与物理内存的地址转换</li>
+<li>Main Memory(主存)是磁盘数据的缓存, 保存了部分使用的磁盘数据, 改善系统运行的性能</li>
+</ul>
+<p>一般来说, 现代的多核CPU系统都有多级的缓存结构, 简图如下:</p>
+<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png" alt="multiple level cache"></p>
+<p>这篇文章将要讨论的cache是指CPU与主内存之间的一种基于<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_random-access_memory">SRAM</a>(Static Random Access Memory)存储结构。</p>
+<p>自计算机诞生以来，CPU的性能大致都按照摩尔定律以每年50%的速度递增，而主内存RAM(Random Access Memory)的性能增速却只有7%，因此在CPU性能与主内存性能之间渐渐形成了一个鸿沟：</p>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2023/07/21">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/07/16</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Memory Cache">Memory Cache</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="CPU Architecture">CPU Architecture</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Memory Hierarchy">Memory Hierarchy</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
+            <a class="abstract-title" href="/2017/07/09/Android%E8%BF%9B%E7%A8%8BCrash%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">
+                
+                <span class="abstract-title-text">Android进程Crash处理流程</span>
+            </a>
+            <div class="abstract-content">
+                <p>之前的一篇文章，讲到了<a href="http://sniffer.site/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">应用程序无响应(ANR)</a>时Android的处理逻辑。这篇文章，就来分析下应用进程发生崩溃(Crash)时，Android是如何处理的？总的说来，Android主要有两大类Crash：</p>
+<ul>
+<li>Java(JVM)层： 应用程序发生运行时错误（如空指针，浮点运算错误，数据索引超出界限)或者系统进程崩溃(长时间无响应)；</li>
+<li>Native层： native进程或者kernel发生运行时错误；</li>
+</ul>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2017/07/09">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/07/09</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Crash">Crash</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
+            <a class="abstract-title" href="/2017/07/01/Android%E4%B8%AD%E7%9A%84%E4%BB%BB%E5%8A%A1%E7%AE%A1%E7%90%86/">
+                
+                <span class="abstract-title-text">Android中的任务管理</span>
+            </a>
+            <div class="abstract-content">
+                <p>Activity是Android负责与用户交互的实体。一个应用一般由多个Activity组成;一个Activity不仅可以打开应用内的Activity，也可以打开其他应用内的Activity，比如通过一个名为<code>android.intent.action.VIEW</code>的Intent事件可以打开浏览器；通过<code>android.intent.action.DIAL</code>可以向CALL发送拨号请求。一系列的Activity组合在一起（完成某个特定的“任务“）构成了一个任务（一个后进先出的队列，被称为back stack），而多个任务又构成了一个任务栈（后台可以有多个任务栈，但系统如需恢复内存，则会杀死部分应用，清空部分任务，以释放内存，因此长时间后应用状态会丢失）。以下图为例，图中的back stack一开始只有一个Activity1；接着在Activity1中启动Activity2，此时Activity2位于队列的顶部，而Activity1位于栈底（Activity1处于Stop状态），而Activity2又启动一个Activity3，同样，Activity3压入栈顶。如果此时通过回退键（<strong>Back</strong>）用户离开Activity3,则Activity3从栈中清除，被系统销毁，而Activity2则恢复到可见状态(resume)。</p>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2023/01/31">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/07/01</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="任务管理">任务管理</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Activity">Activity</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
+            <a class="abstract-title" href="/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">
+                
+                <span class="abstract-title-text">Android ANR处理流程</span>
+            </a>
+            <div class="abstract-content">
+                <p>ANR即Application Not Responding, 应用无响应：当应用在某一个时间内无法及时响应用户请求时，系统会弹出一个对话框，告知用户应用无法响应。此时，用户可以选择关闭应用。对于Android应用来说，有一个UI线程(主线程）专门负责与用户交互，如果在此线程中进行耗时的操作，比如读取磁盘数据、从网络下载资源等IO操作，通常会导致UI线程阻塞，从而无法及时处理用户的输入请求，发生ANR。</p>
+<p>Android是通过AMS跟WMS来监控应用响应状态的，一般有如下两种ANR情况：</p>
+<ul>
+<li>应用在给定时间内没有对用户输入(按键或者触屏操作）做出响应，通常是5s;</li>
+<li>广播接收者(BroadcastReceiver)没有在10s内处理完成；</li>
+</ul>
+<p>对于输入无响应的情况，native监控到输入无响应时，则告知WMS，最后由WMS发送消息告诉AMS，某个应用发送了ANR，最后AMS会弹出<strong>Application Not Responding</strong>的对话框，请求用户关闭应用；对于广播无响应的情况是由AMS负责处理的，AMS对于每个发送出去给广播接收者的广播都有一个10s的定时，如果广播接收者在10s内尚未处理完，则视为无响应，因此也会弹出<strong>Application Not Responding</strong>。</p>
             </div>
             <!-- read more -->
             
             <div class="abstract-post-meta">
                 <!-- date -->
                 <div class="abstract-date" title="Last updated: 2022/12/13">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/02/25</span>
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/06/25</span>
                 </div>
                 <!-- tags -->
                 
                     <div class= abstract-tags >
     
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="Java">Java</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="Effective Java">Effective Java</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Design Pattern">Design Pattern</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="ANR">ANR</a>
     
 </div>
 
@@ -512,106 +683,64 @@
             
         
         <article class="index-post">
-            <a class="abstract-title" href="/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">
+            <a class="abstract-title" href="/2017/06/18/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E9%94%81/">
                 
-                <span class="abstract-title-text">Android Phone进程启动过程分析</span>
+                <span class="abstract-title-text">Java并发编程之锁</span>
             </a>
             <div class="abstract-content">
-                <p>之前解决一个开机搜网慢的问题时，发现由于Phone进程起来以后才会主动连接RILD,因而在一定程度上Phone进程启动的时间会影响网络状态注册的快慢。适当的将Phone进程提前，可以将网络注册时间提前一点，让状态栏中信号显示的时间提前。那么，Android中作为系统的核心进程之一，Phone进程是如何启动的了？</p>
+                <p>Java语言<code>synchronized</code>关键字自带了一个内置的隐性锁(implicit lock),使用起来方便简单，但是内置锁一旦使用，则会强制将某个代码块加锁或者解锁，而且内置锁并不支持可中断的获取锁。从Java5.0开始，提供了一个并发工具包<code>java.util.concurrent.*</code>，实现了显性锁(explicit lock)<code>ReentrantLock</code>（可重入锁，可多次获取同一个锁）;<code>ReentrantLock</code>实现了与<code>synchronized</code>一样的功能，确保并发过程中数据的互斥访问与可见性。获取<code>ReentrantLock</code>相当于进入一个<code>synchronized</code>代码块，而释放<code>ReentrantLock</code>则相当于从一个<code>synchronized</code>代码块退出。<code>ReentrantLock</code>实现了如下<code>Lock.java</code>接口：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">Lock</span> &#123;</span><br><span class="line">    <span class="comment">//获取锁</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">lock</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//获取锁，可响应中断</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">lockInterruptibly</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//尝试获取锁，如果可用则返回TRUE，否则返回FALSE</span></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">tryLock</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//尝试在给定时间内获取锁，如果超时或者发生中断，则返回FALSE</span></span><br><span class="line">    <span class="type">boolean</span> <span class="title function_">tryLock</span><span class="params">(<span class="type">long</span> time, TimeUnit unit)</span> <span class="keyword">throws</span> InterruptedException;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//释放锁</span></span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">unlock</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">//创建与该锁绑定的Conidition变量</span></span><br><span class="line">    Condition <span class="title function_">newCondition</span><span class="params">()</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+            </div>
+            <!-- read more -->
+            
+            <div class="abstract-post-meta">
+                <!-- date -->
+                <div class="abstract-date" title="Last updated: 2022/12/21">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/06/18</span>
+                </div>
+                <!-- tags -->
+                
+                    <div class= abstract-tags >
+    
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Java">Java</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="并发编程">并发编程</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Lock">Lock</a>
+    
+</div>
+
+                
+            </div>
+        </article>
+        <div class="index-post-divider"></div>
+    
+        
+        
+        
+        
+            
+            
+        
+        <article class="index-post">
+            <a class="abstract-title" href="/2017/06/11/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">
+                
+                <span class="abstract-title-text">Java并发编程之原子操作</span>
+            </a>
+            <div class="abstract-content">
+                <p>在古希腊时代，哲学家Democritus（德谟克利特）提出了关于物质构成的理论：所有物质都由不可分割的元素组成，这种元素被称之为原子（atom）。编程中所说的原子性(atomic)借用了这个概念, 用于表示某个代码指令动作的不可中断性。在之前的一篇文章（Java Memory Model)时，提到多线程并发访问共享数据时，会出现数据竞争，从而导致数据不一致的情况。比如对一个整型变量进行加一的操作： <code>++counter</code>，表面上看，这是一个单一原子操作，但实际上这个操作有三个步骤：首先，需要从内存中（有可能是cache中）加载到寄存器；接着，将该值加一；最后需要将寄存器中的值写入内存。这样，在多个线程访问的情况，上述几个步骤出现交织执行，就可能出现各个线程读写数据不一致的情形。</p>
 <blockquote>
-<p>本文参考代码为Android NN7.0, RIL运行机制请参考: <a href="http://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android RIL概述</a></p>
+<p>Atomic Theory: <a target="_blank" rel="noopener" href="http://www.softschools.com/timelines/atomic_theory_timeline/95/">http://www.softschools.com/timelines/atomic_theory_timeline&#x2F;95&#x2F;</a></p>
 </blockquote>
+<p>于是，有了原子操作。原子操作确保了执行的不可中断，因而能避免数据冲突。Java从5.0开始有一个<code>atomic</code>的工具包专门支持<code>int</code>，<code>long</code>以及引用变量的原子操作，而在硬件层面，目前大部分处理器都支持诸如<code>CAS</code>(CompareAndSet&#x2F;CompareAndSwap)，<code>FAA</code>(FetchAndAdd)等原子指令。在介绍Java中的原子操作类之前，先来了解下硬件层面的原子指令。</p>
             </div>
             <!-- read more -->
             
             <div class="abstract-post-meta">
                 <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/09/14">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/02/21</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Phone进程">Phone进程</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Telephony">Telephony</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">
-                
-                <span class="abstract-title-text">Android Launcher工作原理</span>
-            </a>
-            <div class="abstract-content">
-                <p>Android系统启动完成后，第一个启动的Activity就是主界面应用程序Launcher，相当于电脑的桌面。Launcher界面可以看到系统中安装的所有APP,点击APP即可启动该APP应用了。那么，Launcher到底是如何启动的以及如何自定义自己的Launcher了？这篇文章我们就来讲讲这两个问题。</p>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/08/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/02/18</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Launcher">Launcher</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="SystemServer">SystemServer</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">
-                
-                <span class="abstract-title-text">如何在Java中调用C_C++方法</span>
-            </a>
-            <div class="abstract-content">
-                <p>有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C&#x2F;C++实现。在Java中调用本地方法通常被称为Java Native Interface(JNI)。那么，什么时候需要用到JNI了？</p>
-<ul>
-<li>需要在底层实现耗时更小、更快的程序</li>
-<li>在Java中需要调用本地代码库</li>
-<li>需要使用平台相关但Java标准库文件不支持的特性</li>
-</ul>
-<p>接下来，我们就来看一看，如何在Java中通过JNI来调用本地方法？</p>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/08/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/01/07</span>
+                <div class="abstract-date" title="Last updated: 2023/08/09">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/06/11</span>
                 </div>
                 <!-- tags -->
                 
@@ -620,50 +749,9 @@
     
         <a class="post-tag" href="javascript:void(0);" data-tags="Java">Java</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="JNI">JNI</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="并发编程">并发编程</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="共享库文件">共享库文件</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2016/12/26/%E7%BD%97%E7%B4%A0%E3%80%8A%E6%9D%83%E5%A8%81%E4%B8%8E%E4%B8%AA%E4%BA%BA%E3%80%8B/">
-                
-                <span class="abstract-title-text">罗素《权威与个人》</span>
-            </a>
-            <div class="abstract-content">
-                <p><img src="https://images.unsplash.com/photo-1519309621146-2a47d1f7103a?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1173&q=80" alt="coorperation"></p>
-<p>《权威与个人》是罗素在1948年里斯讲座所做的几次演讲的文章合集，里边谈到了个人自由与国家权威之间的关系，以及如何平衡这两者以促进人类的进步，确保个人生活的活力。对于缺乏自由与民主熏陶，在集体主义与强权政府成长起来的我而言，这种书无疑是一种解毒剂，让我意识到自由于个人、组织以及社会的重要意义。</p>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2022/03/16">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2016/12/26</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="罗素">罗素</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="自由，民主">自由，民主</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="国家意志与权威">国家意志与权威</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="Atomicity">Atomicity</a>
     
 </div>
 
@@ -680,24 +768,29 @@
             
         
         <article class="index-post">
-            <a class="abstract-title" href="/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/">
+            <a class="abstract-title" href="/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">
                 
-                <span class="abstract-title-text">Android RILD详解</span>
+                <span class="abstract-title-text">Glide详解之图片加载过程分析</span>
             </a>
             <div class="abstract-content">
-                <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a><strong>前言</strong></h2><p>在上一篇文章里（<a href="http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/" title="Android RIL概述">http://sniffer.site/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/</a>），简要介绍了Android RIL的架构。这一篇文章，就来看一看RILD（RIL Daemon)相关的内容。Android RIL在HAL(Hardware Abstract Layer)层（C++层）由三个部分组成：</p>
+                <p>在之前的一篇文章(<a href="http://sniffer.site/2017/05/20/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">Glide架构分析</a> )中介绍了Glide的具体原理。这篇文章，用一个下载图片的示例来说明Glide加载图片的整个过程。以下是用Glide从网络上加载一个图片的代码片段：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">Glide</span><br><span class="line">  .with(activity) <span class="comment">// Activity</span></span><br><span class="line">  .load(url)</span><br><span class="line">  .centerCrop()</span><br><span class="line">  .placeholder(R.drawable.loading_spinner)</span><br><span class="line">  .crossFade()</span><br><span class="line">  .into(myImageView);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>大致说来，在Glide中图片的加载有如下几个过程：</p>
 <ul>
-<li>RILD是系统的守护进程，主要用于初始化LIBRIL以及启动厂商自定义的Vendor RIL；</li>
-<li>LIBRIL库被RILD初始化完成后，用于与Vendor RIL之间进行交互，负责接收、发送指令；</li>
-<li>Vendor RIL库是第三方厂商自定义的一个库，用于向Modem发送指令或者接收来自LIBRIL或者Modem的指令, Android有一个基于AT指令的默认参考实现(<code>reference-ril</code>)</li>
+<li>产生一个图片加载的请求<code>GenericRequest&lt;T&gt;</code>;</li>
+<li>将图片加载请求发送给资源引擎中心<code>Engine</code>,由其负责资源的加载以及数据解码任务的管理；</li>
+<li><code>EngineRunnable</code>首先尝试从DISK加载资源，完成后进行回调，将数据加载到<code>ImageView</code>中；</li>
+<li>磁盘中没有请求对应的资源，则尝试从网络端下载，并解码完成后回调，将数据加载到<code>Target</code>对象；</li>
 </ul>
+<p>现在就来详细的看下Glide加载图片的整个过程。</p>
             </div>
             <!-- read more -->
             
             <div class="abstract-post-meta">
                 <!-- date -->
-                <div class="abstract-date" title="Last updated: 2023/07/09">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2016/11/29</span>
+                <div class="abstract-date" title="Last updated: 2022/03/22">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/05/30</span>
                 </div>
                 <!-- tags -->
                 
@@ -706,11 +799,9 @@
     
         <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="RIL">RIL</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="Glide">Glide</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="RILD">RILD</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Telephony">Telephony</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="图片加载">图片加载</a>
     
 </div>
 
@@ -727,80 +818,34 @@
             
         
         <article class="index-post">
-            <a class="abstract-title" href="/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">
+            <a class="abstract-title" href="/2017/05/29/%E8%BF%91%E6%9D%A5%E4%BA%8C%E4%B8%89%E4%BA%8B/">
                 
-                <span class="abstract-title-text">Android RIL概述</span>
+                <span class="abstract-title-text">近来二三事</span>
             </a>
             <div class="abstract-content">
-                <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a><strong>前言</strong></h2><p>Android作为一个通用的移动平台，其首要的功能就是通话、短信以及上网等通信功能。那么，从系统的角度来看，Android究竟是怎么实现与网络的交互的了？ 这篇文章里，就来看一看Android中负责通信功能的Telephony中间层，通常也被称之为RIL(Radio Interface Layer)的具体实现原理与架构。</p>
-<p>Android手机要实现与网络端的通信，需要跨越两个层：</p>
-<ul>
-<li>RIL Java(RILJ)：负责将上层APP的通信请求发送给HAL层；</li>
-<li>RIL C++(RILD)： 系统守护进程，负责将RILJ的请求命令发送给CP(Communication Processor)</li>
-</ul>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2023/07/09">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2016/11/19</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="RIL">RIL</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="RILD">RILD</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2016/11/04/%E3%80%8A%E9%80%9A%E5%BE%80%E5%A5%B4%E5%BD%B9%E4%B9%8B%E8%B7%AF%E3%80%8B%E8%AF%BB%E4%B9%A6%E6%91%98%E8%AE%B0/">
-                
-                <span class="abstract-title-text">《通往奴役之路》读书摘记</span>
-            </a>
-            <div class="abstract-content">
-                <blockquote><p>连生活都要成为艺术</p>
-<p>木心
- </p>
+                <blockquote><p>如何专注你的聪明才智，比你有多聪明更重要
+    </p>
 </blockquote>
 
-<p> <img src="https://images.unsplash.com/photo-1563122089-71f56e4e8d06?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80" alt="street"></p>
+<p><img src="https://images.unsplash.com/photo-1627985493394-79172dc0caa2?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80" alt="beach"></p>
             </div>
             <!-- read more -->
             
             <div class="abstract-post-meta">
                 <!-- date -->
                 <div class="abstract-date" title="Last updated: 2022/02/28">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2016/11/04</span>
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/05/29</span>
                 </div>
                 <!-- tags -->
                 
                     <div class= abstract-tags >
     
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="通往奴役之路">通往奴役之路</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="摔跤吧，爸爸">摔跤吧，爸爸</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="哈耶克">哈耶克</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="电影">电影</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="读书">读书</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="学习方法">学习方法</a>
     
 </div>
 
@@ -817,65 +862,19 @@
             
         
         <article class="index-post">
-            <a class="abstract-title" href="/2016/10/24/Android%E7%B3%BB%E7%BB%9F%E6%97%B6%E9%97%B4%E8%87%AA%E5%8A%A8%E6%9B%B4%E6%96%B0%E6%9C%BA%E5%88%B6/">
+            <a class="abstract-title" href="/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">
                 
-                <span class="abstract-title-text">Android系统时间自动更新机制</span>
+                <span class="abstract-title-text">Java并发编程之Java Memory Model</span>
             </a>
             <div class="abstract-content">
-                <p>Android系统是如何更新时间的了？Android提供了两种时间更新方式，NITZ和NTP,其中NITZ是基于移动基站通信更新的，与语音通话时相同的一个通道，而NTP则是通过数据通道（此时手机必须能上网）来更新的。这里，就来了解下这两种时间更新方式具体是如何工作的吧？</p>
+                <p>在之前一篇文章里，讲到了利用<code>synchronized</code>关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在多线程情况下，为Java程序提供了一个最少程度的保证：正确同步的情况下，一个线程写共享变量对于其他线程是可见的。Java Memory Model(JMM)抽象了不同计算机平台底层内存读写细节（Register; Cache; Main Memory)，为程序员提供了一个访问内存的统一的模型与视角，从而确保在不同平台上程序能有同样的结果，实现Java“编写一次，可以在任何平台上执行”的目标。</p>
             </div>
             <!-- read more -->
             
             <div class="abstract-post-meta">
                 <!-- date -->
-                <div class="abstract-date" title="Last updated: 2017/04/29">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2016/10/24</span>
-                </div>
-                <!-- tags -->
-                
-                    <div class= abstract-tags >
-    
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="Android">Android</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="系统时间更新">系统时间更新</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="NITZ">NITZ</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="NTP">NTP</a>
-    
-</div>
-
-                
-            </div>
-        </article>
-        <div class="index-post-divider"></div>
-    
-        
-        
-        
-        
-            
-            
-        
-        <article class="index-post">
-            <a class="abstract-title" href="/2016/10/24/Java%E7%A8%8B%E5%BA%8F%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B/">
-                
-                <span class="abstract-title-text">Java程序编译过程</span>
-            </a>
-            <div class="abstract-content">
-                <h2 id="Java编译过程"><a href="#Java编译过程" class="headerlink" title="Java编译过程"></a>Java编译过程</h2><p>一般，C&#x2F;C++程序的编译过程可以分为５个步骤（见下图）：Preprocessing(预处理),Parsing(解析), Translation(翻译),Assembling(汇编）,Linking(链接)。</p>
-<img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Compilation.png" class="[full-image]" title="Compilation Process">
-
-
-<p>Java程序具有平台无关性，其在Java Virtual Machine(JVM)上执行，因此编译过程与C&#x2F;C++大不相同：Java程序首先由编译器翻译成包含了Bytecode(字节码）的<code>.class</code>文件，程序执行时，由类加载器(class loader)将该类的字节码加载到JVM中，JVM会解释执行相应的Bytecode。</p>
-            </div>
-            <!-- read more -->
-            
-            <div class="abstract-post-meta">
-                <!-- date -->
-                <div class="abstract-date" title="Last updated: 2021/08/11">
-                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2016/10/24</span>
+                <div class="abstract-date" title="Last updated: 2022/12/21">
+                    <span class="abstract-calander iconfont-archer">&#xe676;</span><span class="abstract-time">2017/05/29</span>
                 </div>
                 <!-- tags -->
                 
@@ -884,11 +883,9 @@
     
         <a class="post-tag" href="javascript:void(0);" data-tags="Java">Java</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="Compiling process">Compiling process</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="Java Memory Model">Java Memory Model</a>
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="字节码">字节码</a>
-    
-        <a class="post-tag" href="javascript:void(0);" data-tags="class　file">class　file</a>
+        <a class="post-tag" href="javascript:void(0);" data-tags="并发编程">并发编程</a>
     
 </div>
 
@@ -900,7 +897,7 @@
     <!-- paginator  -->
     
         <nav class="page-nav">
-            <a class="extend prev" rel="prev" href="/page/9/">&lt; PREV</a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/8/">8</a><a class="page-number" href="/page/9/">9</a><span class="page-number current">10</span><a class="page-number" href="/page/11/">11</a><a class="extend next" rel="next" href="/page/11/">NEXT &gt;</a>
+            <a class="extend prev" rel="prev" href="/page/9/">&lt; PREV</a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/8/">8</a><a class="page-number" href="/page/9/">9</a><span class="page-number current">10</span><a class="page-number" href="/page/11/">11</a><a class="page-number" href="/page/12/">12</a><a class="page-number" href="/page/13/">13</a><a class="extend next" rel="next" href="/page/11/">NEXT &gt;</a>
         </nav>
     
 </main>
@@ -1633,7 +1630,397 @@
         
         
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2794,7 +3181,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 107
+        Total : 127
         </div>
         <!-- search  -->
         
@@ -2809,9 +3196,156 @@
         
             
             
+            <div class="archive-year"> 2026 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2026/06/22/ClaudeCode%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8%E4%B8%8E%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/">Claude Code 快速入门与实战技巧</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/17</span>
+            <a class="archive-post-title" href="/2026/01/17/MACVLAN%E8%AF%A6%E8%A7%A3/">MACVLAN详解</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2025 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2025/12/31/%E7%88%B1-AI%E4%B8%8E%E6%AD%BB%E4%BA%A1/">爱,AI与死亡</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/02</span>
+            <a class="archive-post-title" href="/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">进程调度中的PELT与WALT</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/16</span>
+            <a class="archive-post-title" href="/2025/08/16/%E6%97%B6%E9%97%B4%E5%90%8C%E6%AD%A5%E5%8D%8F%E8%AE%AEPTP%E9%82%A3%E4%BA%9B%E4%BA%8B/">时间同步协议PTP那些事</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2025/06/18/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%BA%8C-LXC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">深入Linux容器LXC之二-LXC源码分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">深入Linux容器LXC之一-LXC的实现原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/14</span>
+            <a class="archive-post-title" href="/2025/05/14/%E8%AF%B4%E4%B8%80%E8%AF%B4VLAN/">说一说VLAN</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">一个CPU steal-time高的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/24</span>
+            <a class="archive-post-title" href="/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/">Linux内核模块签名那些事</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2024 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2024/12/31/%E9%BE%99%E5%B9%B4%E5%B9%B4%E7%BB%88%E6%80%BB%E7%BB%93/">龙年年终总结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/24</span>
+            <a class="archive-post-title" href="/2024/12/24/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3Android%E8%BF%9B%E7%A8%8B%E5%86%BB%E7%BB%93/">深入理解Android进程冻结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/25</span>
+            <a class="archive-post-title" href="/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/">Linux实时调度踩到的那些坑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/24</span>
+            <a class="archive-post-title" href="/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">高通QNX平台DCVS介绍</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/18</span>
+            <a class="archive-post-title" href="/2024/07/18/%E7%94%9F%E5%91%BD-%E6%97%B6%E9%97%B4%E4%B8%8E%E5%AE%87%E5%AE%99/">生命与宇宙-看《时间简史》的感想</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">Android如何使用PSI管理内存</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/15</span>
+            <a class="archive-post-title" href="/2024/04/15/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8cgroup%E4%BC%98%E5%8C%96Android%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD/">如何利用cgroups优化Android系统性能</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/28</span>
+            <a class="archive-post-title" href="/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">如何移植fio到Android平台</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/30</span>
+            <a class="archive-post-title" href="/2024/01/30/%E4%BD%A0%E5%A5%BD,2024/">你好,2024</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
             <div class="archive-year"> 2023 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2023/11/26/%E8%AE%A4%E8%AF%86%E4%BD%A0%E7%9A%84%E5%A4%A7%E8%84%91/">认识你的大脑</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">10/20</span>
@@ -3523,14 +4057,44 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="ADB">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                ADB
+                AI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="机器学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android">
                 <span class="iconfont-archer">&#xe606;</span>
                 Android
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Kernel">
+                <span class="iconfont-archer">&#xe606;</span>
+                Kernel
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ADB">
+                <span class="iconfont-archer">&#xe606;</span>
+                ADB
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3548,6 +4112,26 @@
                 Firm Over The Air
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Launcher">
+                <span class="iconfont-archer">&#xe606;</span>
+                Launcher
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SystemServer">
+                <span class="iconfont-archer">&#xe606;</span>
+                SystemServer
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Phone进程">
+                <span class="iconfont-archer">&#xe606;</span>
+                Phone进程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Telephony">
+                <span class="iconfont-archer">&#xe606;</span>
+                Telephony
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
                 RIL
@@ -3556,6 +4140,21 @@
             <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
                 RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NetworkManagerService">
+                <span class="iconfont-archer">&#xe606;</span>
+                NetworkManagerService
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3583,6 +4182,36 @@
                 Activity
             </span>
         
+            <span class="sidebar-tag-name" data-tags="PSI">
+                <span class="iconfont-archer">&#xe606;</span>
+                PSI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内存管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                内存管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LMKD">
+                <span class="iconfont-archer">&#xe606;</span>
+                LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能分析">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能分析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="systrace">
+                <span class="iconfont-archer">&#xe606;</span>
+                systrace
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="perfetto">
+                <span class="iconfont-archer">&#xe606;</span>
+                perfetto
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="系统时间更新">
                 <span class="iconfont-archer">&#xe606;</span>
                 系统时间更新
@@ -3598,6 +4227,31 @@
                 NTP
             </span>
         
+            <span class="sidebar-tag-name" data-tags="DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP/IP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="域名解析">
+                <span class="iconfont-archer">&#xe606;</span>
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Crash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Crash
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3606,11 +4260,6 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3646,6 +4295,46 @@
             <span class="sidebar-tag-name" data-tags="computer network">
                 <span class="iconfont-archer">&#xe606;</span>
                 computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Claude Code">
+                <span class="iconfont-archer">&#xe606;</span>
+                Claude Code
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AI编程">
+                <span class="iconfont-archer">&#xe606;</span>
+                AI编程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="开发工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Inversion">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Inversion
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DIP">
+                <span class="iconfont-archer">&#xe606;</span>
+                DIP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Injection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Injection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Uncle Bob">
+                <span class="iconfont-archer">&#xe606;</span>
+                Uncle Bob
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="依赖反转">
+                <span class="iconfont-archer">&#xe606;</span>
+                依赖反转
             </span>
         
             <span class="sidebar-tag-name" data-tags="GSM">
@@ -3688,6 +4377,21 @@
                 Image Loading
             </span>
         
+            <span class="sidebar-tag-name" data-tags="图片加载">
+                <span class="iconfont-archer">&#xe606;</span>
+                图片加载
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="HTTP">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTP
@@ -3713,6 +4417,16 @@
                 Java
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Java Memory Model">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Memory Model
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="并发编程">
+                <span class="iconfont-archer">&#xe606;</span>
+                并发编程
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Annotation">
                 <span class="iconfont-archer">&#xe606;</span>
                 Annotation
@@ -3721,11 +4435,6 @@
             <span class="sidebar-tag-name" data-tags="Annotation Processor">
                 <span class="iconfont-archer">&#xe606;</span>
                 Annotation Processor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="并发编程">
-                <span class="iconfont-archer">&#xe606;</span>
-                并发编程
             </span>
         
             <span class="sidebar-tag-name" data-tags="Atomicity">
@@ -3746,11 +4455,6 @@
             <span class="sidebar-tag-name" data-tags="Lock">
                 <span class="iconfont-archer">&#xe606;</span>
                 Lock
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Java Memory Model">
-                <span class="iconfont-archer">&#xe606;</span>
-                Java Memory Model
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -3778,9 +4482,29 @@
                 Bash
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Linux">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Linux
+                Network tools
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ip route">
+                <span class="iconfont-archer">&#xe606;</span>
+                ip route
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="tcpdump">
+                <span class="iconfont-archer">&#xe606;</span>
+                tcpdump
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iptables">
+                <span class="iconfont-archer">&#xe606;</span>
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
             </span>
         
             <span class="sidebar-tag-name" data-tags="mutex">
@@ -3793,9 +4517,14 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Kernel">
+            <span class="sidebar-tag-name" data-tags="内核">
                 <span class="iconfont-archer">&#xe606;</span>
-                Kernel
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -3823,9 +4552,54 @@
                 XDP
             </span>
         
+            <span class="sidebar-tag-name" data-tags="实时调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MACVLAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                MACVLAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器网络">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器网络
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MAC">
+                <span class="iconfont-archer">&#xe606;</span>
+                MAC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PHY">
+                <span class="iconfont-archer">&#xe606;</span>
+                PHY
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="车载以太网">
+                <span class="iconfont-archer">&#xe606;</span>
+                车载以太网
             </span>
         
             <span class="sidebar-tag-name" data-tags="Maven">
@@ -3848,9 +4622,9 @@
                 PPP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
+            <span class="sidebar-tag-name" data-tags="Recovery">
                 <span class="iconfont-archer">&#xe606;</span>
-                DNS
+                Recovery
             </span>
         
             <span class="sidebar-tag-name" data-tags="Picasso,">
@@ -3863,11 +4637,6 @@
                 ImageLoader
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Recovery">
-                <span class="iconfont-archer">&#xe606;</span>
-                Recovery
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
                 SELinux
@@ -3878,16 +4647,6 @@
                 Security
             </span>
         
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络协议">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络协议
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="三次握手">
                 <span class="iconfont-archer">&#xe606;</span>
                 三次握手
@@ -3896,6 +4655,11 @@
             <span class="sidebar-tag-name" data-tags="四次挥手">
                 <span class="iconfont-archer">&#xe606;</span>
                 四次挥手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -3913,6 +4677,51 @@
                 Memory Hierarchy
             </span>
         
+            <span class="sidebar-tag-name" data-tags="chatGPT">
+                <span class="iconfont-archer">&#xe606;</span>
+                chatGPT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LLM">
+                <span class="iconfont-archer">&#xe606;</span>
+                LLM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AIGC">
+                <span class="iconfont-archer">&#xe606;</span>
+                AIGC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人工智能">
+                <span class="iconfont-archer">&#xe606;</span>
+                人工智能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Zygote">
+                <span class="iconfont-archer">&#xe606;</span>
+                Zygote
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android应用启动">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android应用启动
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="socket programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                socket programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="I/O multiplexing">
+                <span class="iconfont-archer">&#xe606;</span>
+                I/O multiplexing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="network programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                network programming
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="人类简史">
                 <span class="iconfont-archer">&#xe606;</span>
                 人类简史
@@ -3921,6 +4730,56 @@
             <span class="sidebar-tag-name" data-tags="历史">
                 <span class="iconfont-archer">&#xe606;</span>
                 历史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Effective Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Effective Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Design Pattern">
+                <span class="iconfont-archer">&#xe606;</span>
+                Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="通往奴役之路">
+                <span class="iconfont-archer">&#xe606;</span>
+                通往奴役之路
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哈耶克">
+                <span class="iconfont-archer">&#xe606;</span>
+                哈耶克
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="读书">
+                <span class="iconfont-archer">&#xe606;</span>
+                读书
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="SMMU">
@@ -3948,6 +4807,16 @@
                 个人成长
             </span>
         
+            <span class="sidebar-tag-name" data-tags="UDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                UDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                GARP
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="TLS">
                 <span class="iconfont-archer">&#xe606;</span>
                 TLS
@@ -3958,19 +4827,34 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
+            <span class="sidebar-tag-name" data-tags="NAPI">
                 <span class="iconfont-archer">&#xe606;</span>
-                ARP
+                NAPI
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+            <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
+                成长
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GARP">
+            <span class="sidebar-tag-name" data-tags="价值">
                 <span class="iconfont-archer">&#xe606;</span>
-                GARP
+                价值
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="探索">
+                <span class="iconfont-archer">&#xe606;</span>
+                探索
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
             </span>
         
             <span class="sidebar-tag-name" data-tags="网络性能">
@@ -4008,24 +4892,14 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人工智能">
-                <span class="iconfont-archer">&#xe606;</span>
-                人工智能
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="单例模式">
                 <span class="iconfont-archer">&#xe606;</span>
                 单例模式
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
+            <span class="sidebar-tag-name" data-tags="个人总结">
                 <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
+                个人总结
             </span>
         
             <span class="sidebar-tag-name" data-tags="SSH">
@@ -4041,6 +4915,21 @@
             <span class="sidebar-tag-name" data-tags="反向隧道">
                 <span class="iconfont-archer">&#xe606;</span>
                 反向隧道
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroups">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroups
             </span>
         
             <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
@@ -4098,6 +4987,21 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="fio">
+                <span class="iconfont-archer">&#xe606;</span>
+                fio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="文件系统">
+                <span class="iconfont-archer">&#xe606;</span>
+                文件系统
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能工具
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Qemu">
                 <span class="iconfont-archer">&#xe606;</span>
                 Qemu
@@ -4128,16 +5032,6 @@
                 Google
             </span>
         
-            <span class="sidebar-tag-name" data-tags="成长">
-                <span class="iconfont-archer">&#xe606;</span>
-                成长
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
                 英国史
@@ -4153,6 +5047,21 @@
                 学习资料
             </span>
         
+            <span class="sidebar-tag-name" data-tags="投屏">
+                <span class="iconfont-archer">&#xe606;</span>
+                投屏
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DLNA">
+                <span class="iconfont-archer">&#xe606;</span>
+                DLNA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Airplay">
+                <span class="iconfont-archer">&#xe606;</span>
+                Airplay
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="正则表达式">
                 <span class="iconfont-archer">&#xe606;</span>
                 正则表达式
@@ -4161,6 +5070,26 @@
             <span class="sidebar-tag-name" data-tags="Regular Expression">
                 <span class="iconfont-archer">&#xe606;</span>
                 Regular Expression
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="时间同步">
+                <span class="iconfont-archer">&#xe606;</span>
+                时间同步
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                PTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Precise Time Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Precise Time Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="gPTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                gPTP
             </span>
         
             <span class="sidebar-tag-name" data-tags="CAN">
@@ -4183,14 +5112,19 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="LXC">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                LXC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="机器学习">
+            <span class="sidebar-tag-name" data-tags="虚拟化">
                 <span class="iconfont-archer">&#xe606;</span>
-                机器学习
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4208,9 +5142,29 @@
                 Machine Learning
             </span>
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
+                生命
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="宇宙">
+                <span class="iconfont-archer">&#xe606;</span>
+                宇宙
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="时间">
+                <span class="iconfont-archer">&#xe606;</span>
+                时间
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
             </span>
         
             <span class="sidebar-tag-name" data-tags="哲学">
@@ -4221,246 +5175,6 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="拥塞控制">
-                <span class="iconfont-archer">&#xe606;</span>
-                拥塞控制
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="软件工程">
-                <span class="iconfont-archer">&#xe606;</span>
-                软件工程
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="软件开发">
-                <span class="iconfont-archer">&#xe606;</span>
-                软件开发
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="团队协作">
-                <span class="iconfont-archer">&#xe606;</span>
-                团队协作
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="项目管理">
-                <span class="iconfont-archer">&#xe606;</span>
-                项目管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Process">
-                <span class="iconfont-archer">&#xe606;</span>
-                Process
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="waitfor">
-                <span class="iconfont-archer">&#xe606;</span>
-                waitfor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="BUG">
-                <span class="iconfont-archer">&#xe606;</span>
-                BUG
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
-                <span class="iconfont-archer">&#xe606;</span>
-                摔跤吧，爸爸
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="电影">
-                <span class="iconfont-archer">&#xe606;</span>
-                电影
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习方法">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习方法
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bob dylan">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bob dylan
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="追寻自我">
-                <span class="iconfont-archer">&#xe606;</span>
-                追寻自我
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="C++">
-                <span class="iconfont-archer">&#xe606;</span>
-                C++
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="编程语言">
-                <span class="iconfont-archer">&#xe606;</span>
-                编程语言
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Launcher">
-                <span class="iconfont-archer">&#xe606;</span>
-                Launcher
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SystemServer">
-                <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Phone进程">
-                <span class="iconfont-archer">&#xe606;</span>
-                Phone进程
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Telephony">
-                <span class="iconfont-archer">&#xe606;</span>
-                Telephony
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="netd">
-                <span class="iconfont-archer">&#xe606;</span>
-                netd
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="NetworkManagerService">
-                <span class="iconfont-archer">&#xe606;</span>
-                NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Dependency Inversion">
-                <span class="iconfont-archer">&#xe606;</span>
-                Dependency Inversion
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="DIP">
-                <span class="iconfont-archer">&#xe606;</span>
-                DIP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Dependency Injection">
-                <span class="iconfont-archer">&#xe606;</span>
-                Dependency Injection
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Uncle Bob">
-                <span class="iconfont-archer">&#xe606;</span>
-                Uncle Bob
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="依赖反转">
-                <span class="iconfont-archer">&#xe606;</span>
-                依赖反转
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="图片加载">
-                <span class="iconfont-archer">&#xe606;</span>
-                图片加载
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MAC">
-                <span class="iconfont-archer">&#xe606;</span>
-                MAC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PHY">
-                <span class="iconfont-archer">&#xe606;</span>
-                PHY
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="车载以太网">
-                <span class="iconfont-archer">&#xe606;</span>
-                车载以太网
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="socket programming">
-                <span class="iconfont-archer">&#xe606;</span>
-                socket programming
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="I/O multiplexing">
-                <span class="iconfont-archer">&#xe606;</span>
-                I/O multiplexing
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="network programming">
-                <span class="iconfont-archer">&#xe606;</span>
-                network programming
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Effective Java">
-                <span class="iconfont-archer">&#xe606;</span>
-                Effective Java
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Design Pattern">
-                <span class="iconfont-archer">&#xe606;</span>
-                Design Pattern
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="通往奴役之路">
-                <span class="iconfont-archer">&#xe606;</span>
-                通往奴役之路
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="哈耶克">
-                <span class="iconfont-archer">&#xe606;</span>
-                哈耶克
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="读书">
-                <span class="iconfont-archer">&#xe606;</span>
-                读书
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4498,109 +5212,14 @@
                 国家意志与权威
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
+            <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="RILJ">
-                <span class="iconfont-archer">&#xe606;</span>
-                RILJ
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Zygote">
-                <span class="iconfont-archer">&#xe606;</span>
-                Zygote
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android应用启动">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android应用启动
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="UDP">
-                <span class="iconfont-archer">&#xe606;</span>
-                UDP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Conway's Law">
-                <span class="iconfont-archer">&#xe606;</span>
-                Conway's Law
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="康威定律">
-                <span class="iconfont-archer">&#xe606;</span>
-                康威定律
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="chatGPT">
-                <span class="iconfont-archer">&#xe606;</span>
-                chatGPT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="LLM">
-                <span class="iconfont-archer">&#xe606;</span>
-                LLM
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="AIGC">
-                <span class="iconfont-archer">&#xe606;</span>
-                AIGC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="投屏">
-                <span class="iconfont-archer">&#xe606;</span>
-                投屏
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="DLNA">
-                <span class="iconfont-archer">&#xe606;</span>
-                DLNA
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Airplay">
-                <span class="iconfont-archer">&#xe606;</span>
-                Airplay
+                拥塞控制
             </span>
         
             <span class="sidebar-tag-name" data-tags="virtualization">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtualization
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
             </span>
         
             <span class="sidebar-tag-name" data-tags="QNX">
@@ -4613,19 +5232,134 @@
                 virtio
             </span>
         
-            <span class="sidebar-tag-name" data-tags="性能分析">
+            <span class="sidebar-tag-name" data-tags="大脑">
                 <span class="iconfont-archer">&#xe606;</span>
-                性能分析
+                大脑
             </span>
         
-            <span class="sidebar-tag-name" data-tags="systrace">
+            <span class="sidebar-tag-name" data-tags="人生">
                 <span class="iconfont-archer">&#xe606;</span>
-                systrace
+                人生
             </span>
         
-            <span class="sidebar-tag-name" data-tags="perfetto">
+            <span class="sidebar-tag-name" data-tags="软件工程">
                 <span class="iconfont-archer">&#xe606;</span>
-                perfetto
+                软件工程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="团队协作">
+                <span class="iconfont-archer">&#xe606;</span>
+                团队协作
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="项目管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                项目管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="VLAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                VLAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="waitfor">
+                <span class="iconfont-archer">&#xe606;</span>
+                waitfor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Conway's Law">
+                <span class="iconfont-archer">&#xe606;</span>
+                Conway's Law
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="康威定律">
+                <span class="iconfont-archer">&#xe606;</span>
+                康威定律
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BUG">
+                <span class="iconfont-archer">&#xe606;</span>
+                BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
+                <span class="iconfont-archer">&#xe606;</span>
+                摔跤吧，爸爸
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="电影">
+                <span class="iconfont-archer">&#xe606;</span>
+                电影
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习方法">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习方法
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bob dylan">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bob dylan
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="追寻自我">
+                <span class="iconfont-archer">&#xe606;</span>
+                追寻自我
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="C++">
+                <span class="iconfont-archer">&#xe606;</span>
+                C++
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="编程语言">
+                <span class="iconfont-archer">&#xe606;</span>
+                编程语言
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DCVS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DCVS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="高通">
+                <span class="iconfont-archer">&#xe606;</span>
+                高通
             </span>
         
     </div>
@@ -4649,9 +5383,19 @@
             Linux
         </span>
     
+        <span class="sidebar-category-name" data-categories="开发工具">
+            <span class="iconfont-archer">&#xe60a;</span>
+            开发工具
+        </span>
+    
         <span class="sidebar-category-name" data-categories="移动通讯">
             <span class="iconfont-archer">&#xe60a;</span>
             移动通讯
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Software Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Software Architecture
         </span>
     
         <span class="sidebar-category-name" data-categories="Java">
@@ -4669,6 +5413,11 @@
             网络协议
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="项目构建">
             <span class="iconfont-archer">&#xe60a;</span>
             项目构建
@@ -4679,9 +5428,19 @@
             Computer Architecture
         </span>
     
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
+    
         <span class="sidebar-category-name" data-categories="读书笔记">
             <span class="iconfont-archer">&#xe60a;</span>
             读书笔记
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="虚拟化">
+            <span class="iconfont-archer">&#xe60a;</span>
+            虚拟化
         </span>
     
         <span class="sidebar-category-name" data-categories="思考">
@@ -4714,14 +5473,14 @@
             Regular Expression
         </span>
     
-        <span class="sidebar-category-name" data-categories="汽车电子">
+        <span class="sidebar-category-name" data-categories="Linux">
             <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
+            Linux
         </span>
     
-        <span class="sidebar-category-name" data-categories="人工智能">
+        <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
+            Android
         </span>
     
         <span class="sidebar-category-name" data-categories="社会万象">
@@ -4732,21 +5491,6 @@
         <span class="sidebar-category-name" data-categories="C++">
             <span class="iconfont-archer">&#xe60a;</span>
             C++
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Software Architecture">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Software Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Android">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Android
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="虚拟化">
-            <span class="iconfont-archer">&#xe60a;</span>
-            虚拟化
         </span>
     
     </div>
