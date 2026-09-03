@@ -27,7 +27,7 @@
 <meta property="og:description" content="这两天质量的同学反馈说iperf测试时结果很差，跟实际的千兆带宽差别很大。确认了半天，发现内核的各项参数都已经完全按照千兆的目标速率进行配置了，那为什么还是会出现TCP&#x2F;UDP带宽不足的问题？ 记得当时优化参数时，自己摸底测试的TCP结果挺好的，都达到了预期的900Mbps以上，看起来最近有什么修改导致了这个测试结果差异。 偶然的一个机会查看内核配置时，发现最近有人打开了trace功能，看起来很可">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-01-10T07:13:25.000Z">
-<meta property="article:modified_time" content="2023-01-10T09:23:40.137Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.681Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="iperf">
 <meta property="article:tag" content="UDP">
@@ -522,32 +522,42 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>这两天质量的同学反馈说<code>iperf</code>测试时结果很差，跟实际的千兆带宽差别很大。确认了半天，发现内核的各项参数都已经完全按照千兆的目标速率进行配置了，那为什么还是会出现<code>TCP/UDP</code>带宽不足的问题？ 记得当时优化参数时，自己摸底测试的<code>TCP</code>结果挺好的，都达到了预期的<code>900Mbps</code>以上，看起来最近有什么修改导致了这个测试结果差异。</p>
+        <p>这两天质量的同学反馈说<code>iperf</code>测试时结果很差，跟实际的千兆带宽差别很大。确认了半天，发现内核的各项参数都已经完全按照千兆的目标速率进行配置了，那为什么还是会出现<code>TCP/UDP</code>带宽不足的问题？
+记得当时优化参数时，自己摸底测试的<code>TCP</code>结果挺好的，都达到了预期的<code>900Mbps</code>以上，看起来最近有什么修改导致了这个测试结果差异。</p>
 <p>偶然的一个机会查看内核配置时，发现最近有人打开了<code>trace</code>功能，看起来很可能是这个修改导致了网络性能的下降了。拿早前未开启<code>trace</code>功能的版本一对比，果真是<code>trace</code>功能影响了<code>TCP</code>的带宽。<span id="more"></span>但是测试<code>UDP</code>还是会出现如下结果，看起來好像网络很差(注意对<code>UDP</code>测试需要通过设置<code>-b</code>参数来限制可能的带宽，否则也可能出现测试结果偏差)：</p>
 <ul>
-<li>使用<code>iperf</code>默认的的包大小测试(看源码，对<code>UDP</code>来说，默认的包大小为<code>1024</code>， 最大为<code>65507</code>)</li>
+<li>使用<code>iperf</code>默认的的包大小测试(看源码，对<code>UDP</code>来说，默认的包大小为<code>1024</code>，
+最大为<code>65507</code>)</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">服务端: iperf3 -s -p <span class="number">8989</span> -f m</span><br><span class="line">客户端: iperf3 -c <span class="number">172.20</span><span class="number">.2</span><span class="number">.40</span> -p <span class="number">8989</span> -f m -t <span class="number">30</span> -u -b <span class="number">1</span>G</span><br><span class="line"></span><br><span class="line">[  <span class="number">5</span>]   <span class="number">0.00</span><span class="number">-30.00</span>  sec   <span class="number">710</span> MBytes   <span class="number">198</span> Mbits/sec  <span class="number">0.000</span> ms  <span class="number">0</span>/<span class="number">509813</span> (<span class="number">0</span>%)  sender</span><br><span class="line">[  <span class="number">5</span>]   <span class="number">0.00</span><span class="number">-30.19</span>  sec   <span class="number">701</span> MBytes   <span class="number">195</span> Mbits/sec  <span class="number">0.201</span> ms  <span class="number">6626</span>/<span class="number">509809</span> (<span class="number">1.3</span>%)  receiver</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>由于<code>UDP</code>没有流控，整体的丢包率<code>1.3%</code>还不错，但带宽明显太小了，只有理论值的<code>1/5</code>不到。从这个结果可以看到，实际带宽不足是因为发送端的速率太小了，导致整个通道未被充分占满。这就好比一个粗大的水管，但实际传输的水流太小了，容量利用率不够。要想提高利用率，只能想法提升发送端的速率。<code>iperf</code>中，我们可以通过<a target="_blank" rel="noopener" href="https://serverfault.com/questions/691723/extreme-udp-packet-loss-at-300mbit-14-but-tcp-800mbit-w-o-retransmits">提高包大小来达到这一目的</a>：</p>
+<p>由于<code>UDP</code>没有流控，整体的丢包率<code>1.3%</code>还不错，但带宽明显太小了，只有理论值的<code>1/5</code>不到。从这个结果可以看到，实际带宽不足是因为发送端的速率太小了，导致整个通道未被充分占满。这就好比一个粗大的水管，但实际传输的水流太小了，容量利用率不够。要想提高利用率，只能想法提升发送端的速率。<code>iperf</code>中，我们可以通过<a
+target="_blank" rel="noopener" href="https://serverfault.com/questions/691723/extreme-udp-packet-loss-at-300mbit-14-but-tcp-800mbit-w-o-retransmits">提高包大小来达到这一目的</a>：</p>
 <ul>
 <li>使用最大的<code>UDP</code>包大小(<code>65507</code>)进行测试</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">服务端: iperf3 -s -p <span class="number">8989</span> -f m</span><br><span class="line">客户端: iperf3 -c <span class="number">172.20</span><span class="number">.2</span><span class="number">.40</span> -p <span class="number">8989</span> -f m -t <span class="number">30</span> -u -b <span class="number">1</span>G -l <span class="number">65507</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams</span><br><span class="line">[  <span class="number">5</span>]   <span class="number">0.00</span><span class="number">-10.00</span>  sec  <span class="number">1.16</span> GBytes  <span class="number">1000</span> Mbits/sec  <span class="number">0.000</span> ms  <span class="number">0</span>/<span class="number">19079</span> (<span class="number">0</span>%)  sender</span><br><span class="line">[  <span class="number">5</span>]   <span class="number">0.00</span><span class="number">-10.18</span>  sec   <span class="number">723</span> MBytes   <span class="number">595</span> Mbits/sec  <span class="number">0.282</span> ms  <span class="number">7508</span>/<span class="number">19079</span> (<span class="number">39</span>%)  receiver</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这次测试带宽明显有所提升，但接收端的丢包率却达到了惊人的<code>39%</code>。为什么会出现如此高的丢包率了？这还是要从<code>UDP</code>的传输机制说起了。我们都知道，<a target="_blank" rel="noopener" href="http://www.tcpipguide.com/free/t_UDPOverviewHistoryandStandards.htm"><code>UDP</code>是无连接的数据报文传输协议</a>，也没有类似<code>TCP</code>滑动窗口的流量控制机制，因此快速的一方很有可能会淹没慢速的一方。这个时候就需要适当的调整慢速一端的<code>socket</code>缓冲区大小了。</p>
+<p>这次测试带宽明显有所提升，但接收端的丢包率却达到了惊人的<code>39%</code>。为什么会出现如此高的丢包率了？这还是要从<code>UDP</code>的传输机制说起了。我们都知道，<a
+target="_blank" rel="noopener" href="http://www.tcpipguide.com/free/t_UDPOverviewHistoryandStandards.htm"><code>UDP</code>是无连接的数据报文传输协议</a>，也没有类似<code>TCP</code>滑动窗口的流量控制机制，因此快速的一方很有可能会淹没慢速的一方。这个时候就需要适当的调整慢速一端的<code>socket</code>缓冲区大小了。</p>
 <p>对于<code>UDP</code>来说，主要有如下几个参数会影响实际传输时<code>socket</code>缓冲区的大小(可以参考内核文档<code>ip-sysctl.txt</code>)：</p>
 <ul>
-<li><code>net.core.wmem_default/net.core.wmem_max</code>: 默认、最大的发送缓冲区大小(bytes)，如果没用通过<code>setsockopt</code>來设置<code>SO_SNDBUF</code>的值，则会使用内核默认的缓冲区大小</li>
-<li><code>net.core.rmem_default/net.core.rmem_max</code>: 默认、最大的接收缓冲区大小(bytes), 类似的，如果没有通过<code>SO_RCVBUF</code>来设置发送缓冲区的值，则使用内核默认的<code>net.core.rmem_default</code>值</li>
-<li><code>net.ipv4.udp_mem=&quot;min pressure max&quot;</code>: 系统中所有<code>UDP</code>连接<code>socket</code>可以使用的最小、压力、最大页数（页大小一般为<code>4K</code>)，默认值一般在系统启动的时候根据当前可用内存计算出来的</li>
-<li><code>net.ipv4.udp_rmem_min/net.ipv4.udp_wmen_min</code>: 系统中单个<code>UDP</code>连接<code>socket</code>可用的最小内存(bytes), 默认是<code>4K</code>。</li>
+<li><code>net.core.wmem_default/net.core.wmem_max</code>:
+默认、最大的发送缓冲区大小(bytes)，如果没用通过<code>setsockopt</code>來设置<code>SO_SNDBUF</code>的值，则会使用内核默认的缓冲区大小</li>
+<li><code>net.core.rmem_default/net.core.rmem_max</code>:
+默认、最大的接收缓冲区大小(bytes),
+类似的，如果没有通过<code>SO_RCVBUF</code>来设置发送缓冲区的值，则使用内核默认的<code>net.core.rmem_default</code>值</li>
+<li><code>net.ipv4.udp_mem="min pressure max"</code>:
+系统中所有<code>UDP</code>连接<code>socket</code>可以使用的最小、压力、最大页数（页大小一般为<code>4K</code>)，默认值一般在系统启动的时候根据当前可用内存计算出来的</li>
+<li><code>net.ipv4.udp_rmem_min/net.ipv4.udp_wmen_min</code>:
+系统中单个<code>UDP</code>连接<code>socket</code>可用的最小内存(bytes),
+默认是<code>4K</code>。</li>
 </ul>
-<p>要想减少测试中的丢包率，就需要提高慢速端(也就是接收端)的缓冲区大小，确保其有足够的空间来保存接收到的数据，不至于来不及处理而被内核丢弃。我们可以选择在发送端或者接收端设置缓冲区的大小，对于<code>iperf</code>只能通过<code>-w</code>控制客户端的缓冲区大小, 这里我们直接在客户端设置发送缓冲区的大小为<code>10M</code>：</p>
+<p>要想减少测试中的丢包率，就需要提高慢速端(也就是接收端)的缓冲区大小，确保其有足够的空间来保存接收到的数据，不至于来不及处理而被内核丢弃。我们可以选择在发送端或者接收端设置缓冲区的大小，对于<code>iperf</code>只能通过<code>-w</code>控制客户端的缓冲区大小,
+这里我们直接在客户端设置发送缓冲区的大小为<code>10M</code>：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">服务端: iperf3 -s -p <span class="number">8989</span> -f m</span><br><span class="line">客户端: iperf3 -c <span class="number">172.20</span><span class="number">.2</span><span class="number">.40</span> -p <span class="number">8989</span> -f m -t <span class="number">30</span> -u -b <span class="number">1</span>G -l <span class="number">65507</span> -w <span class="number">10</span>M</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams</span><br><span class="line">[  <span class="number">5</span>]   <span class="number">0.00</span><span class="number">-10.00</span>  sec  <span class="number">1.16</span> GBytes  <span class="number">1000</span> Mbits/sec  <span class="number">0.000</span> ms  <span class="number">0</span>/<span class="number">19081</span> (<span class="number">0</span>%)  sender</span><br><span class="line">[  <span class="number">5</span>]   <span class="number">0.00</span><span class="number">-10.19</span>  sec  <span class="number">1.16</span> GBytes   <span class="number">981</span> Mbits/sec  <span class="number">0.593</span> ms  <span class="number">0</span>/<span class="number">19079</span> (<span class="number">0</span>%)  receiver</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>可以看到，丢包率速率下降了到预期的程度。如果我们要在服务端设置接收缓冲区的大小，可以有两种方式: 一种是通过设置<code>net.core.rmem_default</code>大小，一种是修改<code>iperf3</code>的源码，确保服务端也可以通过<code>-w</code>来设置缓冲区的大小。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>网络的带宽优化涉及了Linux内核协议栈和网卡驱动，充分理解网络数据的传输流程以及<code>TCP/UDP</code>等传输协议的机制，才有可能找到性能的瓶颈。总的来说，这些优化很值得很深入研究，可以让人完整的把各个知识点都梳理串联起来。</p>
+<p>可以看到，丢包率速率下降了到预期的程度。如果我们要在服务端设置接收缓冲区的大小，可以有两种方式:
+一种是通过设置<code>net.core.rmem_default</code>大小，一种是修改<code>iperf3</code>的源码，确保服务端也可以通过<code>-w</code>来设置缓冲区的大小。</p>
+<h2 id="总结"><strong>总结</strong></h2>
+<p>网络的带宽优化涉及了Linux内核协议栈和网卡驱动，充分理解网络数据的传输流程以及<code>TCP/UDP</code>等传输协议的机制，才有可能找到性能的瓶颈。总的来说，这些优化很值得很深入研究，可以让人完整的把各个知识点都梳理串联起来。</p>
 
     </article>
     <!-- license -->
@@ -556,7 +566,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">https://sniffer.site/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">January 10th 2023, 3:13:25 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">2023-01-10, 17:23:40</a>
+            <p>更新日期：<a href="https://sniffer.site/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1371,7 +1381,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2822,7 +2843,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2840,6 +2861,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3698,44 +3725,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3753,14 +3755,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3773,14 +3780,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3791,11 +3798,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3813,14 +3815,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3836,6 +3833,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3868,31 +3875,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3901,6 +3883,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3923,19 +3910,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3951,6 +3928,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -3978,14 +3990,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -3998,39 +4010,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4041,16 +4043,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4078,6 +4070,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4093,9 +4110,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4113,41 +4140,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4158,14 +4150,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4193,16 +4190,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4223,9 +4210,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4243,24 +4240,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4268,24 +4265,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4298,9 +4305,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4323,9 +4335,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4348,6 +4360,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4363,14 +4385,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4381,6 +4403,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4398,41 +4440,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4446,6 +4453,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4468,11 +4490,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4488,16 +4505,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4511,6 +4518,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4533,16 +4555,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4558,24 +4570,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4586,6 +4583,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4628,6 +4640,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4643,14 +4675,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4671,21 +4698,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4753,19 +4765,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4783,6 +4785,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4798,16 +4825,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4816,6 +4833,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4838,21 +4870,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4871,16 +4888,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4908,11 +4915,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4933,14 +4935,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -4968,19 +4985,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -4993,6 +5005,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5001,6 +5018,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5013,6 +5040,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5034,6 +5066,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5044,19 +5081,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5064,14 +5091,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5089,14 +5116,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5112,11 +5139,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

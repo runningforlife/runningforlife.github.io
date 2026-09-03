@@ -19,26 +19,20 @@
         <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
     
     <meta name="description" content="关于编程,生活,工作">
-    <meta name="description" content="SELinux(Security Enhanced Linux)是Linux下的安全控制机制, 为进程访问系统资源提供了访问控制(access control)策略. 早期, Linux基于用户身份&#x2F;用户组的DAC(Discretionary Access Control作为访问控制策略: 每个进程都有所属的UID, 每个文件都有所属的UID&#x2F;GID以及文件模式(读写执行等),">
+    <meta name="description" content="SELinux(Security Enhanced Linux)是Linux下的安全控制机制, 为进程访问系统资源提供了访问控制(access control)策略. 早期, Linux基于用户身份&#x2F;用户组的DAC(Discretionary Access Control作为访问控制策略: 每个进程都有所属的UID, 每个文件都有所属的UID&#x2F;GID以及文件模式(读写执行等), 一个进程是否可以访">
 <meta property="og:type" content="article">
 <meta property="og:title" content="SELinux在Android中的应用">
 <meta property="og:url" content="https://sniffer.site/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="SELinux(Security Enhanced Linux)是Linux下的安全控制机制, 为进程访问系统资源提供了访问控制(access control)策略. 早期, Linux基于用户身份&#x2F;用户组的DAC(Discretionary Access Control作为访问控制策略: 每个进程都有所属的UID, 每个文件都有所属的UID&#x2F;GID以及文件模式(读写执行等),">
+<meta property="og:description" content="SELinux(Security Enhanced Linux)是Linux下的安全控制机制, 为进程访问系统资源提供了访问控制(access control)策略. 早期, Linux基于用户身份&#x2F;用户组的DAC(Discretionary Access Control作为访问控制策略: 每个进程都有所属的UID, 每个文件都有所属的UID&#x2F;GID以及文件模式(读写执行等), 一个进程是否可以访">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_policy_concepts.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_core_components.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ls_z_file_context.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ps_z_security_context.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_android_build.png">
 <meta property="article:published_time" content="2019-12-07T10:00:37.000Z">
-<meta property="article:modified_time" content="2022-03-22T12:11:55.515Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.699Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Android">
 <meta property="article:tag" content="SELinux">
 <meta property="article:tag" content="Security">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_policy_concepts.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -531,123 +525,225 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>SELinux(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Security-Enhanced_Linux">Security Enhanced Linux</a>)是Linux下的安全控制机制, 为进程访问系统资源提供了访问控制(access control)策略. 早期, Linux基于用户身份&#x2F;用户组的DAC(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Discretionary_access_control">Discretionary Access Control</a>作为访问控制策略: 每个进程都有所属的UID, 每个文件都有所属的UID&#x2F;GID以及文件模式(读写执行等), 一个进程是否可以访问某个文件就是基于UID&#x2F;GID&#x2F;文件模式来管理的.换句话说,只要某个资源序属于该用于或该用户组, 则该用户对该资源具有绝对控制权力, 这样一旦用户获得了root权限, 那么整个系统就成了肉鸡. 可见, DAC的安全控制策略比较粗放.</p>
-<p>SELinux最初是由美国Utah大学与NSA(National Security Agency)的安全小组研究出来的<a target="_blank" rel="noopener" href="http://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf">安全框架FLASK</a>演变而来, 后被合入到Linux 2.6版本.相较于DAC, SELinux采用的是更细粒度的MAC(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Mandatory_access_control">Mandatory Access Control</a>).对于DAC而言, 资源的权限是由每个用户自己控制的, 而MAC则将所有的权限收拢, 由一个统一的管理者(SELinux)统一来分配所有的资源权限, 如果访问者没有事先分配到某个资源的权限, 则不会允许访问.这样即使是root用户也要收到安全策略的约束. Android在4.3开始引入SELinux, 到了5.0版本之后, 则开始全面支持了.</p>
+        <p>SELinux(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Security-Enhanced_Linux">Security
+Enhanced Linux</a>)是Linux下的安全控制机制,
+为进程访问系统资源提供了访问控制(access control)策略. 早期,
+Linux基于用户身份/用户组的DAC(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Discretionary_access_control">Discretionary
+Access Control</a>作为访问控制策略: 每个进程都有所属的UID,
+每个文件都有所属的UID/GID以及文件模式(读写执行等),
+一个进程是否可以访问某个文件就是基于UID/GID/文件模式来管理的.换句话说,只要某个资源序属于该用于或该用户组,
+则该用户对该资源具有绝对控制权力, 这样一旦用户获得了root权限,
+那么整个系统就成了肉鸡. 可见, DAC的安全控制策略比较粗放.</p>
+<p>SELinux最初是由美国Utah大学与NSA(National Security
+Agency)的安全小组研究出来的<a
+target="_blank" rel="noopener" href="http://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf">安全框架FLASK</a>演变而来,
+后被合入到Linux 2.6版本.相较于DAC, SELinux采用的是更细粒度的MAC(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Mandatory_access_control">Mandatory
+Access Control</a>).对于DAC而言, 资源的权限是由每个用户自己控制的,
+而MAC则将所有的权限收拢,
+由一个统一的管理者(SELinux)统一来分配所有的资源权限,
+如果访问者没有事先分配到某个资源的权限,
+则不会允许访问.这样即使是root用户也要收到安全策略的约束.
+Android在4.3开始引入SELinux, 到了5.0版本之后, 则开始全面支持了.</p>
 <span id="more"></span>
-
-<p>在SELinux机制下, Android中所有的对象(进程&#x2F;文件&#x2F;socket&#x2F;property)都打上了标签(label), 进程访问对象时, SELinux根据事先配置好的安全策略(security policy)判断访问者是否有权限. </p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_policy_concepts.png" alt="selinux policy concepts"></p>
-<p>另外, Android系统是同时支持DAC与SELinux的, 就是说, 在一个进程访问某个资源时,会按照如下规则进行权限控制:</p>
+<p>在SELinux机制下,
+Android中所有的对象(进程/文件/socket/property)都打上了标签(label),
+进程访问对象时, SELinux根据事先配置好的安全策略(security
+policy)判断访问者是否有权限.</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_policy_concepts.png"
+alt="selinux policy concepts" /></p>
+<p>另外, Android系统是同时支持DAC与SELinux的, 就是说,
+在一个进程访问某个资源时,会按照如下规则进行权限控制:</p>
 <ul>
-<li>首先根据DAC规则, 检查进程权限, 是否具有对应资源的读写&#x2F;执行权限, 如果没有则拒绝执行;</li>
-<li>如果DAC规则检查通过, 则执行SELinux安全规则的检查, 如果不通过,则拒绝访问.</li>
+<li>首先根据DAC规则, 检查进程权限, 是否具有对应资源的读写/执行权限,
+如果没有则拒绝执行;</li>
+<li>如果DAC规则检查通过, 则执行SELinux安全规则的检查,
+如果不通过,则拒绝访问.</li>
 </ul>
-<h2 id="初识SELinux"><a href="#初识SELinux" class="headerlink" title="初识SELinux"></a><strong>初识SELinux</strong></h2><p>SELinux的首要原则是: 任何未被声明允许执行的都会被拒绝, 其有两种运行模式:</p>
+<h2 id="初识selinux"><strong>初识SELinux</strong></h2>
+<p>SELinux的首要原则是: 任何未被声明允许执行的都会被拒绝,
+其有两种运行模式:</p>
 <ul>
-<li><code>Permissive</code>模式: 访问控制的策略不会强制执行, 但是会被日志记录下来</li>
-<li><code>Enforcing</code>模式: 访问控制策略会被强制执行并被记录下来</li>
+<li><code>Permissive</code>模式: 访问控制的策略不会强制执行,
+但是会被日志记录下来</li>
+<li><code>Enforcing</code>模式:
+访问控制策略会被强制执行并被记录下来</li>
 </ul>
-<p>在Android下可以通过 <code>adb getenforce</code>来查看当前SELinux处于何种模式, 也可以通过<code>adb setenforce</code>来设置SELinux的模式(USER版本默认是<code>enforcing</code>, USERDEBUG&#x2F;ENG可以设置模式):</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">adb setenforce 0 // permissive模式</span><br><span class="line">adb setenforce 1 // enforcing模式</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>在SELinux中, 主要有Subject&#x2F;Object&#x2F;Object Manager&#x2F;Security Server等几个核心的组成部分(见下图):</p>
+<p>在Android下可以通过
+<code>adb getenforce</code>来查看当前SELinux处于何种模式,
+也可以通过<code>adb setenforce</code>来设置SELinux的模式(USER版本默认是<code>enforcing</code>,
+USERDEBUG/ENG可以设置模式):</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">adb setenforce 0 // permissive模式</span><br><span class="line">adb setenforce 1 // enforcing模式</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>在SELinux中, 主要有Subject/Object/Object Manager/Security
+Server等几个核心的组成部分(见下图):</p>
 <ul>
-<li><code>Subject</code>: 在SELinux中, <code>Subject</code>是一个进程, 每个<code>Subject</code>都有与之关联的一个安全上下文(<code>security context</code>); <code>Subject</code>负责发起访问某个对象的请求,比如读文件&#x2F;建立socket链接</li>
-<li><code>Object</code>: 一个对象就是一个资源, 比如文件, socket, pipes以及网络接口；每个对象都由一个类型标识其用途(file, socket), 并且与一个权限(permissions)集合关联, 该权限集合描述了对象能提供什么样的服务(比如read&#x2F;write&#x2F;send等)</li>
-<li><code>Object Manager</code>: 对象管理者负责管理所有对象以及这些对象上能够执行的动作</li>
-<li><code>Access Vecctor Cache</code>: 用于缓存Security Server的访问决策,以改善系统性能</li>
-<li><code>Security Server</code>: 安全服务器根据安全策略来决定某个对象上的动作是否被执行</li>
+<li><code>Subject</code>: 在SELinux中, <code>Subject</code>是一个进程,
+每个<code>Subject</code>都有与之关联的一个安全上下文(<code>security context</code>);
+<code>Subject</code>负责发起访问某个对象的请求,比如读文件/建立socket链接</li>
+<li><code>Object</code>: 一个对象就是一个资源, 比如文件, socket,
+pipes以及网络接口；每个对象都由一个类型标识其用途(file, socket),
+并且与一个权限(permissions)集合关联,
+该权限集合描述了对象能提供什么样的服务(比如read/write/send等)</li>
+<li><code>Object Manager</code>:
+对象管理者负责管理所有对象以及这些对象上能够执行的动作</li>
+<li><code>Access Vecctor Cache</code>: 用于缓存Security
+Server的访问决策,以改善系统性能</li>
+<li><code>Security Server</code>:
+安全服务器根据安全策略来决定某个对象上的动作是否被执行</li>
 <li><code>Security Policy</code>: 用于描述SELinux的访问规则</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_core_components.png" alt="SELinux components"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_core_components.png"
+alt="SELinux components" /></p>
 <p>接下来我们看看SELinux具体是如何给每个对象打标签以及实现安全策略规则的.</p>
-<h3 id="标签-label-与策略规则"><a href="#标签-label-与策略规则" class="headerlink" title="标签(label)与策略规则"></a><strong>标签(label)与策略规则</strong></h3><p>SELinux是通过标签(label)来匹配执行动作以及策略的.标签决定了何种动作是允许被执行的, socket&#x2F;文件&#x2F;进程都有自己的标签. SELinux的访问控制就是根据各个对象上的的标签来决定的, 而策略文件则定义了这些对象是如何相互交互的.</p>
+<h3 id="标签label与策略规则"><strong>标签(label)与策略规则</strong></h3>
+<p>SELinux是通过标签(label)来匹配执行动作以及策略的.标签决定了何种动作是允许被执行的,
+socket/文件/进程都有自己的标签.
+SELinux的访问控制就是根据各个对象上的的标签来决定的,
+而策略文件则定义了这些对象是如何相互交互的.</p>
 <p>一个标签通常有如下的形式:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">user:role:type:mls_level</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这样一个标签也通常被成为<code>Security Context</code>. 在Android中, 通常不用关心<code>user</code>&#x2F;<code>role</code>&#x2F;<code>msl_level</code>, <code>user</code>一般只有<code>u</code>, <code>role</code>对于进程来说是<code>r</code>, 对其他对象是<code>object_r</code>, <code>msl_level</code>是<code>s0</code>, 而<code>type</code>则用来标识对象的类型, 其决定了该对象的所具备的能力, 因此Android中的SELinux又称为基于TE(<code>Type Enforcement</code>)的安全机制, 在Android中, 所有的SELinux策略文件都以<code>te</code>结尾.</p>
-<p>通过<code>ls/ps</code>指令中加入<code>-Z</code>参数, 可以查看文件&#x2F;进程的SELinux状态, 如输入<code>ls -aZ /init*</code>查看<code>init</code>文件夹的标签:</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ls_z_file_context.png" alt="ls -z示例"></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">user:role:type:mls_level</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这样一个标签也通常被成为<code>Security Context</code>. 在Android中,
+通常不用关心<code>user</code>/<code>role</code>/<code>msl_level</code>,
+<code>user</code>一般只有<code>u</code>,
+<code>role</code>对于进程来说是<code>r</code>,
+对其他对象是<code>object_r</code>,
+<code>msl_level</code>是<code>s0</code>,
+而<code>type</code>则用来标识对象的类型, 其决定了该对象的所具备的能力,
+因此Android中的SELinux又称为基于TE(<code>Type Enforcement</code>)的安全机制,
+在Android中, 所有的SELinux策略文件都以<code>te</code>结尾.</p>
+<p>通过<code>ls/ps</code>指令中加入<code>-Z</code>参数,
+可以查看文件/进程的SELinux状态,
+如输入<code>ls -aZ /init*</code>查看<code>init</code>文件夹的标签:</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ls_z_file_context.png"
+alt="ls -z示例" /></p>
 <p>上图中的<code>init</code>可执行程序以及文件夹都是在<code>/system/sepolicy/private/file_contexts</code>中定义的:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"># Data files</span><br><span class="line">/adb_keys           u:object_r:adb_keys_file:s0</span><br><span class="line">/build\.prop        u:object_r:rootfs:s0</span><br><span class="line">/default\.prop      u:object_r:rootfs:s0</span><br><span class="line">/fstab\..*          u:object_r:rootfs:s0</span><br><span class="line">/init\..*           u:object_r:rootfs:s0</span><br><span class="line">/res(/.*)?          u:object_r:rootfs:s0</span><br><span class="line">/selinux_version    u:object_r:rootfs:s0</span><br><span class="line">/ueventd\..*        u:object_r:rootfs:s0</span><br><span class="line">/verity_key         u:object_r:rootfs:s0</span><br><span class="line"></span><br><span class="line"># Executables</span><br><span class="line">/charger            u:object_r:rootfs:s0</span><br><span class="line">/init               u:object_r:init_exec:s0</span><br><span class="line">/sbin(/.*)?         u:object_r:rootfs:s0</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"># Data files</span><br><span class="line">/adb_keys           u:object_r:adb_keys_file:s0</span><br><span class="line">/build\.prop        u:object_r:rootfs:s0</span><br><span class="line">/default\.prop      u:object_r:rootfs:s0</span><br><span class="line">/fstab\..*          u:object_r:rootfs:s0</span><br><span class="line">/init\..*           u:object_r:rootfs:s0</span><br><span class="line">/res(/.*)?          u:object_r:rootfs:s0</span><br><span class="line">/selinux_version    u:object_r:rootfs:s0</span><br><span class="line">/ueventd\..*        u:object_r:rootfs:s0</span><br><span class="line">/verity_key         u:object_r:rootfs:s0</span><br><span class="line"></span><br><span class="line"># Executables</span><br><span class="line">/charger            u:object_r:rootfs:s0</span><br><span class="line">/init               u:object_r:init_exec:s0</span><br><span class="line">/sbin(/.*)?         u:object_r:rootfs:s0</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>同样输入<code>ps -Z</code>可以查看进程的标签:</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ps_z_security_context.png" alt="ps -Z"></p>
-<p>策略规则(policy rules)决定了进程是如何访问对象的, 其通常是如下格式:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">   </span><br><span class="line">allow domains types:classes permissions</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这里, </p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ps_z_security_context.png"
+alt="ps -Z" /></p>
+<p>策略规则(policy rules)决定了进程是如何访问对象的,
+其通常是如下格式:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">   </span><br><span class="line">allow domains types:classes permissions</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这里,</p>
 <ul>
-<li><code>Domain</code>: 域是一个进程或一组进程的标签,也被成为域类型</li>
-<li><code>Type</code>: 对象的标签(如file&#x2F;socket等)或者一个对象集合</li>
+<li><code>Domain</code>:
+域是一个进程或一组进程的标签,也被成为域类型</li>
+<li><code>Type</code>: 对象的标签(如file/socket等)或者一个对象集合</li>
 <li><code>Class</code>: 访问对象的类型</li>
-<li><code>Permission</code>: 请求的权限(read&#x2F;write)</li>
+<li><code>Permission</code>: 请求的权限(read/write)</li>
 </ul>
 <p>举个例子:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">allow appdomain app_data_file:file rw_file_perms;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这个规则的意思是允许所有应用域的进程访问标签为<code>app_data_file</code>的文件. 所有这些规则需要依赖于<code>global_macros</code>&#x2F;<code>te_macros</code>的宏定义(位于<code>/system/sepolicy</code>目录下). 除了像上面的规则指定某个特定的域或类型, 也可以通过指定一个属性(<code>attribute</code>)来表示一组域或类型;当通过一个规则有属性时, 会被自动扩展成为了相应的域或类型. 按照上述方式写成的规则如下:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">RULE_VARIANT SOURCE_TYPES TARGET_TYPES: CLASSES PERMISSIONS</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>在这个规则下, 只要一个<code>Subject</code>标识了<code>SOURCE_TYPES</code>就可以有权在类型为<code>CLASSES</code>&#x2F;标签为<code>TAEGET_TYPES</code>的对象上执行任何在<code>PERMISSONS</code>中声明的操作.例如:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">allow domain null_device:chr_file &#123; getattr open read ioctl write&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">allow appdomain app_data_file:file rw_file_perms;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这个规则的意思是允许所有应用域的进程访问标签为<code>app_data_file</code>的文件.
+所有这些规则需要依赖于<code>global_macros</code>/<code>te_macros</code>的宏定义(位于<code>/system/sepolicy</code>目录下).
+除了像上面的规则指定某个特定的域或类型,
+也可以通过指定一个属性(<code>attribute</code>)来表示一组域或类型;当通过一个规则有属性时,
+会被自动扩展成为了相应的域或类型. 按照上述方式写成的规则如下:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">RULE_VARIANT SOURCE_TYPES TARGET_TYPES: CLASSES PERMISSIONS</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>在这个规则下,
+只要一个<code>Subject</code>标识了<code>SOURCE_TYPES</code>就可以有权在类型为<code>CLASSES</code>/标签为<code>TAEGET_TYPES</code>的对象上执行任何在<code>PERMISSONS</code>中声明的操作.例如:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">allow domain null_device:chr_file &#123; getattr open read ioctl write&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>这个条规则意思是允许任何有<code>domain</code>域的进程访问<code>null_device</code>类型(对应<code>/dev/null</code>)的字符设备.最后我们来看下Android是如何应用SELinux的.</p>
-<h2 id="SELiunx在Android中的应用"><a href="#SELiunx在Android中的应用" class="headerlink" title="SELiunx在Android中的应用"></a><strong>SELiunx在Android中的应用</strong></h2><p>Android的SELinux配置(以下均以Android P 9.0的代码为例)在Android源码中有两个目录: </p>
+<h2
+id="seliunx在android中的应用"><strong>SELiunx在Android中的应用</strong></h2>
+<p>Android的SELinux配置(以下均以Android P
+9.0的代码为例)在Android源码中有两个目录:</p>
 <ul>
 <li><code>/system/sepolicy</code></li>
 <li><code>/device/&lt;manufactory&gt;/&lt;device-name&gt;/sepolicy</code></li>
 </ul>
-<p>而<code>/system/sepolicy</code>主要是Android原生已有的SELinux文件, 包括所有SELinux标签以及策略文件<code>.te</code>的定义, 一般不做修改;<code>/device</code>目录下的SELinux配置通过编译宏<code>BOARD_SEPOLICY_DIRS</code>引入, 所有SELinux相关的编译都要依靠<code>/system/sepolicy/Android.mk</code>这个makefile. 具体来说, SELinux的配置大致有如下几个部分:</p>
+<p>而<code>/system/sepolicy</code>主要是Android原生已有的SELinux文件,
+包括所有SELinux标签以及策略文件<code>.te</code>的定义,
+一般不做修改;<code>/device</code>目录下的SELinux配置通过编译宏<code>BOARD_SEPOLICY_DIRS</code>引入,
+所有SELinux相关的编译都要依靠<code>/system/sepolicy/Android.mk</code>这个makefile.
+具体来说, SELinux的配置大致有如下几个部分:</p>
 <table>
+<colgroup>
+<col style="width: 44%" />
+<col style="width: 55%" />
+</colgroup>
 <thead>
 <tr>
 <th>配置目录</th>
 <th>说明</th>
 </tr>
 </thead>
-<tbody><tr>
-<td>&#x2F;system&#x2F;sepolicy&#x2F;public</td>
+<tbody>
+<tr>
+<td>/system/sepolicy/public</td>
 <td>包含了系统sepolicy相关的API</td>
 </tr>
 <tr>
-<td>&#x2F;system&#x2F;sepolicy&#x2F;private</td>
+<td>/system/sepolicy/private</td>
 <td>包含了系统sepolicy的具体实现(与vendor无关)</td>
 </tr>
 <tr>
-<td>&#x2F;system&#x2F;sepolicy&#x2F;vendor</td>
+<td>/system/sepolicy/vendor</td>
 <td>提供给厂商(vendor)自由实现的配置</td>
 </tr>
 <tr>
 <td>BOARD_SEPOLICY_DIRS</td>
 <td>包含厂商sepolicy的定制化配置</td>
 </tr>
-</tbody></table>
-<p>所有以<code>.te</code>结尾的都是安全策略文件, 其定义了对象的域(domain)和类型(types); 而SELinux标签文件(也称为SELinux context文件), 大致有<a target="_blank" rel="noopener" href="https://source.android.com/security/selinux/implement.html#key_files">如下几种</a>:</p>
+</tbody>
+</table>
+<p>所有以<code>.te</code>结尾的都是安全策略文件,
+其定义了对象的域(domain)和类型(types); 而SELinux标签文件(也称为SELinux
+context文件), 大致有<a
+target="_blank" rel="noopener" href="https://source.android.com/security/selinux/implement.html#key_files">如下几种</a>:</p>
 <ul>
 <li><code>file_contexts</code>: 为用户空间的文件分配标签</li>
-<li><code>genfs_contexts</code>: 为不支持扩展属性的文件分配标签(如<code>proc</code>&#x2F;<code>vfat</code>)</li>
-<li><code>property_contexts</code>: 为Android所有属性分配标签,<code>init</code>进程在初始化时会读取该配置 </li>
-<li><code>service_contexts</code>: 为Android所有binder服务分配标签, 用于控制哪些进程可以注册&#x2F;查找这些服务</li>
-<li><code>seapp_contexts</code>: 为<code>/data/data</code>目录下的应用分配标签, 应用启动时<code>zygote</code>进程以及在应用安装时<code>installd</code>都会读取该配置</li>
-<li><code>mac_permissions.xml</code>: 根据应用的签名(也可能包括包名)分配<code>seinfo tag</code>;<code>seinfo tag</code>在<code>seapp_contexts</code>文件中可以当作一个密钥用于分配特定的标签给所有的应用. 该配置在<code>system_sever</code>启动时会被读取</li>
+<li><code>genfs_contexts</code>:
+为不支持扩展属性的文件分配标签(如<code>proc</code>/<code>vfat</code>)</li>
+<li><code>property_contexts</code>:
+为Android所有属性分配标签,<code>init</code>进程在初始化时会读取该配置</li>
+<li><code>service_contexts</code>: 为Android所有binder服务分配标签,
+用于控制哪些进程可以注册/查找这些服务</li>
+<li><code>seapp_contexts</code>:
+为<code>/data/data</code>目录下的应用分配标签,
+应用启动时<code>zygote</code>进程以及在应用安装时<code>installd</code>都会读取该配置</li>
+<li><code>mac_permissions.xml</code>:
+根据应用的签名(也可能包括包名)分配<code>seinfo tag</code>;<code>seinfo tag</code>在<code>seapp_contexts</code>文件中可以当作一个密钥用于分配特定的标签给所有的应用.
+该配置在<code>system_sever</code>启动时会被读取</li>
 </ul>
-<p>那么, 这些SELinux的标签配置以及策略文件是如何编译的? 大致有两个编译路径,所有的<code>file_contexts</code>标签文件都会编译生成一个<code>file_contexts.bin</code>;而其他的如<code>security_classes</code>&#x2F;<code>*.te</code>&#x2F;<code>genfs_contexts</code>&#x2F;<code>port_contexts</code>等文件都会编译生成一个<code>sepolicy</code>的二进制文件, 整体的编译逻辑如下图所示:</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_android_build.png" alt="SELinux build logic"></p>
-<p>有关SELinux在Android的编译可以参考<a target="_blank" rel="noopener" href="https://source.android.com/security/selinux/build">https://source.android.com/security/selinux/build</a>. </p>
-<p>有了SELinux的基础知识, 要如何修改或者添加SELinux规则? 一般, 通过<code>dmesg | grep avc</code>或则<code>logcat | grep avc</code>查看系统当前的SELinux访问的记录, 如果出现<code>avc: denied</code>等字样, 说明有进程违反了安全策略, 举个例子:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">[   42.357295] selinux: avc:  denied  &#123; set &#125; for property=net.usb0.dns1 pid=473 uid=0 gid=0 scontext=u:r:network_manager:s0 tcontext=u:object_r:system_prop:s0 tclass=proper1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这个访问拒绝的提示说明, 进程<code>473</code>(network_manager)的标签<code>u:r:network_manager:s0 </code>不具备访问标签为<code>u:object_r:system_prop:s0</code>, 类型为<code>system_prop</code>的属性值, 需要添加安全规则:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">set_prop(network_manager, system_prop)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<p>那么, 这些SELinux的标签配置以及策略文件是如何编译的?
+大致有两个编译路径,所有的<code>file_contexts</code>标签文件都会编译生成一个<code>file_contexts.bin</code>;而其他的如<code>security_classes</code>/<code>*.te</code>/<code>genfs_contexts</code>/<code>port_contexts</code>等文件都会编译生成一个<code>sepolicy</code>的二进制文件,
+整体的编译逻辑如下图所示:</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/selinux_android_build.png"
+alt="SELinux build logic" /></p>
+<p>有关SELinux在Android的编译可以参考https://source.android.com/security/selinux/build.</p>
+<p>有了SELinux的基础知识, 要如何修改或者添加SELinux规则? 一般,
+通过<code>dmesg | grep avc</code>或则<code>logcat | grep avc</code>查看系统当前的SELinux访问的记录,
+如果出现<code>avc: denied</code>等字样, 说明有进程违反了安全策略,
+举个例子:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">[   42.357295] selinux: avc:  denied  &#123; set &#125; for property=net.usb0.dns1 pid=473 uid=0 gid=0 scontext=u:r:network_manager:s0 tcontext=u:object_r:system_prop:s0 tclass=proper1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这个访问拒绝的提示说明,
+进程<code>473</code>(network_manager)的标签<code>u:r:network_manager:s0</code>不具备访问标签为<code>u:object_r:system_prop:s0</code>,
+类型为<code>system_prop</code>的属性值, 需要添加安全规则:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">set_prop(network_manager, system_prop)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>再次编译验证后就不会出现访问拒绝的日志了.</p>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
-<li><a target="_blank" rel="noopener" href="https://source.android.com/security/selinux/images/SELinux_Treble.pdf">SELinux for Android</a></li>
-<li><a target="_blank" rel="noopener" href="https://source.android.com/security/selinux/build">SEAndroid的介绍</a></li>
-<li><a target="_blank" rel="noopener" href="http://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf">SELinux NoteBook</a></li>
-<li><a target="_blank" rel="noopener" href="http://www.cs.columbia.edu/~lierranli/coms6998-7Spring2014/papers/SEAndroid-NDSS2013.pdf">SELinux在Android应用的挑战与问题</a></li>
-<li><a target="_blank" rel="noopener" href="https://wiki.gentoo.org/wiki/SELinux/Quick_introduction#SELinux_policy">Introduction to SELinux</a></li>
+<h2 id="参考文献">参考文献</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://source.android.com/security/selinux/images/SELinux_Treble.pdf">SELinux
+for Android</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://source.android.com/security/selinux/build">SEAndroid的介绍</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://freecomputerbooks.com/books/The_SELinux_Notebook-4th_Edition.pdf">SELinux
+NoteBook</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://www.cs.columbia.edu/~lierranli/coms6998-7Spring2014/papers/SEAndroid-NDSS2013.pdf">SELinux在Android应用的挑战与问题</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://wiki.gentoo.org/wiki/SELinux/Quick_introduction#SELinux_policy">Introduction
+to SELinux</a></li>
 </ul>
 
     </article>
@@ -657,7 +753,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">https://sniffer.site/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">December 7th 2019, 6:00:37 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">2022-03-22, 20:11:55</a>
+            <p>更新日期：<a href="https://sniffer.site/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -823,7 +919,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9D%E8%AF%86SELinux"><span class="toc-number">1.</span> <span class="toc-text">初识SELinux</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%87%E7%AD%BE-label-%E4%B8%8E%E7%AD%96%E7%95%A5%E8%A7%84%E5%88%99"><span class="toc-number">1.1.</span> <span class="toc-text">标签(label)与策略规则</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SELiunx%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8"><span class="toc-number">2.</span> <span class="toc-text">SELiunx在Android中的应用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9D%E8%AF%86selinux"><span class="toc-number">1.</span> <span class="toc-text">初识SELinux</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%87%E7%AD%BElabel%E4%B8%8E%E7%AD%96%E7%95%A5%E8%A7%84%E5%88%99"><span class="toc-number">1.1.</span> <span class="toc-text">标签(label)与策略规则</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#seliunx%E5%9C%A8android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8"><span class="toc-number">2.</span> <span class="toc-text">SELiunx在Android中的应用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1472,7 +1568,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2923,7 +3030,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2941,6 +3048,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3799,44 +3912,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3854,14 +3942,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3874,14 +3967,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3892,11 +3985,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3914,14 +4002,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3937,6 +4020,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3969,31 +4062,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -4002,6 +4070,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -4024,19 +4097,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4052,6 +4115,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4079,14 +4177,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4099,39 +4197,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4142,16 +4230,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4179,6 +4257,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4194,9 +4297,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4214,41 +4327,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4259,14 +4337,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4294,16 +4377,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4324,9 +4397,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4344,24 +4427,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4369,24 +4452,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4399,9 +4492,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4424,9 +4522,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4449,6 +4547,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4464,14 +4572,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4482,6 +4590,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4499,41 +4627,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4547,6 +4640,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4569,11 +4677,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4589,16 +4692,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4612,6 +4705,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4634,16 +4742,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4659,24 +4757,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4687,6 +4770,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4729,6 +4827,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4744,14 +4862,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4772,21 +4885,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4854,19 +4952,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4884,6 +4972,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4899,16 +5012,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4917,6 +5020,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4939,21 +5057,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4972,16 +5075,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -5009,11 +5102,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5034,14 +5122,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5069,19 +5172,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5094,6 +5192,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5102,6 +5205,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5114,6 +5227,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5135,6 +5253,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5145,19 +5268,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5165,14 +5278,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5190,14 +5303,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5213,11 +5326,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

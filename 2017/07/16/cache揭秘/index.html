@@ -26,19 +26,13 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。目前大多数的计算机系统都会在软件或者硬件层面集成有各种cache, 比如:  L2(Level 2 cache,3-10个CPU周期)作为L1(Level 1 cache, 1-3个CPU周期)的缓存, 同样L3又作为L2的缓存, 从而形成一个多级缓存的结构 TLB">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CPU-and-RAM-gap.jpg">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchyOfProcessor.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM-cache-architecture.jpg">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM%2Bprocessor%2B4way_cache.jpg">
 <meta property="article:published_time" content="2017-07-16T12:34:41.000Z">
-<meta property="article:modified_time" content="2023-07-21T07:53:09.592Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.673Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Memory Cache">
 <meta property="article:tag" content="CPU Architecture">
 <meta property="article:tag" content="Memory Hierarchy">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -531,81 +525,163 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>缓存(Memory Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。目前大多数的计算机系统都会在软件或者硬件层面集成有各种cache, 比如:</p>
+        <p>缓存(Memory
+Cache)在一般意义上是指一种用于存储当前或者历史数据的硬件或者软件结构，其目的是加速数据的存取，提升系统效率。目前大多数的计算机系统都会在软件或者硬件层面集成有各种cache,
+比如:</p>
 <ul>
-<li>L2(Level 2 cache,3-10个CPU周期)作为L1(Level 1 cache, 1-3个CPU周期)的缓存, 同样L3又作为L2的缓存, 从而形成一个<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/CPU_cache">多级缓存的结构</a></li>
-<li>TLB(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Translation_lookaside_buffer">Translation Lookaside Buffer</a>)用于系统页表查找的缓存, 可以加速虚拟内存与物理内存的地址转换</li>
-<li>Main Memory(主存)是磁盘数据的缓存, 保存了部分使用的磁盘数据, 改善系统运行的性能</li>
+<li>L2(Level 2 cache,3-10个CPU周期)作为L1(Level 1 cache,
+1-3个CPU周期)的缓存, 同样L3又作为L2的缓存, 从而形成一个<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/CPU_cache">多级缓存的结构</a></li>
+<li>TLB(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Translation_lookaside_buffer">Translation
+Lookaside Buffer</a>)用于系统页表查找的缓存,
+可以加速虚拟内存与物理内存的地址转换</li>
+<li>Main Memory(主存)是磁盘数据的缓存, 保存了部分使用的磁盘数据,
+改善系统运行的性能</li>
 </ul>
 <p>一般来说, 现代的多核CPU系统都有多级的缓存结构, 简图如下:</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png" alt="multiple level cache"></p>
-<p>这篇文章将要讨论的cache是指CPU与主内存之间的一种基于<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_random-access_memory">SRAM</a>(Static Random Access Memory)存储结构。</p>
-<p>自计算机诞生以来，CPU的性能大致都按照摩尔定律以每年50%的速度递增，而主内存RAM(Random Access Memory)的性能增速却只有7%，因此在CPU性能与主内存性能之间渐渐形成了一个鸿沟：</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/mutiple_level_cache_hierarchy.png"
+alt="multiple level cache" /></p>
+<p>这篇文章将要讨论的cache是指CPU与主内存之间的一种基于<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Static_random-access_memory">SRAM</a>(Static
+Random Access Memory)存储结构。</p>
+<p>自计算机诞生以来，CPU的性能大致都按照摩尔定律以每年50%的速度递增，而主内存RAM(Random
+Access
+Memory)的性能增速却只有7%，因此在CPU性能与主内存性能之间渐渐形成了一个鸿沟：</p>
 <span id="more"></span>
-
-
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CPU-and-RAM-gap.jpg" alt="CPU and Memory Gap"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CPU-and-RAM-gap.jpg"
+alt="CPU and Memory Gap" /></p>
 <blockquote>
 <p>1980年CPU中尚无cache; 到1995年CPU开始有两级cache</p>
 </blockquote>
-<p>从主内存中读取数据通常需要花费50~200个CPU周期，利用cache来保存CPU最近使用的数据或者指令，如果cache中存在所需数据（指令），则直接返回给CPU；如果不存在相应的数据，则从主内存中获取，从而提升CPU效率。这样Cache, Main Memory以及Disk（磁盘）之间就形成了通常被称为”<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Memory_hierarchy">Memory Hierarchy</a>“的存储层次化的结构：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchyOfProcessor.png" alt="memory hierarchy"></p>
-<p>那么，为什么cache能够提升CPU的运行效率？这里边依靠的是程序运行时的一个基本原理：引用的局部性(<br><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Locality_of_reference">Locality of reference</a>):相近的或者最近被访问的内存区域通常就是下一次需要访问的内存区域。最常见的是两种局部性：</p>
+<p>从主内存中读取数据通常需要花费50~200个CPU周期，利用cache来保存CPU最近使用的数据或者指令，如果cache中存在所需数据（指令），则直接返回给CPU；如果不存在相应的数据，则从主内存中获取，从而提升CPU效率。这样Cache,
+Main Memory以及Disk（磁盘）之间就形成了通常被称为”<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Memory_hierarchy">Memory
+Hierarchy</a>“的存储层次化的结构：</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchyOfProcessor.png"
+alt="memory hierarchy" /></p>
+<p>那么，为什么cache能够提升CPU的运行效率？这里边依靠的是程序运行时的一个基本原理：引用的局部性(
+<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Locality_of_reference">Locality
+of
+reference</a>):相近的或者最近被访问的内存区域通常就是下一次需要访问的内存区域。最常见的是两种局部性：</p>
 <ul>
-<li>时间局部性（Temporal locality) : 最近被访问的内存区域，很可能在稍后的时间里被引用；</li>
-<li>空间局部性(Spatial locality): 某个内存区域被访问，很可能稍后其临近的区域也会被访问；</li>
+<li>时间局部性（Temporal locality) :
+最近被访问的内存区域，很可能在稍后的时间里被引用；</li>
+<li>空间局部性(Spatial locality):
+某个内存区域被访问，很可能稍后其临近的区域也会被访问；</li>
 </ul>
 <p>接下来就来看下cache是怎么构成的。</p>
-<h2 id="缓存架构"><a href="#缓存架构" class="headerlink" title="缓存架构"></a><strong>缓存架构</strong></h2><p>下图是一个有256 (2^8) 个缓存行,4KB（2^10)大小的cache架构框图，可以看到，cache由两部分组成：cache controller，以及cache memory； cache memory是由一内存单元阵列组成的专用存储结构，其中每一个存储单元被称为cache lines（缓存行）;而cache controller负责将CPU发送过来的地址映射到cache memory，选取相应的cache memory：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM-cache-architecture.jpg" alt="Cache Architecture"></p>
+<h2 id="缓存架构"><strong>缓存架构</strong></h2>
+<p>下图是一个有256 (2^8)
+个缓存行,4KB（2^10)大小的cache架构框图，可以看到，cache由两部分组成：cache
+controller，以及cache memory； cache
+memory是由一内存单元阵列组成的专用存储结构，其中每一个存储单元被称为cache
+lines（缓存行）;而cache controller负责将CPU发送过来的地址映射到cache
+memory，选取相应的cache memory：</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM-cache-architecture.jpg"
+alt="Cache Architecture" /></p>
 <blockquote>
-<p>图片来自《ARM System Develop’s Guide - Designing and Optimizting System Software》</p>
+<p>图片来自《ARM System Develop’s Guide - Designing and Optimizting
+System Software》</p>
 </blockquote>
-<p>一个cache line由三个部分组成：目录项，数据区以及状态。目录项也叫作cache tag,用于标识一个cache line是主内存中的来源（地址）；而从主内存中拷贝过来的数据则保持在数据区,而状态位则用于保持cache line的状态信息，通常有valid(有效）跟dirty（脏数据）两种状态。有效则意味着缓存数据保持的是最新的主内存数据，而脏数据则表示一个缓存行中的数据跟主内存不同。</p>
-<p>CPU有数据或者指令请求时，首先被cache controller截取，controller会把内存地址分为三个部分：<code>tag</code>标签域，<code>set index</code>集合索引域，<code>data index</code>数据索引域。利用<code>set index</code>来定位可能包含内存数据的缓存行。刚才我们说道，每个缓存行都有个一个<code>cache tag</code>，controller正是通过这个标签域与状态位来确定数据是否存在。如果一个缓存行的状态为是<code>valid</code>，并且内存地址的<code>tag</code>与缓存行的<code>tag</code>相同，则命中缓存（<code>cache hit</code>)，否则出现缓存缺失(<code>cache miss</code>)。</p>
+<p>一个cache
+line由三个部分组成：目录项，数据区以及状态。目录项也叫作cache
+tag,用于标识一个cache
+line是主内存中的来源（地址）；而从主内存中拷贝过来的数据则保持在数据区,而状态位则用于保持cache
+line的状态信息，通常有valid(有效）跟dirty（脏数据）两种状态。有效则意味着缓存数据保持的是最新的主内存数据，而脏数据则表示一个缓存行中的数据跟主内存不同。</p>
+<p>CPU有数据或者指令请求时，首先被cache
+controller截取，controller会把内存地址分为三个部分：<code>tag</code>标签域，<code>set index</code>集合索引域，<code>data index</code>数据索引域。利用<code>set index</code>来定位可能包含内存数据的缓存行。刚才我们说道，每个缓存行都有个一个<code>cache tag</code>，controller正是通过这个标签域与状态位来确定数据是否存在。如果一个缓存行的状态为是<code>valid</code>，并且内存地址的<code>tag</code>与缓存行的<code>tag</code>相同，则命中缓存（<code>cache hit</code>)，否则出现缓存缺失(<code>cache miss</code>)。</p>
 <ul>
-<li>cache miss: 出现缓存缺失，cache controller需要将主内存中的数据拷贝到缓存中，并将其提供给CPU；</li>
-<li>cache hit: 缓存命中，直接将命中缓存数据发送给CPU（利用<code>data index</code>确定数据所在位置）；</li>
+<li>cache miss: 出现缓存缺失，cache
+controller需要将主内存中的数据拷贝到缓存中，并将其提供给CPU；</li>
+<li>cache hit:
+缓存命中，直接将命中缓存数据发送给CPU（利用<code>data index</code>确定数据所在位置）；</li>
 </ul>
 <p>那么，主内存是如何映射到cache当中的了？从数学集合的角度来看，两个集合的映射一般有一对一，多对一、一对多、多对多等几种形式。与此相类似，主内存与cache直接的物理映射（通过硬件设计实现）大致有三种形式：</p>
 <ul>
-<li>Directed Mapping(直接映射）： 对于主内存中的任一地址仅有一个可能的cache地址。这种映射方式最为简单，其存在的不足之处容易出现“缓存抖动”(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Thrashing_(computer_science)">cache thrashing</a>) - 不断出现缓存缺失，从而降低系统性能；</li>
-<li>Full-associative cache（全关联）： 对每个主内存中的地址可以映射到任何一个cache位置。全关联虽然为主内存数据的存储带来了更多的灵活性，但是由于其实现方式复杂，成本高，因而通常只在cache空间很小的CPU中使用；</li>
-<li>K-way assocative cache(多路关联）:是直接映射与全关联两种方式的折中策略，通过将cache memory划分为更小的单位（<code>ways</code>)，使得主内存中的位置可能有多个cache位置与之相对应。比如下图是一个4-way 4KB大小的cache示意图：</li>
+<li>Directed Mapping(直接映射）：
+对于主内存中的任一地址仅有一个可能的cache地址。这种映射方式最为简单，其存在的不足之处容易出现“缓存抖动”(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Thrashing_(computer_science)">cache
+thrashing</a>) - 不断出现缓存缺失，从而降低系统性能；</li>
+<li>Full-associative cache（全关联）：
+对每个主内存中的地址可以映射到任何一个cache位置。全关联虽然为主内存数据的存储带来了更多的灵活性，但是由于其实现方式复杂，成本高，因而通常只在cache空间很小的CPU中使用；</li>
+<li>K-way assocative
+cache(多路关联）:是直接映射与全关联两种方式的折中策略，通过将cache
+memory划分为更小的单位（<code>ways</code>)，使得主内存中的位置可能有多个cache位置与之相对应。比如下图是一个4-way
+4KB大小的cache示意图：</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM%2Bprocessor%2B4way_cache.jpg" alt="4-ways associative cache"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ARM%2Bprocessor%2B4way_cache.jpg"
+alt="4-ways associative cache" /></p>
 <blockquote>
-<p>图片来自《ARM System Develop’s Guide - Designing and Optimizting System Software》</p>
+<p>图片来自《ARM System Develop’s Guide - Designing and Optimizting
+System Software》</p>
 </blockquote>
-<p>与前文中的示意图不同的是，这里cache memory共包含了4路，每路都包含了64(2^6)个缓存行，但cache总的大小仍然是4KB（<code>4*4*64*4</code> bytes),但现在对于每个<code>set index</code>都对应了4个cache line,这4个缓存行可以看成是一个<code>set</code>，这也是<code>set index</code>这个名字的由来。</p>
-<h2 id="缓存策略"><a href="#缓存策略" class="headerlink" title="缓存策略"></a><strong>缓存策略</strong></h2><p>这里就来看下缓存的两种策略： 写内存以及缓存替换策略。写内存策略用于确定何时将数据写入内存；但出现cache miss时，使用替换策略将某个缓存行换出。</p>
+<p>与前文中的示意图不同的是，这里cache
+memory共包含了4路，每路都包含了64(2^6)个缓存行，但cache总的大小仍然是4KB（<code>4*4*64*4</code>
+bytes),但现在对于每个<code>set index</code>都对应了4个cache
+line,这4个缓存行可以看成是一个<code>set</code>，这也是<code>set index</code>这个名字的由来。</p>
+<h2 id="缓存策略"><strong>缓存策略</strong></h2>
+<p>这里就来看下缓存的两种策略：
+写内存以及缓存替换策略。写内存策略用于确定何时将数据写入内存；但出现cache
+miss时，使用替换策略将某个缓存行换出。</p>
 <p>首先来看下写策略。</p>
-<h3 id="write-policy"><a href="#write-policy" class="headerlink" title="write policy"></a><strong>write policy</strong></h3><p>当CPU需要将数据写回主内存时，cache controller有两种写策略可选择：一种是同时更新缓存行数据和主内存数据，这种方法被称为<code>write-through</code>;另一种策略<code>write-back</code>则只更新缓存行数据，而不更新主内存数据。</p>
+<h3 id="write-policy"><strong>write policy</strong></h3>
+<p>当CPU需要将数据写回主内存时，cache
+controller有两种写策略可选择：一种是同时更新缓存行数据和主内存数据，这种方法被称为<code>write-through</code>;另一种策略<code>write-back</code>则只更新缓存行数据，而不更新主内存数据。</p>
 <ul>
-<li>Writethrough: 如果缓存命中，则同时更新主内存与缓存行数据，确保主内存与缓存数据始终保持一致，由于需要将数据写回内存，因此<code>write-through</code>会比<code>write-back</code>慢；</li>
-<li>Writeback: 使用该写策略，只更新有效(缓存行标记为valid)的缓存数据，而不更新主内存，这样就可能出现缓存与主内存数据不一致，那么，何时将缓存数据写入内存了？当cache controller写数据到缓存时，将该缓存行中的数据标记为<code>dirty</code>，等到下一次访问时，controller知道这个缓存行数据并不在内存中，因此换出该缓存行时，则自动将其写回主内存；</li>
+<li>Writethrough:
+如果缓存命中，则同时更新主内存与缓存行数据，确保主内存与缓存数据始终保持一致，由于需要将数据写回内存，因此<code>write-through</code>会比<code>write-back</code>慢；</li>
+<li>Writeback:
+使用该写策略，只更新有效(缓存行标记为valid)的缓存数据，而不更新主内存，这样就可能出现缓存与主内存数据不一致，那么，何时将缓存数据写入内存了？当cache
+controller写数据到缓存时，将该缓存行中的数据标记为<code>dirty</code>，等到下一次访问时，controller知道这个缓存行数据并不在内存中，因此换出该缓存行时，则自动将其写回主内存；</li>
 </ul>
-<h3 id="replacement-policy"><a href="#replacement-policy" class="headerlink" title="replacement policy"></a><strong>replacement policy</strong></h3><p>出现cache miss时，cache controller需要从缓存中选择一个缓存行用于保存从主内存中加载的新数据。如果被替换的缓存行包含了有效或者脏数据，则需要将其写回内存。那么，如何从缓存中选择可能被替换的缓存行了？这就是缓存的替换策略。一般有以下几种：</p>
+<h3 id="replacement-policy"><strong>replacement policy</strong></h3>
+<p>出现cache miss时，cache
+controller需要从缓存中选择一个缓存行用于保存从主内存中加载的新数据。如果被替换的缓存行包含了有效或者脏数据，则需要将其写回内存。那么，如何从缓存中选择可能被替换的缓存行了？这就是缓存的替换策略。一般有以下几种：</p>
 <ul>
 <li>Least Recently Used(LRU): 将最少使用的缓存行换出；</li>
 <li>Roud-robin(RR): 轮盘随机选择一个缓存行换出；</li>
 </ul>
-<p>更多关于缓存替换策略可以参考WIKIPEDIA文章：<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Cache_replacement_policies">https://en.wikipedia.org/wiki/Cache_replacement_policies</a>。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>目前大多数计算机系统都使用多级的缓存结构, 使用多级缓存好处是改善了缓存命中率, 但同时需要考虑各个缓存(L1&#x2F;L2&#x2F;L3)数据的同步与一致性问题<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Cache_coherence">参考Wikipedia Cache Coherence</a>, 增加了硬件设计的复杂度. 对CPU cache来说, 需要考虑如下几个问题:</p>
+<p>更多关于缓存替换策略可以参考WIKIPEDIA文章：<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Cache_replacement_policies">https://en.wikipedia.org/wiki/Cache_replacement_policies</a>。</p>
+<h2 id="总结"><strong>总结</strong></h2>
+<p>目前大多数计算机系统都使用多级的缓存结构,
+使用多级缓存好处是改善了缓存命中率,
+但同时需要考虑各个缓存(L1/L2/L3)数据的同步与一致性问题<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Cache_coherence">参考Wikipedia Cache
+Coherence</a>, 增加了硬件设计的复杂度. 对CPU cache来说,
+需要考虑如下几个问题:</p>
 <ul>
 <li>cache的结构: 每个cache line的大小是多少, 具体是如何存放的?</li>
-<li>如何找到一个cache项: 如何通过给定的内存地址找到对应的cache line, 这里就需要建立cache与主存之间的映射关系, 通常有直接映射(direct mapped), 多路关联(full-way associcative)以及全关联(fully associative)</li>
-<li>发生cache miss(缓存缺失)时要如何进行替换: 一般有最少使用(Least Recently Used, LRU)以及随机选择(random)两种方法.</li>
-<li>如何同步cache与主存之间的数据: 一般来说有回写(write-back)与直写(write-through)两种策略.</li>
+<li>如何找到一个cache项: 如何通过给定的内存地址找到对应的cache line,
+这里就需要建立cache与主存之间的映射关系, 通常有直接映射(direct mapped),
+多路关联(full-way associcative)以及全关联(fully associative)</li>
+<li>发生cache miss(缓存缺失)时要如何进行替换: 一般有最少使用(Least
+Recently Used, LRU)以及随机选择(random)两种方法.</li>
+<li>如何同步cache与主存之间的数据:
+一般来说有回写(write-back)与直写(write-through)两种策略.</li>
 </ul>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="http://service.scs.carleton.ca/sivarama/org_book/org_book_web/slides/chap_1_versions/ch17_1.pdf">http://service.scs.carleton.ca/sivarama/org_book&#x2F;org_book_web&#x2F;slides&#x2F;chap_1_versions&#x2F;ch17_1.pdf</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.cs.umd.edu/class/fall2001/cmsc411/proj01/cache/cache.pdf">https://www.cs.umd.edu/class/fall2001/cmsc411/proj01/cache/cache.pdf</a></li>
-<li><a target="_blank" rel="noopener" href="http://www.ece.northwestern.edu/~kcoloma/ece361/lectures/Lec14-cache.pdf">http://www.ece.northwestern.edu/~kcoloma&#x2F;ece361&#x2F;lectures&#x2F;Lec14-cache.pdf</a></li>
-<li><a target="_blank" rel="noopener" href="https://cseweb.ucsd.edu/classes/fa14/cse240A-a/pdf/08/CSE240A-MBT-L15-Cache.ppt.pdf">https://cseweb.ucsd.edu/classes/fa14/cse240A-a/pdf/08/CSE240A-MBT-L15-Cache.ppt.pdf</a></li>
-<li><a target="_blank" rel="noopener" href="http://people.cs.pitt.edu/~cho/cs1541/current/handouts/lect-memh_4up.pdf">http://people.cs.pitt.edu/~cho&#x2F;cs1541&#x2F;current&#x2F;handouts&#x2F;lect-memh_4up.pdf</a></li>
-<li>《ARM System Develop’s Guide - Designing and Optimizting System Software》</li>
-<li><a target="_blank" rel="noopener" href="https://coolshell.cn/articles/20793.html">与程序员相关的CPU缓存知识</a></li>
+<h2 id="参考文献"><strong>参考文献</strong></h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="http://service.scs.carleton.ca/sivarama/org_book/org_book_web/slides/chap_1_versions/ch17_1.pdf">http://service.scs.carleton.ca/sivarama/org_book/org_book_web/slides/chap_1_versions/ch17_1.pdf</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.cs.umd.edu/class/fall2001/cmsc411/proj01/cache/cache.pdf">https://www.cs.umd.edu/class/fall2001/cmsc411/proj01/cache/cache.pdf</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://www.ece.northwestern.edu/~kcoloma/ece361/lectures/Lec14-cache.pdf">http://www.ece.northwestern.edu/~kcoloma/ece361/lectures/Lec14-cache.pdf</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://cseweb.ucsd.edu/classes/fa14/cse240A-a/pdf/08/CSE240A-MBT-L15-Cache.ppt.pdf">https://cseweb.ucsd.edu/classes/fa14/cse240A-a/pdf/08/CSE240A-MBT-L15-Cache.ppt.pdf</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://people.cs.pitt.edu/~cho/cs1541/current/handouts/lect-memh_4up.pdf">http://people.cs.pitt.edu/~cho/cs1541/current/handouts/lect-memh_4up.pdf</a></li>
+<li>《ARM System Develop’s Guide - Designing and Optimizting System
+Software》</li>
+<li><a
+target="_blank" rel="noopener" href="https://coolshell.cn/articles/20793.html">与程序员相关的CPU缓存知识</a></li>
 <li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/CPU_cache">CPU cache</a></li>
 </ul>
 
@@ -616,7 +692,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/07/16/cache%E6%8F%AD%E7%A7%98/">https://sniffer.site/2017/07/16/cache%E6%8F%AD%E7%A7%98/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/07/16/cache%E6%8F%AD%E7%A7%98/">July 16th 2017, 8:34:41 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/07/16/cache%E6%8F%AD%E7%A7%98/">2023-07-21, 15:53:09</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/07/16/cache%E6%8F%AD%E7%A7%98/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1431,7 +1507,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2882,7 +2969,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2900,6 +2987,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3758,44 +3851,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3813,14 +3881,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3833,14 +3906,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3851,11 +3924,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3873,14 +3941,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3896,6 +3959,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3928,31 +4001,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3961,6 +4009,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3983,19 +4036,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4011,6 +4054,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4038,14 +4116,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4058,39 +4136,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4101,16 +4169,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4138,6 +4196,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4153,9 +4236,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4173,41 +4266,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4218,14 +4276,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4253,16 +4316,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4283,9 +4336,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4303,24 +4366,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4328,24 +4391,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4358,9 +4431,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4383,9 +4461,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4408,6 +4486,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4423,14 +4511,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4441,6 +4529,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4458,41 +4566,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4506,6 +4579,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4528,11 +4616,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4548,16 +4631,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4571,6 +4644,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4593,16 +4681,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4618,24 +4696,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4646,6 +4709,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4688,6 +4766,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4703,14 +4801,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4731,21 +4824,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4813,19 +4891,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4843,6 +4911,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4858,16 +4951,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4876,6 +4959,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4898,21 +4996,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4931,16 +5014,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4968,11 +5041,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4993,14 +5061,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5028,19 +5111,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5053,6 +5131,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5061,6 +5144,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5073,6 +5166,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5094,6 +5192,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5104,19 +5207,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5124,14 +5217,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5149,14 +5242,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5172,11 +5265,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

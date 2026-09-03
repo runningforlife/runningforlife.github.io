@@ -27,7 +27,7 @@
 <meta property="og:description" content="Android系统启动完成后，第一个启动的Activity就是主界面应用程序Launcher，相当于电脑的桌面。Launcher界面可以看到系统中安装的所有APP,点击APP即可启动该APP应用了。那么，Launcher到底是如何启动的以及如何自定义自己的Launcher了？这篇文章我们就来讲讲这两个问题。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2017-02-18T13:26:50.000Z">
-<meta property="article:modified_time" content="2021-08-11T07:11:49.889Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.704Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Android">
 <meta property="article:tag" content="Launcher">
@@ -527,39 +527,33 @@
     <article class="article-entry">
         <p>Android系统启动完成后，第一个启动的Activity就是主界面应用程序Launcher，相当于电脑的桌面。Launcher界面可以看到系统中安装的所有APP,点击APP即可启动该APP应用了。那么，Launcher到底是如何启动的以及如何自定义自己的Launcher了？这篇文章我们就来讲讲这两个问题。</p>
 <span id="more"></span>
-
-<h2 id="Launcher的启动"><a href="#Launcher的启动" class="headerlink" title="Launcher的启动"></a><strong>Launcher的启动</strong></h2><p>系统进程<code>SystemServer</code>启动后，开始加载系统核心服务如 <code>ActivityManagerService</code>,<code>WindowManagerService</code>,<code>PowerManagerService</code>，同时加载系统的其他如<code>VibratorService</code>，<code>ConnectivityService</code>以及<code>TelephonyRegistry</code>等系统服务，最后着手启动HOME activity:</p>
+<h2 id="launcher的启动"><strong>Launcher的启动</strong></h2>
+<p>系统进程<code>SystemServer</code>启动后，开始加载系统核心服务如
+<code>ActivityManagerService</code>,<code>WindowManagerService</code>,<code>PowerManagerService</code>，同时加载系统的其他如<code>VibratorService</code>，<code>ConnectivityService</code>以及<code>TelephonyRegistry</code>等系统服务，最后着手启动HOME
+activity:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">startOtherServices</span><span class="params">()</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 准备启动SystemUI以及HOME界面</span></span><br><span class="line">    mActivityManagerService.systemReady(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">            mSystemServiceManager.startBootPhase(</span><br><span class="line">                    SystemService.PHASE_ACTIVITY_MANAGER_READY);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                mActivityManagerService.startObservingNativeCrashes();</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                reportWtf(<span class="string">&quot;observing native crashes&quot;</span>, e);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">            Trace.traceBegin(Trace.TRACE_TAG_SYSTEM_SERVER, <span class="string">&quot;StartSystemUI&quot;</span>);</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                startSystemUi(context);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Throwable e) &#123;</span><br><span class="line">                reportWtf(<span class="string">&quot;starting System UI&quot;</span>, e);</span><br><span class="line">            &#125;</span><br><span class="line">            ....</span><br><span class="line">            <span class="comment">// 第三方应用可以启动了</span></span><br><span class="line">            mSystemServiceManager.startBootPhase(</span><br><span class="line">                    SystemService.PHASE_THIRD_PARTY_APPS_CAN_START);</span><br><span class="line"></span><br><span class="line">            ....</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>AMS准备工作完毕，着手启动HOME：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">systemReady</span><span class="params">(<span class="keyword">final</span> Runnable goingCallback)</span> &#123;</span><br><span class="line">       ....</span><br><span class="line">       <span class="comment">//获取系统配置</span></span><br><span class="line">       retrieveSettings();</span><br><span class="line">       <span class="keyword">final</span> <span class="type">int</span> currentUserId;</span><br><span class="line">       <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">           currentUserId = mUserController.getCurrentUserIdLocked();</span><br><span class="line">           readGrantedUriPermissionsLocked();</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="comment">// 执行回调</span></span><br><span class="line">       <span class="keyword">if</span> (goingCallback != <span class="literal">null</span>) goingCallback.run();</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">       <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">    </span><br><span class="line">           <span class="comment">// Start up initial activity.</span></span><br><span class="line">           mBooting = <span class="literal">true</span>;</span><br><span class="line">           <span class="comment">// Enable home activity for system user, so that the system can always boot</span></span><br><span class="line">           <span class="keyword">if</span> (UserManager.isSplitSystemUser()) &#123;</span><br><span class="line">               <span class="type">ComponentName</span> <span class="variable">cName</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ComponentName</span>(mContext, SystemUserHomeActivity.class);</span><br><span class="line">               <span class="keyword">try</span> &#123;</span><br><span class="line">                   AppGlobals.getPackageManager().setComponentEnabledSetting(cName,</span><br><span class="line">                           PackageManager.COMPONENT_ENABLED_STATE_ENABLED, <span class="number">0</span>,</span><br><span class="line">                           UserHandle.USER_SYSTEM);</span><br><span class="line">               &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">                   <span class="keyword">throw</span> e.rethrowAsRuntimeException();</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="comment">// 启动HOME应用</span></span><br><span class="line">           startHomeActivityLocked(currentUserId, <span class="string">&quot;systemReady&quot;</span>);</span><br><span class="line">    </span><br><span class="line">   &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">systemReady</span><span class="params">(<span class="keyword">final</span> Runnable goingCallback)</span> &#123;</span><br><span class="line">       ....</span><br><span class="line">       <span class="comment">//获取系统配置</span></span><br><span class="line">       retrieveSettings();</span><br><span class="line">       <span class="keyword">final</span> <span class="type">int</span> currentUserId;</span><br><span class="line">       <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">           currentUserId = mUserController.getCurrentUserIdLocked();</span><br><span class="line">           readGrantedUriPermissionsLocked();</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="comment">// 执行回调</span></span><br><span class="line">       <span class="keyword">if</span> (goingCallback != <span class="literal">null</span>) goingCallback.run();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">       <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">    </span><br><span class="line">           <span class="comment">// Start up initial activity.</span></span><br><span class="line">           mBooting = <span class="literal">true</span>;</span><br><span class="line">           <span class="comment">// Enable home activity for system user, so that the system can always boot</span></span><br><span class="line">           <span class="keyword">if</span> (UserManager.isSplitSystemUser()) &#123;</span><br><span class="line">               <span class="type">ComponentName</span> <span class="variable">cName</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ComponentName</span>(mContext, SystemUserHomeActivity.class);</span><br><span class="line">               <span class="keyword">try</span> &#123;</span><br><span class="line">                   AppGlobals.getPackageManager().setComponentEnabledSetting(cName,</span><br><span class="line">                           PackageManager.COMPONENT_ENABLED_STATE_ENABLED, <span class="number">0</span>,</span><br><span class="line">                           UserHandle.USER_SYSTEM);</span><br><span class="line">               &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">                   <span class="keyword">throw</span> e.rethrowAsRuntimeException();</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="comment">// 启动HOME应用</span></span><br><span class="line">           startHomeActivityLocked(currentUserId, <span class="string">&quot;systemReady&quot;</span>);</span><br><span class="line">    </span><br><span class="line">   &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>启动HOME界面:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">    </span><br><span class="line"><span class="type">String</span> <span class="variable">mTopAction</span> <span class="operator">=</span> Intent.ACTION_MAIN;</span><br><span class="line">    </span><br><span class="line">Intent <span class="title function_">getHomeIntent</span><span class="params">()</span> &#123;</span><br><span class="line">    </span><br><span class="line">       <span class="type">Intent</span> <span class="variable">intent</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Intent</span>(mTopAction, mTopData != <span class="literal">null</span> ? Uri.parse(mTopData) : <span class="literal">null</span>);</span><br><span class="line">       intent.setComponent(mTopComponent);</span><br><span class="line">       intent.addFlags(Intent.FLAG_DEBUG_TRIAGED_MISSING);</span><br><span class="line">       <span class="keyword">if</span> (mFactoryTest != FactoryTest.FACTORY_TEST_LOW_LEVEL) &#123;</span><br><span class="line">           <span class="comment">// intent的类别为HOME</span></span><br><span class="line">           intent.addCategory(Intent.CATEGORY_HOME);</span><br><span class="line">          &#125;</span><br><span class="line">       <span class="keyword">return</span> intent;</span><br><span class="line">   &#125;</span><br><span class="line">    </span><br><span class="line">   <span class="type">boolean</span> <span class="title function_">startHomeActivityLocked</span><span class="params">(<span class="type">int</span> userId, String reason)</span> &#123;</span><br><span class="line">    </span><br><span class="line">       <span class="type">Intent</span> <span class="variable">intent</span> <span class="operator">=</span> getHomeIntent();</span><br><span class="line">    </span><br><span class="line">       <span class="type">ActivityInfo</span> <span class="variable">aInfo</span> <span class="operator">=</span></span><br><span class="line">           resolveActivityInfo(intent, STOCK_PM_FLAGS | (needToCheckBbc ? PackageManager.GET_META_DATA : <span class="number">0</span>), userId);</span><br><span class="line">    </span><br><span class="line">       <span class="keyword">if</span> (aInfo != <span class="literal">null</span>) &#123;</span><br><span class="line">           intent.setComponent(<span class="keyword">new</span> <span class="title class_">ComponentName</span>(aInfo.applicationInfo.packageName, aInfo.name));</span><br><span class="line">           <span class="comment">// Don&#x27;t do this if the home app is currently being</span></span><br><span class="line">           <span class="comment">// instrumented.</span></span><br><span class="line">           aInfo = <span class="keyword">new</span> <span class="title class_">ActivityInfo</span>(aInfo);</span><br><span class="line">           aInfo.applicationInfo = getAppInfoForUser(aInfo.applicationInfo, userId);</span><br><span class="line">           <span class="type">ProcessRecord</span> <span class="variable">app</span> <span class="operator">=</span> getProcessRecordLocked(aInfo.processName,</span><br><span class="line">                   aInfo.applicationInfo.uid, <span class="literal">true</span>);</span><br><span class="line">           <span class="keyword">if</span> (app == <span class="literal">null</span> || app.instrumentationClass == <span class="literal">null</span>) &#123;</span><br><span class="line">               intent.setFlags(intent.getFlags() | Intent.FLAG_ACTIVITY_NEW_TASK);</span><br><span class="line">    </span><br><span class="line">               <span class="keyword">if</span> (needToCheckBbc) &#123;</span><br><span class="line">                   aInfo = PersonaManagerService.changeInfoIfBBC(mContext, aInfo, intent);</span><br><span class="line">               &#125;</span><br><span class="line">               mActivityStarter.startHomeActivityLocked(intent, aInfo, reason);</span><br><span class="line">           &#125;</span><br><span class="line">       &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">           Slog.wtf(TAG, <span class="string">&quot;No home screen found for &quot;</span> + intent, <span class="keyword">new</span> <span class="title class_">Throwable</span>());</span><br><span class="line">       &#125;</span><br><span class="line">    </span><br><span class="line">       <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">String</span> <span class="variable">mTopAction</span> <span class="operator">=</span> Intent.ACTION_MAIN;</span><br><span class="line">    </span><br><span class="line">Intent <span class="title function_">getHomeIntent</span><span class="params">()</span> &#123;</span><br><span class="line">    </span><br><span class="line">       <span class="type">Intent</span> <span class="variable">intent</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Intent</span>(mTopAction, mTopData != <span class="literal">null</span> ? Uri.parse(mTopData) : <span class="literal">null</span>);</span><br><span class="line">       intent.setComponent(mTopComponent);</span><br><span class="line">       intent.addFlags(Intent.FLAG_DEBUG_TRIAGED_MISSING);</span><br><span class="line">       <span class="keyword">if</span> (mFactoryTest != FactoryTest.FACTORY_TEST_LOW_LEVEL) &#123;</span><br><span class="line">           <span class="comment">// intent的类别为HOME</span></span><br><span class="line">           intent.addCategory(Intent.CATEGORY_HOME);</span><br><span class="line">          &#125;</span><br><span class="line">       <span class="keyword">return</span> intent;</span><br><span class="line">   &#125;</span><br><span class="line">    </span><br><span class="line">   <span class="type">boolean</span> <span class="title function_">startHomeActivityLocked</span><span class="params">(<span class="type">int</span> userId, String reason)</span> &#123;</span><br><span class="line">    </span><br><span class="line">       <span class="type">Intent</span> <span class="variable">intent</span> <span class="operator">=</span> getHomeIntent();</span><br><span class="line">    </span><br><span class="line">       <span class="type">ActivityInfo</span> <span class="variable">aInfo</span> <span class="operator">=</span></span><br><span class="line">           resolveActivityInfo(intent, STOCK_PM_FLAGS | (needToCheckBbc ? PackageManager.GET_META_DATA : <span class="number">0</span>), userId);</span><br><span class="line">    </span><br><span class="line">       <span class="keyword">if</span> (aInfo != <span class="literal">null</span>) &#123;</span><br><span class="line">           intent.setComponent(<span class="keyword">new</span> <span class="title class_">ComponentName</span>(aInfo.applicationInfo.packageName, aInfo.name));</span><br><span class="line">           <span class="comment">// Don&#x27;t do this if the home app is currently being</span></span><br><span class="line">           <span class="comment">// instrumented.</span></span><br><span class="line">           aInfo = <span class="keyword">new</span> <span class="title class_">ActivityInfo</span>(aInfo);</span><br><span class="line">           aInfo.applicationInfo = getAppInfoForUser(aInfo.applicationInfo, userId);</span><br><span class="line">           <span class="type">ProcessRecord</span> <span class="variable">app</span> <span class="operator">=</span> getProcessRecordLocked(aInfo.processName,</span><br><span class="line">                   aInfo.applicationInfo.uid, <span class="literal">true</span>);</span><br><span class="line">           <span class="keyword">if</span> (app == <span class="literal">null</span> || app.instrumentationClass == <span class="literal">null</span>) &#123;</span><br><span class="line">               intent.setFlags(intent.getFlags() | Intent.FLAG_ACTIVITY_NEW_TASK);</span><br><span class="line">    </span><br><span class="line">               <span class="keyword">if</span> (needToCheckBbc) &#123;</span><br><span class="line">                   aInfo = PersonaManagerService.changeInfoIfBBC(mContext, aInfo, intent);</span><br><span class="line">               &#125;</span><br><span class="line">               mActivityStarter.startHomeActivityLocked(intent, aInfo, reason);</span><br><span class="line">           &#125;</span><br><span class="line">       &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">           Slog.wtf(TAG, <span class="string">&quot;No home screen found for &quot;</span> + intent, <span class="keyword">new</span> <span class="title class_">Throwable</span>());</span><br><span class="line">       &#125;</span><br><span class="line">    </span><br><span class="line">       <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>向AMS发送启动Activity的Binder请求：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">ActivityStarter</span> &#123;</span><br><span class="line">   ....</span><br><span class="line">   <span class="keyword">void</span> <span class="title function_">startHomeActivityLocked</span><span class="params">(Intent intent, ActivityInfo aInfo, String reason)</span> &#123;</span><br><span class="line">        <span class="comment">//将HOME activity放在任务栈的顶部</span></span><br><span class="line">        mSupervisor.moveHomeStackTaskToTop(HOME_ACTIVITY_TYPE, reason);</span><br><span class="line">        <span class="comment">//向AMS发送binder请求，启动activity</span></span><br><span class="line">        startActivityLocked(<span class="literal">null</span> <span class="comment">/*caller*/</span>, intent, <span class="literal">null</span> <span class="comment">/*ephemeralIntent*/</span>,</span><br><span class="line">                <span class="literal">null</span> <span class="comment">/*resolvedType*/</span>, aInfo, <span class="literal">null</span> <span class="comment">/*rInfo*/</span>, <span class="literal">null</span> <span class="comment">/*voiceSession*/</span>,</span><br><span class="line">                <span class="literal">null</span> <span class="comment">/*voiceInteractor*/</span>, <span class="literal">null</span> <span class="comment">/*resultTo*/</span>, <span class="literal">null</span> <span class="comment">/*resultWho*/</span>,</span><br><span class="line">                <span class="number">0</span> <span class="comment">/*requestCode*/</span>, <span class="number">0</span> <span class="comment">/*callingPid*/</span>, <span class="number">0</span> <span class="comment">/*callingUid*/</span>, <span class="literal">null</span> <span class="comment">/*callingPackage*/</span>,</span><br><span class="line">                <span class="number">0</span> <span class="comment">/*realCallingPid*/</span>, <span class="number">0</span> <span class="comment">/*realCallingUid*/</span>, <span class="number">0</span> <span class="comment">/*startFlags*/</span>, <span class="literal">null</span> <span class="comment">/*options*/</span>,</span><br><span class="line">                <span class="literal">false</span> <span class="comment">/*ignoreTargetSecurity*/</span>, <span class="literal">false</span> <span class="comment">/*componentSpecified*/</span>, <span class="literal">null</span> <span class="comment">/*outActivity*/</span>,</span><br><span class="line">                <span class="literal">null</span> <span class="comment">/*container*/</span>, <span class="literal">null</span> <span class="comment">/*inTask*/</span>);</span><br><span class="line">        <span class="keyword">if</span> (mSupervisor.inResumeTopActivity) &#123;</span><br><span class="line">            <span class="comment">// If we are in resume section already, home activity will be initialized, but not</span></span><br><span class="line">            <span class="comment">// resumed (to avoid recursive resume) and will stay that way until something pokes it</span></span><br><span class="line">            <span class="comment">// again. We need to schedule another resume.</span></span><br><span class="line">            mSupervisor.scheduleResumeTopActivities();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>至此HOME启动完成了。</p>
-<h2 id="自定义Launcher"><a href="#自定义Launcher" class="headerlink" title="自定义Launcher"></a><strong>自定义Launcher</strong></h2><p>那么，如何来定义自己的Launcher了？这里，我们写一个简单的Launcher界面，上面列出了系统的应用程序，点击上面的图标即可启动应用。</p>
-<p>首先，新建一个Activity: CustomHomeActivity：其中主要包含了一个GridView用于显示APP的图标跟名字，APP数据采用Loader进行异步加载，加载完后，数据跟GridView进行绑定。注意，在<code>AndroidManifest.xml</code>中声明activity，必须加上如下<code>intent-filter</code>:</p>
+<h2 id="自定义launcher"><strong>自定义Launcher</strong></h2>
+<p>那么，如何来定义自己的Launcher了？这里，我们写一个简单的Launcher界面，上面列出了系统的应用程序，点击上面的图标即可启动应用。</p>
+<p>首先，新建一个Activity:
+CustomHomeActivity：其中主要包含了一个GridView用于显示APP的图标跟名字，APP数据采用Loader进行异步加载，加载完后，数据跟GridView进行绑定。注意，在<code>AndroidManifest.xml</code>中声明activity，必须加上如下<code>intent-filter</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">&lt;intent-filter&gt;</span><br><span class="line">    &lt;action android:name=<span class="string">&quot;android.intent.action.MAIN&quot;</span>/&gt;</span><br><span class="line">    &lt;category android:name=<span class="string">&quot;android.intent.category.LAUNCHER&quot;</span>/&gt;</span><br><span class="line">    &lt;category android:name=<span class="string">&quot;android.intent.category.HOME&quot;</span>/&gt;</span><br><span class="line">    &lt;category android:name=<span class="string">&quot;android.intent.category.DEFAULT&quot;</span>/&gt;</span><br><span class="line">&lt;/intent-filter&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>这样，每次用户点击Home按键时，系统就会弹出对话框让你选择启动哪一个Launcher。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CustomHomeActivity</span> <span class="keyword">extends</span> <span class="title class_">AppCompatActivity</span> <span class="keyword">implements</span> <span class="title class_">LoaderManager</span>.LoaderCallbacks&lt;List&lt;AppItem&gt;&gt;,</span><br><span class="line">	    AppItemAdapter.ItemClickListener&#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">TAG</span> <span class="operator">=</span> <span class="string">&quot;CustomHomeActivity&quot;</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">APP_LOADER</span> <span class="operator">=</span> <span class="number">0x01</span>;</span><br><span class="line">	<span class="comment">//<span class="doctag">FIXME:</span> sometimes the gridview is empty; it seems tha data is lost</span></span><br><span class="line">	<span class="keyword">private</span> GridView mGvAppsList;</span><br><span class="line">	<span class="keyword">private</span> AppItemAdapter mAdapter;</span><br><span class="line">	<span class="keyword">private</span> List&lt;AppItem&gt; mAppList;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onCreate</span><span class="params">(Bundle savedInstanceState)</span> &#123;</span><br><span class="line">	    <span class="built_in">super</span>.onCreate(savedInstanceState);</span><br><span class="line">	    Log.v(TAG, <span class="string">&quot;onCreate()&quot;</span>);</span><br><span class="line"></span><br><span class="line">	    setContentView(R.layout.activity_custom_home);</span><br><span class="line"></span><br><span class="line">	    mGvAppsList = (GridView)findViewById(R.id.gv_app_list);</span><br><span class="line"></span><br><span class="line">	    mAdapter = <span class="keyword">new</span> <span class="title class_">AppItemAdapter</span>(<span class="built_in">this</span>);</span><br><span class="line">	    mGvAppsList.setAdapter(mAdapter);</span><br><span class="line">	    mAdapter.setListener(<span class="built_in">this</span>);</span><br><span class="line"></span><br><span class="line">	    getSupportLoaderManager().initLoader(APP_LOADER,<span class="literal">null</span>,CustomHomeActivity.<span class="built_in">this</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onResume</span><span class="params">()</span>&#123;</span><br><span class="line">	    <span class="built_in">super</span>.onResume();</span><br><span class="line"></span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;onResume()&quot;</span>);</span><br><span class="line"></span><br><span class="line">	    <span class="type">Loader</span> <span class="variable">loader</span> <span class="operator">=</span> getSupportLoaderManager().getLoader(APP_LOADER);</span><br><span class="line">	    <span class="keyword">if</span>(mAppList == <span class="literal">null</span> || !loader.isStarted())&#123;</span><br><span class="line">	        loader.startLoading();</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> Loader&lt;List&lt;AppItem&gt;&gt; <span class="title function_">onCreateLoader</span><span class="params">(<span class="type">int</span> id, Bundle args)</span> &#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;onCreateLoader()&quot;</span>);</span><br><span class="line">	    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">AppLoader</span>(getApplicationContext());</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onLoadFinished</span><span class="params">(Loader&lt;List&lt;AppItem&gt;&gt; loader, List&lt;AppItem&gt; data)</span> &#123;</span><br><span class="line">	    Log.v(TAG, <span class="string">&quot;onLoadFinished&quot;</span>);</span><br><span class="line"></span><br><span class="line">	    mAdapter.setData(data);</span><br><span class="line">	    mAdapter.notifyDataSetChanged();</span><br><span class="line">	    <span class="comment">//mGvAppsList.requestLayout();</span></span><br><span class="line">	    mAppList = data;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onLoaderReset</span><span class="params">(Loader&lt;List&lt;AppItem&gt;&gt; loader)</span> &#123;</span><br><span class="line">	    loader.forceLoad();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onItemClick</span><span class="params">(<span class="type">int</span> position)</span> &#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;onItemClick(): pos = &quot;</span> + position);</span><br><span class="line"></span><br><span class="line">	    <span class="type">PackageManager</span> <span class="variable">pm</span> <span class="operator">=</span> getPackageManager();</span><br><span class="line">	    <span class="type">String</span> <span class="variable">pkgName</span> <span class="operator">=</span> mAppList.get(position).getAppInfo().packageName;</span><br><span class="line">	    <span class="type">Intent</span> <span class="variable">intent</span> <span class="operator">=</span> pm.getLaunchIntentForPackage(pkgName);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(intent != <span class="literal">null</span>)&#123;</span><br><span class="line">	        startActivity(intent);</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>现在，就要定义一个Loader用于APP数据的读取与加载，加载完后，把数据传给主线程;这里为了，提高加载的速度，利用DiskLruCache来做数据缓存(只是个示例,具体性能估计提高不大)：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AppLoader</span> <span class="keyword">extends</span> <span class="title class_">AsyncTaskLoader</span>&lt;List&lt;AppItem&gt;&gt; &#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">TAG</span> <span class="operator">=</span> <span class="string">&quot;AppLoader&quot;</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">DISK_CACHE_SIZE</span> <span class="operator">=</span> <span class="number">1024</span>*<span class="number">1024</span>*<span class="number">50</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">DISK_CACHE_NAME</span> <span class="operator">=</span> <span class="string">&quot;MyLauncher&quot;</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">DISK_CACHE_INDEX</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> PackageManager mPackageMgr;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> List&lt;AppItem&gt; mAppList;</span><br><span class="line">	<span class="keyword">private</span> HashSet&lt;String&gt; mAppsName;</span><br><span class="line">	<span class="comment">// disk file cache for app icon</span></span><br><span class="line">	<span class="keyword">private</span> DiskLruCache mDiskCache;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="title function_">AppLoader</span><span class="params">(Context context)</span> &#123;</span><br><span class="line">	    <span class="built_in">super</span>(context);</span><br><span class="line"></span><br><span class="line">	    mPackageMgr = context.getPackageManager();</span><br><span class="line"></span><br><span class="line">	    <span class="type">File</span> <span class="variable">cachePath</span> <span class="operator">=</span> getDiskCachePath(context);</span><br><span class="line">	    <span class="keyword">if</span>(!cachePath.exists())&#123;</span><br><span class="line">	        cachePath.mkdirs();</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        <span class="keyword">if</span>(getUsableSpace(cachePath) &gt; DISK_CACHE_SIZE) &#123;</span><br><span class="line">	            mDiskCache = DiskLruCache.open(cachePath, <span class="number">1</span>, <span class="number">1</span>, DISK_CACHE_SIZE);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (IOException e)&#123;</span><br><span class="line">	        e.printStackTrace();</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> List&lt;AppItem&gt; <span class="title function_">loadInBackground</span><span class="params">()</span> &#123;</span><br><span class="line">	    Log.v(TAG, <span class="string">&quot;loadInBackground()&quot;</span>);</span><br><span class="line"></span><br><span class="line">	    List&lt;ApplicationInfo&gt; appInfoList = mPackageMgr.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(appInfoList == <span class="literal">null</span>)&#123;</span><br><span class="line">	        appInfoList = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;loadInBackground(): installed apps size = &quot;</span> + appInfoList.size());</span><br><span class="line"></span><br><span class="line">	    mAppList = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;(appInfoList.size());</span><br><span class="line">	    mAppsName = <span class="keyword">new</span> <span class="title class_">HashSet</span>&lt;&gt;();</span><br><span class="line">	    <span class="keyword">for</span>(ApplicationInfo info: appInfoList)&#123;</span><br><span class="line">	        <span class="type">String</span> <span class="variable">pkgName</span> <span class="operator">=</span> info.packageName;</span><br><span class="line">	        <span class="type">String</span> <span class="variable">label</span> <span class="operator">=</span> mPackageMgr.getApplicationLabel(info).toString();</span><br><span class="line">	        <span class="comment">// only launchable app is added</span></span><br><span class="line">	        <span class="keyword">if</span>(!mAppsName.contains(label) &amp;&amp;</span><br><span class="line">	                mPackageMgr.getLaunchIntentForPackage(pkgName) != <span class="literal">null</span>)&#123;</span><br><span class="line">	            <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> getCacheKey(pkgName);</span><br><span class="line">	            <span class="type">Drawable</span> <span class="variable">d</span> <span class="operator">=</span> loadFromDiskCache(key);</span><br><span class="line"></span><br><span class="line">	            AppItem item;</span><br><span class="line">	            <span class="keyword">if</span>(d != <span class="literal">null</span>)&#123;</span><br><span class="line">	                item = <span class="keyword">new</span> <span class="title class_">AppItem</span>(mPackageMgr,d,label);</span><br><span class="line">	                saveIconToDiskCache(key,d);</span><br><span class="line">	            &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">	                item = <span class="keyword">new</span> <span class="title class_">AppItem</span>(mPackageMgr, info);</span><br><span class="line">	                saveIconToDiskCache(key,item.getAppIcon());</span><br><span class="line">	            &#125;</span><br><span class="line"></span><br><span class="line">	            mAppList.add(item);</span><br><span class="line">	            mAppsName.add(label);</span><br><span class="line"></span><br><span class="line">	            Log.v(TAG,<span class="string">&quot;application label : label &quot;</span> + label);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    Log.v(TAG, <span class="string">&quot;loadInBackground(): app size = &quot;</span> + mAppList.size());</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> mAppList;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">deliverResult</span><span class="params">(List&lt;AppItem&gt; appList)</span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;deliverResult()&quot;</span>);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(isReset())&#123;</span><br><span class="line">	        <span class="keyword">if</span>(appList != <span class="literal">null</span>)&#123;</span><br><span class="line">	            onReleaseResources(appList);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    List&lt;AppItem&gt; oldApps = mAppList;</span><br><span class="line">	    mAppList = appList;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(isStarted())&#123;</span><br><span class="line">	        <span class="built_in">super</span>.deliverResult(appList);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(oldApps != <span class="literal">null</span>)&#123;</span><br><span class="line">	        onReleaseResources(oldApps);</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onStartLoading</span><span class="params">()</span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;onStartLoading()&quot;</span>);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(mAppList != <span class="literal">null</span>)&#123;</span><br><span class="line">	        deliverResult(mAppList);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">if</span>(takeContentChanged() || mAppList == <span class="literal">null</span>)&#123;</span><br><span class="line">	        forceLoad();</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onStopLoading</span><span class="params">()</span>&#123;</span><br><span class="line">	    cancelLoad();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onCanceled</span><span class="params">(List&lt;AppItem&gt; apps)</span> &#123;</span><br><span class="line">	    <span class="built_in">super</span>.onCanceled(apps);</span><br><span class="line"></span><br><span class="line">	    onReleaseResources(apps);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onReset</span><span class="params">()</span>&#123;</span><br><span class="line">	    <span class="built_in">super</span>.onReset();</span><br><span class="line"></span><br><span class="line">	    onStopLoading();</span><br><span class="line">	    <span class="keyword">if</span>(mAppList != <span class="literal">null</span>)&#123;</span><br><span class="line">	        onReleaseResources(mAppList);</span><br><span class="line">	        mAppList = <span class="literal">null</span>;</span><br><span class="line">	        mAppsName = <span class="literal">null</span>;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// take care of releasing resources</span></span><br><span class="line">	<span class="keyword">protected</span> <span class="keyword">void</span> <span class="title function_">onReleaseResources</span><span class="params">(List&lt;AppItem&gt; apps)</span> &#123;</span><br><span class="line">	    <span class="comment">// for cursor, we may want to close it</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> String <span class="title function_">getCacheKey</span><span class="params">(String pkgName)</span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;getCacheKey()&quot;</span>);</span><br><span class="line">	    String key;</span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        <span class="type">MessageDigest</span> <span class="variable">digest</span> <span class="operator">=</span> MessageDigest.getInstance(<span class="string">&quot;SHA&quot;</span>);</span><br><span class="line">	        digest.update(pkgName.getBytes());</span><br><span class="line">	        key = bytesToHexString(digest.digest());</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (NoSuchAlgorithmException e)&#123;</span><br><span class="line">	        key = pkgName;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> key;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="type">boolean</span> <span class="title function_">saveIconToDiskCache</span><span class="params">(String key,Drawable icon)</span>&#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;saveIconToDiskCache()&quot;</span>);</span><br><span class="line">	    <span class="keyword">if</span>(mDiskCache == <span class="literal">null</span>)&#123;</span><br><span class="line">	        Log.e(TAG,<span class="string">&quot;saveIconToDiskCache(): disk cache is not available&quot;</span>);</span><br><span class="line">	        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">	    &#125;</span><br><span class="line">	    <span class="type">Bitmap</span> <span class="variable">bitmap</span> <span class="operator">=</span> BitmapUtil.drawableToBitmap(icon);</span><br><span class="line">	    <span class="type">ByteArrayOutputStream</span> <span class="variable">bos</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ByteArrayOutputStream</span>(bitmap.getByteCount());</span><br><span class="line">	    bitmap.compress(Bitmap.CompressFormat.PNG,<span class="number">100</span>,bos);</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        DiskLruCache.<span class="type">Editor</span> <span class="variable">editor</span> <span class="operator">=</span> mDiskCache.edit(key);</span><br><span class="line">	        <span class="keyword">if</span>(editor != <span class="literal">null</span>)&#123;</span><br><span class="line">	            <span class="type">OutputStream</span> <span class="variable">os</span> <span class="operator">=</span> editor.newOutputStream(DISK_CACHE_INDEX);</span><br><span class="line">	            os.write(bos.toByteArray());</span><br><span class="line">	            editor.commit();</span><br><span class="line">	        &#125;</span><br><span class="line">	        <span class="comment">// write to disk</span></span><br><span class="line">	        mDiskCache.flush();</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (IOException e)&#123;</span><br><span class="line">	        e.printStackTrace();</span><br><span class="line">	        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> Drawable <span class="title function_">loadFromDiskCache</span><span class="params">(String key)</span> &#123;</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;loadFromDiskCache()&quot;</span>);</span><br><span class="line">	    <span class="keyword">if</span>(mDiskCache == <span class="literal">null</span> || mDiskCache.size() &lt;= <span class="number">0</span>)&#123;</span><br><span class="line">	        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">try</span> &#123;</span><br><span class="line">	        DiskLruCache.<span class="type">Snapshot</span> <span class="variable">snapshot</span> <span class="operator">=</span> mDiskCache.get(key);</span><br><span class="line">	        <span class="keyword">if</span>(snapshot != <span class="literal">null</span>) &#123;</span><br><span class="line">	            <span class="type">FileInputStream</span> <span class="variable">fis</span> <span class="operator">=</span> (FileInputStream) snapshot.getInputStream(DISK_CACHE_INDEX);</span><br><span class="line">	            <span class="type">Bitmap</span> <span class="variable">bitmap</span> <span class="operator">=</span> BitmapFactory.decodeStream(fis);</span><br><span class="line">	            <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">BitmapDrawable</span>(getContext().getResources(),bitmap);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;<span class="keyword">catch</span> (IOException e)&#123;</span><br><span class="line">	        e.printStackTrace();</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> File <span class="title function_">getDiskCachePath</span><span class="params">(Context context)</span>&#123;</span><br><span class="line">	    <span class="type">boolean</span> <span class="variable">isExternalMounted</span> <span class="operator">=</span> Environment.getExternalStorageState().</span><br><span class="line">	            equals(Environment.MEDIA_MOUNTED);</span><br><span class="line">	    File diskCacheDir;</span><br><span class="line">	    <span class="keyword">if</span>(!isExternalMounted)&#123;</span><br><span class="line">	        diskCacheDir = <span class="keyword">new</span> <span class="title class_">File</span>(context.getCacheDir(),DISK_CACHE_NAME);</span><br><span class="line">	    &#125;<span class="keyword">else</span>&#123;</span><br><span class="line">	        diskCacheDir = <span class="keyword">new</span> <span class="title class_">File</span>(Environment.getExternalStorageDirectory(),DISK_CACHE_NAME);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> diskCacheDir;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="type">long</span> <span class="title function_">getUsableSpace</span><span class="params">(File path)</span>&#123;</span><br><span class="line">	    <span class="type">long</span> <span class="variable">size</span> <span class="operator">=</span> path.getUsableSpace();</span><br><span class="line">	    Log.v(TAG,<span class="string">&quot;getUsableSpace(): size = &quot;</span> + size);</span><br><span class="line">	    <span class="keyword">return</span> size;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> String <span class="title function_">bytesToHexString</span><span class="params">(<span class="type">byte</span>[] bytes)</span> &#123;</span><br><span class="line">	    <span class="type">StringBuilder</span> <span class="variable">sb</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringBuilder</span>();</span><br><span class="line">	    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; bytes.length; i++) &#123;</span><br><span class="line">	        <span class="type">String</span> <span class="variable">hex</span> <span class="operator">=</span> Integer.toHexString(<span class="number">0xFF</span> &amp; bytes[i]);</span><br><span class="line">	        <span class="keyword">if</span> (hex.length() == <span class="number">1</span>) &#123;</span><br><span class="line">	            sb.append(<span class="string">&#x27;0&#x27;</span>);</span><br><span class="line">	        &#125;</span><br><span class="line">	        sb.append(hex);</span><br><span class="line">	    &#125;</span><br><span class="line">	    <span class="keyword">return</span> sb.toString();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>最后，建立一个ListAdapter，用于将数据与GridView进行绑定：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * an app item adapter to bind data to grid view</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AppItemAdapter</span> <span class="keyword">extends</span> <span class="title class_">BaseAdapter</span>&#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">TAG</span> <span class="operator">=</span> <span class="string">&quot;AppItemAdapter&quot;</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">DEFAULT_WIDTH</span> <span class="operator">=</span> <span class="number">150</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">DEFAULT_HEIGHT</span> <span class="operator">=</span> <span class="number">150</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> Context mContext;</span><br><span class="line">	<span class="keyword">private</span> List&lt;AppItem&gt; mAppList = Collections.EMPTY_LIST;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> SparseArray&lt;View&gt; sViewCache;</span><br><span class="line">	<span class="keyword">private</span> ItemClickListener mListener;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">ItemClickListener</span>&#123;</span><br><span class="line">	    <span class="keyword">void</span> <span class="title function_">onItemClick</span><span class="params">(<span class="type">int</span> position)</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="title function_">AppItemAdapter</span><span class="params">(Context context)</span>&#123;</span><br><span class="line">	    mContext = context;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setListener</span><span class="params">(ItemClickListener listener)</span>&#123;</span><br><span class="line">	    mListener = listener;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">setData</span><span class="params">(List&lt;AppItem&gt; data)</span>&#123;</span><br><span class="line">	    mAppList = data;</span><br><span class="line">	    sViewCache = <span class="keyword">new</span> <span class="title class_">SparseArray</span>&lt;&gt;(data.size());</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> <span class="type">int</span> <span class="title function_">getCount</span><span class="params">()</span> &#123;</span><br><span class="line">	    <span class="keyword">return</span> mAppList.size();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> AppItem <span class="title function_">getItem</span><span class="params">(<span class="type">int</span> position)</span> &#123;</span><br><span class="line">	    <span class="keyword">return</span> mAppList.get(position);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> <span class="type">long</span> <span class="title function_">getItemId</span><span class="params">(<span class="type">int</span> position)</span> &#123;</span><br><span class="line">	    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">public</span> View <span class="title function_">getView</span><span class="params">(<span class="type">int</span> position, View convertView, ViewGroup parent)</span> &#123;</span><br><span class="line">	    <span class="comment">// if use convertView, the binded data list seems to be wrong</span></span><br><span class="line">	    <span class="type">View</span> <span class="variable">root</span> <span class="operator">=</span> sViewCache.get(position);</span><br><span class="line">	    <span class="keyword">if</span>(root == <span class="literal">null</span>) &#123;</span><br><span class="line">	        <span class="type">LayoutInflater</span> <span class="variable">inflater</span> <span class="operator">=</span> (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);</span><br><span class="line">	         root = inflater.inflate(R.layout.layout_app_item, parent, <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">	        <span class="type">ViewHolder</span> <span class="variable">vh</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ViewHolder</span>(root, position);</span><br><span class="line">	        sViewCache.setValueAt(position,root);</span><br><span class="line">	        <span class="comment">//<span class="doctag">TODO:</span> icon size may be different for different apps</span></span><br><span class="line">	        <span class="comment">// keep the size the same</span></span><br><span class="line">	        <span class="type">Drawable</span> <span class="variable">d</span> <span class="operator">=</span> mAppList.get(position).getAppIcon();</span><br><span class="line">	        <span class="type">Bitmap</span> <span class="variable">bitmap</span> <span class="operator">=</span> BitmapUtil.drawableToBitmap(d);</span><br><span class="line">	        <span class="type">Bitmap</span> <span class="variable">scaleBitmap</span> <span class="operator">=</span> Bitmap.createScaledBitmap(bitmap, DEFAULT_WIDTH, DEFAULT_HEIGHT, <span class="literal">false</span>);</span><br><span class="line">	        vh.ivIcon.setImageBitmap(scaleBitmap);</span><br><span class="line">	        vh.tvName.setText(mAppList.get(position).getAppName());</span><br><span class="line"></span><br><span class="line">	        Log.v(TAG, <span class="string">&quot;application label = &quot;</span> + vh.tvName.getText());</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">return</span> root;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">class</span> <span class="title class_">ViewHolder</span>&#123;</span><br><span class="line">	    ImageView ivIcon;</span><br><span class="line">	    TextView tvName;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">public</span> <span class="title function_">ViewHolder</span><span class="params">(View root, <span class="keyword">final</span> <span class="type">int</span> pos)</span>&#123;</span><br><span class="line">	        <span class="type">ImageView</span> <span class="variable">icon</span> <span class="operator">=</span> (ImageView)root.findViewById(R.id.iv_app_icon);</span><br><span class="line">	        <span class="type">TextView</span> <span class="variable">name</span> <span class="operator">=</span> (TextView)root.findViewById(R.id.tv_app_name);</span><br><span class="line">	        ivIcon = icon;</span><br><span class="line">	        tvName = name;</span><br><span class="line"></span><br><span class="line">	        root.setOnClickListener(<span class="keyword">new</span> <span class="title class_">View</span>.OnClickListener() &#123;</span><br><span class="line">	            <span class="meta">@Override</span></span><br><span class="line">	            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onClick</span><span class="params">(View v)</span> &#123;</span><br><span class="line">	                mListener.onItemClick(pos);</span><br><span class="line">	            &#125;</span><br><span class="line">	        &#125;);</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">public</span> <span class="title function_">ViewHolder</span><span class="params">(ImageView icon,TextView name)</span>&#123;</span><br><span class="line">	        ivIcon = icon;</span><br><span class="line">	        tvName = name;</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这样一个简单的Launcher就写好了，项目详情请参考: </p>
-<blockquote><p><a target="_blank" rel="noopener" href="https://github.com/runningforlife/AndroidExamples" title="参考Lanucher目录">https://github.com/runningforlife/AndroidExamples</a></p>
+<p>这样一个简单的Launcher就写好了，项目详情请参考:</p>
+<blockquote><p><a target="_blank" rel="noopener" href="https://github.com/runningforlife/AndroidExamples"
+title="参考Lanucher目录">https://github.com/runningforlife/AndroidExamples</a></p>
 </blockquote>
-
-
-
 
     </article>
     <!-- license -->
@@ -568,7 +562,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">https://sniffer.site/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">February 18th 2017, 9:26:50 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">2021-08-11, 15:11:49</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -734,7 +728,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Launcher%E7%9A%84%E5%90%AF%E5%8A%A8"><span class="toc-number">1.</span> <span class="toc-text">Launcher的启动</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89Launcher"><span class="toc-number">2.</span> <span class="toc-text">自定义Launcher</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#launcher%E7%9A%84%E5%90%AF%E5%8A%A8"><span class="toc-number">1.</span> <span class="toc-text">Launcher的启动</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89launcher"><span class="toc-number">2.</span> <span class="toc-text">自定义Launcher</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1383,7 +1377,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2834,7 +2839,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2852,6 +2857,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3710,44 +3721,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3765,14 +3751,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3785,14 +3776,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3803,11 +3794,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3825,14 +3811,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3848,6 +3829,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3880,31 +3871,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3913,6 +3879,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3935,19 +3906,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3963,6 +3924,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -3990,14 +3986,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4010,39 +4006,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4053,16 +4039,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4090,6 +4066,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4105,9 +4106,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4125,41 +4136,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4170,14 +4146,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4205,16 +4186,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4235,9 +4206,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4255,24 +4236,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4280,24 +4261,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4310,9 +4301,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4335,9 +4331,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4360,6 +4356,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4375,14 +4381,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4393,6 +4399,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4410,41 +4436,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4458,6 +4449,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4480,11 +4486,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4500,16 +4501,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4523,6 +4514,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4545,16 +4551,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4570,24 +4566,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4598,6 +4579,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4640,6 +4636,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4655,14 +4671,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4683,21 +4694,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4765,19 +4761,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4795,6 +4781,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4810,16 +4821,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4828,6 +4829,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4850,21 +4866,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4883,16 +4884,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4920,11 +4911,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4945,14 +4931,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -4980,19 +4981,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5005,6 +5001,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5013,6 +5014,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5025,6 +5036,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5046,6 +5062,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5056,19 +5077,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5076,14 +5087,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5101,14 +5112,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5124,11 +5135,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

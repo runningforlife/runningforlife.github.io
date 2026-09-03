@@ -26,15 +26,15 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="线程作为操作系统的最小调度单位。一个进程里可以有多个线程，这些线程有各自的程序计数器、堆栈空间和局部变量，而且可以共享进程的内存空间，因而在上下文切换时时间更短，效率更高，也常被成为轻量级进程(Light Weight Process)。接下来，将从三个方面来介绍Java线程类Thread的具体用法：  线程构造与初始化; 线程状态切换; 线程变量ThreadLocal的使用   Thread:">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ThreadState.jpg">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ThreadState.jpg">
 <meta property="article:published_time" content="2017-05-07T02:41:40.000Z">
-<meta property="article:modified_time" content="2021-08-11T07:06:38.901Z">
+<meta property="article:modified_time" content="2026-09-03T06:08:31.174Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="并发编程">
 <meta property="article:tag" content="Thread">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ThreadState.jpg">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ThreadState.jpg">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -527,26 +527,28 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>线程作为操作系统的最小调度单位。一个进程里可以有多个线程，这些线程有各自的程序计数器、堆栈空间和局部变量，而且可以共享进程的内存空间，因而在上下文切换时时间更短，效率更高，也常被成为轻量级进程(Light Weight Process)。接下来，将从三个方面来介绍Java线程类<code>Thread</code>的具体用法：</p>
+        <p>线程作为操作系统的最小调度单位。一个进程里可以有多个线程，这些线程有各自的程序计数器、堆栈空间和局部变量，而且可以共享进程的内存空间，因而在上下文切换时时间更短，效率更高，也常被成为轻量级进程(Light
+Weight
+Process)。接下来，将从三个方面来介绍Java线程类<code>Thread</code>的具体用法：</p>
 <ul>
 <li>线程构造与初始化;</li>
 <li>线程状态切换;</li>
 <li>线程变量ThreadLocal<T>的使用</li>
 </ul>
 <blockquote>
-<p>Thread: <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Thread_(computing)">https://en.wikipedia.org/wiki/Thread_(computing)</a></p>
+<p>Thread: https://en.wikipedia.org/wiki/Thread_(computing)</p>
 </blockquote>
 <span id="more"></span>
-
-<h2 id="线程的构造与初始化"><a href="#线程的构造与初始化" class="headerlink" title="线程的构造与初始化"></a>线程的构造与初始化</h2><p><code>Thread</code>类提供了多个构造函数，初始化时有四个主要的参数：</p>
+<h2 id="线程的构造与初始化">线程的构造与初始化</h2>
+<p><code>Thread</code>类提供了多个构造函数，初始化时有四个主要的参数：</p>
 <ul>
 <li><code>ThreadGroup</code> 线程所在的线程组;</li>
 <li><code>Runnable</code>目标可执行对象;</li>
 <li><code>String</code> 线程名称;</li>
-<li><code>long</code> stackSize,线程栈空间大小，不指定（为0)时由JVM确定;</li>
+<li><code>long</code>
+stackSize,线程栈空间大小，不指定（为0)时由JVM确定;</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"> <span class="keyword">public</span> <span class="title function_">Thread</span><span class="params">()</span> &#123;</span><br><span class="line">     init(<span class="literal">null</span>, <span class="literal">null</span>, <span class="string">&quot;Thread-&quot;</span> + nextThreadNum(), <span class="number">0</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> </span><br><span class="line"> <span class="keyword">public</span> <span class="title function_">Thread</span><span class="params">(Runnable target)</span> &#123;</span><br><span class="line">     init(<span class="literal">null</span>, target, <span class="string">&quot;Thread-&quot;</span> + nextThreadNum(), <span class="number">0</span>);</span><br><span class="line"> &#125;</span><br><span class="line"> </span><br><span class="line"> ....</span><br><span class="line"> </span><br><span class="line"><span class="keyword">public</span> <span class="title function_">Thread</span><span class="params">(ThreadGroup group, Runnable target, String name,</span></span><br><span class="line"><span class="params">               <span class="type">long</span> stackSize)</span> &#123;</span><br><span class="line">     init(group, target, name, stackSize);</span><br><span class="line"> &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>线程的构造函数最后通过一个<code>init</code>函数来进行初始化，初始化主要完成完成几个事情:</p>
 <ul>
 <li>如果用户没有指定<code>ThreadGroup</code>,则首先需要确定该线程的<code>ThreadGroup</code>;</li>
@@ -555,36 +557,37 @@
 <li>产生线程ID</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"> </span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">init</span><span class="params">(ThreadGroup g, Runnable target, String name,</span></span><br><span class="line"><span class="params">                   <span class="type">long</span> stackSize)</span> &#123;</span><br><span class="line">     <span class="type">Thread</span> <span class="variable">parent</span> <span class="operator">=</span> currentThread();</span><br><span class="line">     <span class="type">SecurityManager</span> <span class="variable">security</span> <span class="operator">=</span> System.getSecurityManager();</span><br><span class="line">     <span class="comment">// 确定ThreadGroup</span></span><br><span class="line">     <span class="keyword">if</span> (g == <span class="literal">null</span>) &#123;</span><br><span class="line">         <span class="comment">/* Determine if it&#x27;s an applet or not */</span></span><br><span class="line"></span><br><span class="line">         <span class="comment">/* If there is a security manager, ask the security manager</span></span><br><span class="line"><span class="comment">            what to do. */</span></span><br><span class="line">         <span class="keyword">if</span> (security != <span class="literal">null</span>) &#123;</span><br><span class="line">             g = security.getThreadGroup();</span><br><span class="line">         &#125;</span><br><span class="line"></span><br><span class="line">         <span class="comment">/* If the security doesn&#x27;t have a strong opinion of the matter</span></span><br><span class="line"><span class="comment">            use the parent thread group. */</span></span><br><span class="line">         <span class="keyword">if</span> (g == <span class="literal">null</span>) &#123;</span><br><span class="line">             g = parent.getThreadGroup();</span><br><span class="line">         &#125;</span><br><span class="line">     &#125;</span><br><span class="line">     <span class="comment">// 增加该线程组中未启动线程的数目</span></span><br><span class="line">     g.addUnstarted();</span><br><span class="line"></span><br><span class="line">     <span class="built_in">this</span>.group = g;</span><br><span class="line">     <span class="comment">// 是否为守护线程/优先级都由父亲线程确定</span></span><br><span class="line">     <span class="built_in">this</span>.daemon = parent.isDaemon();</span><br><span class="line">     <span class="built_in">this</span>.priority = parent.getPriority();</span><br><span class="line">     <span class="built_in">this</span>.name = name.toCharArray();</span><br><span class="line">	</span><br><span class="line">     <span class="built_in">this</span>.target = target;</span><br><span class="line">     setPriority(priority);</span><br><span class="line">     <span class="comment">// 创建ThreadLocal变量对应的ThreadLocalMap</span></span><br><span class="line">     <span class="keyword">if</span> (parent.inheritableThreadLocals != <span class="literal">null</span>)</span><br><span class="line">         <span class="built_in">this</span>.inheritableThreadLocals =</span><br><span class="line">             ThreadLocal.createInheritedMap(parent.inheritableThreadLocals);</span><br><span class="line">     <span class="comment">/* Stash the specified stack size in case the VM cares */</span></span><br><span class="line">     <span class="built_in">this</span>.stackSize = stackSize;</span><br><span class="line"></span><br><span class="line">     <span class="comment">/* 设置线程ID */</span></span><br><span class="line">     tid = nextThreadID();</span><br><span class="line">     <span class="comment">// 初始化完成</span></span><br><span class="line">     <span class="built_in">this</span>.me = <span class="built_in">this</span>;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>线程构造完成后，调用<code>start()</code>即可启动了。</p>
-<h2 id="线程状态"><a href="#线程状态" class="headerlink" title="线程状态"></a>线程状态</h2><p>看<code>Thread.java</code>源码，线程在JVM中有6种不同的状态：</p>
+<h2 id="线程状态">线程状态</h2>
+<p>看<code>Thread.java</code>源码，线程在JVM中有6种不同的状态：</p>
 <ul>
 <li><strong>NEW</strong>： 线程刚创建，还未启动;</li>
 <li><strong>RUNNABLE</strong>: 线程在JVM中开始执行</li>
 <li><strong>BLOCKED</strong>: 线程在等待某个锁时被阻塞</li>
-<li><strong>WAITING</strong>： 线程处于无限期等待另一个线程完成某个动作</li>
-<li><strong>TIMED_WAITING</strong>: 线程等待另一个线程完成某个动作，超时后返回执行;</li>
-<li><strong>TERMINATED</strong>： 线程处于终止状体(执行完成或者推出)</li>
+<li><strong>WAITING</strong>：
+线程处于无限期等待另一个线程完成某个动作</li>
+<li><strong>TIMED_WAITING</strong>:
+线程等待另一个线程完成某个动作，超时后返回执行;</li>
+<li><strong>TERMINATED</strong>：
+线程处于终止状体(执行完成或者推出)</li>
 </ul>
 <p>下图是一个线程状态之间的切换图：</p>
-<img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ThreadState.jpg" class="[full-image]" title="Java Thread State">
-
-
+<img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ThreadState.jpg" class="[full-image]" title="Java Thread State">
 <p>线程创建完成后，调用<code>start</code>开始执行。当线程调用<code>wait</code>方法之后，开始进入等待状态，这是需要在其他线程调用<code>notify/notifyAll</code>进行通知才能返回的运行状态，如果使用了超时等待，线程在等待指定时间长度之后，仍未受到通知，则直接返回运行。若线程尝试通过<code>synchronized</code>获取同步锁，则会进入阻塞状态;在执行完<code>run</code>方法中的代码之后，则会进入终止状态。</p>
-<h2 id="线程变量ThreadLocal的使用"><a href="#线程变量ThreadLocal的使用" class="headerlink" title="线程变量ThreadLocal的使用"></a>线程变量ThreadLocal<T>的使用</h2><p>线程本地变量ThreadLocal允许每个线程都有关于某个变量自己的一份唯一拷贝，线程可通过get&#x2F;set方法来获取或者设置本地变量的值。通常，一个本地变量是一个static型、跟线程状态相关的变量（如用户ID ,交易ID)。</p>
+<h2 id="线程变量threadlocal的使用">线程变量ThreadLocal<T>的使用</h2>
+<p>线程本地变量ThreadLocal允许每个线程都有关于某个变量自己的一份唯一拷贝，线程可通过get/set方法来获取或者设置本地变量的值。通常，一个本地变量是一个static型、跟线程状态相关的变量（如用户ID
+,交易ID)。</p>
 <p>先来看下如何使用ThreadLocal本地变量。例如，我们想要得到一个线程的执行时间，可以这样利用ThreadLocal：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ThreadProfiler</span> &#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal&lt;Long&gt; TIME = <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>&lt;Long&gt;()&#123;</span><br><span class="line">		<span class="keyword">protected</span> Long <span class="title function_">initialValue</span><span class="params">()</span>&#123;</span><br><span class="line">			<span class="keyword">return</span> System.currentTimeMillis();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;;</span><br><span class="line">	</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span>&#123;</span><br><span class="line">		TIME.set(System.currentTimeMillis());</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">end</span><span class="params">()</span>&#123;</span><br><span class="line">		TIME.set(System.currentTimeMillis());</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">long</span> <span class="title function_">getTime</span><span class="params">()</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> System.currentTimeMillis() - TIME.get();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ThreadProfiler</span> &#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal&lt;Long&gt; TIME = <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>&lt;Long&gt;()&#123;</span><br><span class="line">		<span class="keyword">protected</span> Long <span class="title function_">initialValue</span><span class="params">()</span>&#123;</span><br><span class="line">			<span class="keyword">return</span> System.currentTimeMillis();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;;</span><br><span class="line">	</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">()</span>&#123;</span><br><span class="line">		TIME.set(System.currentTimeMillis());</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">end</span><span class="params">()</span>&#123;</span><br><span class="line">		TIME.set(System.currentTimeMillis());</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">long</span> <span class="title function_">getTime</span><span class="params">()</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> System.currentTimeMillis() - TIME.get();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>这样只要在线程开始执行时调用<code>ThreadProfiler.start()</code>，而线程结束时调用<code>ThreadProfiler.getTime()</code>就可以得到线程执行所耗费的时间了。</p>
 <p>ThreadLocal通过一个以ThreadLocal为key,其他任何对象为value的<code>ThreadLocalMap</code>（一个HashMap)来保存线程相关的本地变量值，而每个线程都有自己的一个<code>ThreadLocalMap</code>，这样线程就可以通过ThreadLocal来获取该map对象以ThreadLocal为键值的对象值了。</p>
 <p>线程调用<code>ThreadLocal</code>的<code>set(T value)</code>时，如果已存在一个map对象，则直接将该值以该<code>ThreadLocal</code>对象为键值保存下来；如果线程没有map对象，则需要创建一个新的<code>ThreadLocalMap</code>。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">set</span><span class="params">(T value)</span> &#123;</span><br><span class="line">    <span class="type">Thread</span> <span class="variable">t</span> <span class="operator">=</span> Thread.currentThread();</span><br><span class="line">    <span class="type">ThreadLocalMap</span> <span class="variable">map</span> <span class="operator">=</span> getMap(t);</span><br><span class="line">    <span class="keyword">if</span> (map != <span class="literal">null</span>)</span><br><span class="line">        map.set(<span class="built_in">this</span>, value);</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        createMap(t, value);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">ThreadLocalMap <span class="title function_">getMap</span><span class="params">(Thread t)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> t.threadLocals;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">void</span> <span class="title function_">createMap</span><span class="params">(Thread t, T firstValue)</span> &#123;</span><br><span class="line">    t.threadLocals = <span class="keyword">new</span> <span class="title class_">ThreadLocalMap</span>(<span class="built_in">this</span>, firstValue);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>线程调用<code>ThreadLocal.get()</code>,返回线程的本地变量。如果当前线程已经有一个map对象，并且该map对象有<code>ThreadLocal</code>对应的值，则直接返回;否则对线程的<code>ThreadLocalMap</code>对象<code>threadLocals</code>进行初始化操作。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> T <span class="title function_">get</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">Thread</span> <span class="variable">t</span> <span class="operator">=</span> Thread.currentThread();</span><br><span class="line">    <span class="type">ThreadLocalMap</span> <span class="variable">map</span> <span class="operator">=</span> getMap(t);</span><br><span class="line">    <span class="keyword">if</span> (map != <span class="literal">null</span>) &#123;</span><br><span class="line">        ThreadLocalMap.<span class="type">Entry</span> <span class="variable">e</span> <span class="operator">=</span> map.getEntry(<span class="built_in">this</span>);</span><br><span class="line">        <span class="keyword">if</span> (e != <span class="literal">null</span>)</span><br><span class="line">            <span class="keyword">return</span> (T)e.value;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> setInitialValue();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> T <span class="title function_">setInitialValue</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">T</span> <span class="variable">value</span> <span class="operator">=</span> initialValue();</span><br><span class="line">    <span class="type">Thread</span> <span class="variable">t</span> <span class="operator">=</span> Thread.currentThread();</span><br><span class="line">    <span class="type">ThreadLocalMap</span> <span class="variable">map</span> <span class="operator">=</span> getMap(t);</span><br><span class="line">    <span class="keyword">if</span> (map != <span class="literal">null</span>)</span><br><span class="line">        map.set(<span class="built_in">this</span>, value);</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        createMap(t, value);</span><br><span class="line">    <span class="keyword">return</span> value;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="参考源码"><a href="#参考源码" class="headerlink" title="参考源码"></a>参考源码</h2><ul>
-<li><a target="_blank" rel="noopener" href="http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/6-b27/java/lang/ThreadLocal.java#ThreadLocal">http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/6-b27/java/lang/ThreadLocal.java#ThreadLocal</a></li>
+<h2 id="参考源码">参考源码</h2>
+<ul>
+<li>http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/6-b27/java/lang/ThreadLocal.java#ThreadLocal</li>
 </ul>
 
     </article>
@@ -594,7 +597,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">https://sniffer.site/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">May 7th 2017, 10:41:40 am</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">2021-08-11, 15:06:38</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">2026-09-03, 14:08:31</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -760,7 +763,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E7%9A%84%E6%9E%84%E9%80%A0%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">1.</span> <span class="toc-text">线程的构造与初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81"><span class="toc-number">2.</span> <span class="toc-text">线程状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E5%8F%98%E9%87%8FThreadLocal%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="toc-number">3.</span> <span class="toc-text">线程变量ThreadLocal的使用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%BA%90%E7%A0%81"><span class="toc-number">4.</span> <span class="toc-text">参考源码</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E7%9A%84%E6%9E%84%E9%80%A0%E4%B8%8E%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">1.</span> <span class="toc-text">线程的构造与初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E7%8A%B6%E6%80%81"><span class="toc-number">2.</span> <span class="toc-text">线程状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E5%8F%98%E9%87%8Fthreadlocal%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="toc-number">3.</span> <span class="toc-text">线程变量ThreadLocal的使用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%BA%90%E7%A0%81"><span class="toc-number">4.</span> <span class="toc-text">参考源码</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1409,7 +1412,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2860,7 +2874,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2878,6 +2892,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3736,44 +3756,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3791,14 +3786,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3811,14 +3811,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3829,11 +3829,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3851,14 +3846,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3874,6 +3864,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3906,31 +3906,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3939,6 +3914,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3961,19 +3941,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3989,6 +3959,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4016,14 +4021,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4036,39 +4041,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4079,16 +4074,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4116,6 +4101,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4131,9 +4141,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4151,41 +4171,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4196,14 +4181,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4231,16 +4221,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4261,9 +4241,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4281,24 +4271,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4306,24 +4296,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4336,9 +4336,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4361,9 +4366,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4386,6 +4391,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4401,14 +4416,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4419,6 +4434,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4436,41 +4471,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4484,6 +4484,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4506,11 +4521,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4526,16 +4536,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4549,6 +4549,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4571,16 +4586,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4596,24 +4601,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4624,6 +4614,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4666,6 +4671,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4681,14 +4706,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4709,21 +4729,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4791,19 +4796,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4821,6 +4816,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4836,16 +4856,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4854,6 +4864,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4876,21 +4901,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4909,16 +4919,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4946,11 +4946,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4971,14 +4966,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5006,19 +5016,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5031,6 +5036,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5039,6 +5049,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5051,6 +5071,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5072,6 +5097,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5082,19 +5112,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5102,14 +5122,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5127,14 +5147,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5150,11 +5170,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

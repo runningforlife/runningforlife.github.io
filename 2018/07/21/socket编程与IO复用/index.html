@@ -26,15 +26,13 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="socket通常用于跨进程通信(Inter-Process Communication,IPC)，由于其最早BSD Unix发行版中使用，因此也叫做Barkeley sockets。socket封装了底层网络通信协议细节，为上层应用提供了一个统一的接口，按照使用的“域”不同，又分为用于网络通信的internet socket以及用于本地进程通信的Unix domain socket。 那么，如何利">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/socketflow.png">
 <meta property="article:published_time" content="2018-07-21T14:46:49.000Z">
-<meta property="article:modified_time" content="2021-08-11T07:03:19.227Z">
+<meta property="article:modified_time" content="2026-09-03T06:08:31.182Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="socket programming">
 <meta property="article:tag" content="I&#x2F;O multiplexing">
 <meta property="article:tag" content="network programming">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/socketflow.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -366,7 +364,7 @@
                 
                 
                     <div class="post-intro-read">
-                        <span>字数统计: <span class="post-count word-count">3.4k</span>阅读时长: <span class="post-count reading-time">16 min</span></span>
+                        <span>字数统计: <span class="post-count word-count">3.3k</span>阅读时长: <span class="post-count reading-time">16 min</span></span>
                     </div>
                 
                 <div class="post-intro-meta">
@@ -527,11 +525,16 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>socket通常用于跨进程通信(Inter-Process Communication,IPC)，由于其最早BSD Unix发行版中使用，因此也叫做<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Berkeley_sockets">Barkeley sockets</a>。socket封装了底层网络通信协议细节，为上层应用提供了一个统一的接口，按照使用的“域”不同，又分为用于网络通信的internet socket以及用于本地进程通信的Unix domain socket。</p>
-<p>那么，如何利用socket实现IPC通信了？在多个客户端的情况下，服务端要如何实现同时响应多个客户请求了，即如何实现多个IO端口的监听(I&#x2F;O multiplex)？这篇文章，就来看看这两个问题。首先，来看下socket编程的一些基本知识。</p>
+        <p>socket通常用于跨进程通信(Inter-Process
+Communication,IPC)，由于其最早BSD Unix发行版中使用，因此也叫做<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Berkeley_sockets">Barkeley
+sockets</a>。socket封装了底层网络通信协议细节，为上层应用提供了一个统一的接口，按照使用的“域”不同，又分为用于网络通信的internet
+socket以及用于本地进程通信的Unix domain socket。</p>
+<p>那么，如何利用socket实现IPC通信了？在多个客户端的情况下，服务端要如何实现同时响应多个客户请求了，即如何实现多个IO端口的监听(I/O
+multiplex)？这篇文章，就来看看这两个问题。首先，来看下socket编程的一些基本知识。</p>
 <span id="more"></span>
-
-<h2 id="socket编程基础"><a href="#socket编程基础" class="headerlink" title="socket编程基础"></a><strong>socket编程基础</strong></h2><p>一个socket由三个元素唯一确定：</p>
+<h2 id="socket编程基础"><strong>socket编程基础</strong></h2>
+<p>一个socket由三个元素唯一确定：</p>
 <ul>
 <li>internet地址(如果是Unix domain socket,则对应一个本地文件名)</li>
 <li>端到端的协议类型(面向连接的TCP或者无连接的UDP）</li>
@@ -539,14 +542,14 @@
 </ul>
 <p>在使用socket前，首先需要通过系统调用<code>socket</code>创建一个socket对象，并返回该socket对应的文件描述符：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/types.h&gt;</span> </span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">socket</span><span class="params">(<span class="type">int</span> domain, <span class="type">int</span> type, <span class="type">int</span> protocol)</span></span>;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>创建一个socket需要指定三个参数:</p>
 <ul>
-<li>通信域，确定协议族，比如<code>AF_UNIX/AF_LOCAL</code>用于本地通信；<code>AF_INET/AF_INET6</code>基于TCP&#x2F;IP协议族，用于网络通信;<code>AF_NETLINK</code>用于进程与内核通信；<code>AF_APPLETALK</code>用于AppleTalk通信</li>
+<li>通信域，确定协议族，比如<code>AF_UNIX/AF_LOCAL</code>用于本地通信；<code>AF_INET/AF_INET6</code>基于TCP/IP协议族，用于网络通信;<code>AF_NETLINK</code>用于进程与内核通信；<code>AF_APPLETALK</code>用于AppleTalk通信</li>
 <li>socket类型：<code>SOCK_STREAM</code>提供了序列化、可靠、全双工的字节流通信；<code>SOCK_DGRAM</code>提供了无连接、不可靠的数据报文通信</li>
 <li>协议：指定使用的协议类型，比如是TCP（<code>IPPROTO_TCP</code>)还是UDP(<code>IPPROTO_UDP</code>)，其在<code>sys/un.h</code>中定义；</li>
 </ul>
-<p>| 有关socket参数的具体说明，可参考<a target="_blank" rel="noopener" href="http://www.man7.org/linux/man-pages/man2/socket.2.html">http://www.man7.org/linux/man-pages/man2/socket.2.html</a></p>
+<div class="line-block">有关socket参数的具体说明，可参考<a
+target="_blank" rel="noopener" href="http://www.man7.org/linux/man-pages/man2/socket.2.html">http://www.man7.org/linux/man-pages/man2/socket.2.html</a></div>
 <p>下图是一个基于TCP协议的socket通信流程图(包括握手与挥手流程，这里只说明三次握手流程）：</p>
 <ul>
 <li>对于客户端与服务端进程，都需要通过<code>socket(int, int, int)</code>来创建一个socket，得到一个socket文件描述符用于后续的通信；</li>
@@ -554,86 +557,106 @@
 <li>在客户端，通过调用<code>connect</code>尝试与服务端建立通信链路，在此过程中，客户端与服务端会进行三次握手来建立一个连接；</li>
 <li>至此，一个全双工的通信链接就建立完成了，客户端与服务端都可以同时向对方发送数据了</li>
 </ul>
-<p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/socketflow.png" alt="SocketFlow"></p>
-<p>按照上述流程，来看看一个client&#x2F;server的socket通信示例: 客户端不断发送消息给服务端，服务端接受到消息后，原封不动的将其发送给客户端</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/socketflow.png"
+alt="SocketFlow" /></p>
+<p>按照上述流程，来看看一个client/server的socket通信示例:
+客户端不断发送消息给服务端，服务端接受到消息后，原封不动的将其发送给客户端</p>
 <ul>
 <li>客户端代码</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;errno.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span><span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">const</span> <span class="type">static</span> <span class="type">char</span>* SERVER_ADDR = <span class="string">&quot;127.0.0.1&quot;</span>;</span><br><span class="line"><span class="type">const</span> <span class="type">static</span> <span class="type">int</span> MAX_BUF_SIZE = <span class="number">256</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> socket_fd;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span>* argv[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (argc != <span class="number">2</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;Usage: %s &lt;port&gt;\n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">sockaddr_in</span> sa;</span><br><span class="line">    <span class="type">int</span> res;</span><br><span class="line">	<span class="comment">/** 1. create a TCP based socket */</span></span><br><span class="line">    socket_fd = <span class="built_in">socket</span>(AF_INET, SOCK_STREAM, IPPROTO_TCP);</span><br><span class="line">    <span class="keyword">if</span> (socket_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		<span class="built_in">perror</span>(<span class="string">&quot;cannot create socket&quot;</span>);</span><br><span class="line">		<span class="built_in">exit</span>(EXIT_FAILURE);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">memset</span>(&amp;sa, <span class="number">0</span>, <span class="built_in">sizeof</span>(sa));</span><br><span class="line">	<span class="comment">/** 2. set network address of the server */</span></span><br><span class="line">    sa.sin_family = AF_INET; <span class="comment">/* address familiy*/</span></span><br><span class="line">    sa.sin_port = <span class="built_in">htons</span>(<span class="built_in">atoi</span>(argv[<span class="number">1</span>])); <span class="comment">/* address port */</span></span><br><span class="line">    sa.sin_addr.s_addr = <span class="built_in">inet_addr</span>(SERVER_ADDR); <span class="comment">/* internet address */</span></span><br><span class="line">	<span class="comment">/** 3. try to connect server */</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">connect</span>(socket_fd, (<span class="keyword">struct</span> sockaddr*) &amp;sa, <span class="built_in">sizeof</span>(sa)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		<span class="built_in">perror</span>(<span class="string">&quot;connect failure&quot;</span>);</span><br><span class="line">		<span class="built_in">close</span>(socket_fd);</span><br><span class="line">		<span class="built_in">exit</span>(EXIT_FAILURE);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;Client: server is connected\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> buf[MAX_BUF_SIZE]; </span><br><span class="line">    <span class="comment">/* keep sending message to server */</span></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>) &#123;</span><br><span class="line">		<span class="built_in">fgets</span>(buf, MAX_BUF_SIZE, stdin);</span><br><span class="line">		<span class="keyword">if</span> (<span class="built_in">strncmp</span>(buf, <span class="string">&quot;quit&quot;</span>, <span class="number">4</span>) == <span class="number">0</span> || <span class="built_in">strncmp</span>(buf, <span class="string">&quot;q&quot;</span>, <span class="number">1</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">&quot;quit\n&quot;</span>);</span><br><span class="line">			<span class="built_in">write</span>(socket_fd, <span class="string">&quot;quit&quot;</span>, <span class="number">4</span>);</span><br><span class="line">			<span class="keyword">break</span>; </span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">&quot;Client: %s\n&quot;</span>, buf);</span><br><span class="line">			<span class="type">int</span> len = <span class="built_in">strlen</span>(buf);</span><br><span class="line">			<span class="keyword">if</span> (<span class="built_in">send</span>(socket_fd, buf, len, <span class="number">0</span>) != len) &#123;</span><br><span class="line">				<span class="built_in">printf</span>(<span class="string">&quot;client: send message error\n&quot;</span>);</span><br><span class="line">				<span class="keyword">break</span>; </span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			<span class="built_in">memset</span>(buf, <span class="number">0</span>, MAX_BUF_SIZE);</span><br><span class="line">			<span class="keyword">if</span> (<span class="built_in">recv</span>(socket_fd, buf, MAX_BUF_SIZE, <span class="number">0</span>) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">				<span class="built_in">printf</span>(<span class="string">&quot;fail to receive message from server\n&quot;</span>);</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125; </span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">&quot;Server:%s&quot;</span>, buf);</span><br><span class="line">		&#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">close</span>(socket_fd);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <ul>
 <li>服务端代码</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;sys/types.h&gt;</span></span></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;errno.h&gt;</span></span></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;stdlib.h&gt;</span></span></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;string.h&gt;</span></span></span><br><span class="line">	<span class="meta">#<span class="keyword">include</span><span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">const</span> <span class="type">static</span> <span class="type">int</span> SERVER_PORT = <span class="number">2100</span>;</span><br><span class="line"><span class="type">const</span> <span class="type">static</span> <span class="type">int</span> MAX_PENDING = <span class="number">10</span>;</span><br><span class="line"><span class="type">const</span> <span class="type">static</span> <span class="type">int</span> MAX_RCV_BUF = <span class="number">256</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span>* argv[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (argc != <span class="number">2</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;Usage %s &lt;port&gt;\n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">        <span class="built_in">exit</span>(EXIT_FAILURE);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="type">char</span> buf[MAX_RCV_BUF];</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> socket_fd;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">sockaddr_in</span> sa;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((socket_fd = <span class="built_in">socket</span>(AF_INET, SOCK_STREAM, IPPROTO_TCP)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;fail to create socket&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(EXIT_FAILURE);   </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    sa.sin_family = AF_INET;</span><br><span class="line">    <span class="comment">/** htonl/htons 将host字节序转为network字节序 */</span></span><br><span class="line">    sa.sin_addr.s_addr = <span class="built_in">htonl</span>(INADDR_ANY); <span class="comment">/* INADDR_ANY表示该端口可接受任何入境消息 */</span></span><br><span class="line">    sa.sin_port = <span class="built_in">htons</span>(<span class="built_in">atoi</span>(argv[<span class="number">1</span>]));</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* 将socket与地址进行绑定*/</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">bind</span>(socket_fd, (<span class="keyword">struct</span> sockaddr*) &amp;sa, <span class="built_in">sizeof</span>(sa)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">perror</span>(<span class="string">&quot;fail to bind socket address\n&quot;</span>);   </span><br><span class="line">        <span class="keyword">goto</span> errout;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* 监听socket */</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">listen</span>(socket_fd, MAX_PENDING) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">perror</span>(<span class="string">&quot;fail to listen port\n&quot;</span>);  </span><br><span class="line">        <span class="keyword">goto</span> errout; </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;server is started\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span>(; ;)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">/* accept any requests from clients */</span></span><br><span class="line">        <span class="type">int</span> connect_fd = <span class="built_in">accept</span>(socket_fd, <span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line">        <span class="keyword">if</span> (connect_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="built_in">perror</span>(<span class="string">&quot;fail to accept&quot;</span>);</span><br><span class="line">            <span class="keyword">goto</span> errout;      </span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* keep receving message from client */</span></span><br><span class="line">        <span class="keyword">while</span>(<span class="number">1</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">read</span>(connect_fd, buf, MAX_RCV_BUF) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">perror</span>(<span class="string">&quot;fail to read&quot;</span>);  </span><br><span class="line">                <span class="keyword">break</span>;         </span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            buf[<span class="built_in">strlen</span>(buf)] = <span class="number">0</span>;</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">&quot;Client: %s\n&quot;</span>, buf);</span><br><span class="line">        </span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">write</span>(connect_fd, buf, <span class="built_in">strlen</span>(buf)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">perror</span>(<span class="string">&quot;fail to send to client\n&quot;</span>);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">strncmp</span>(buf, <span class="string">&quot;quit&quot;</span>, <span class="number">4</span>) == <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">printf</span>(<span class="string">&quot;talk is done*_*\n&quot;</span>);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">close</span>(connect_fd);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">errout:</span><br><span class="line">    <span class="built_in">close</span>(socket_fd);</span><br><span class="line">    <span class="built_in">exit</span>(EXIT_FAILURE);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">exit</span>(EXIT_SUCCESS);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>在服务端，如果等待请求队列中有client的请求，则<code>accept</code>返回一个新的fd用于数据的读写；如果没有，则阻塞当前进程直到有客户请求为止。因此，上述服务端是无法同时响应多个客户请求的。如果服务端需要同时响应多个客户请求，不阻塞当前进程，则需要使用<code>select</code>或者<code>poll/epoll</code>来监听socket，如果有客户请求，kernel会及时通知用户进程；对每个客户请求，服务端可通过启动新的进程与线程来处理。作为演示，这里使用下面的方法来解决进程阻塞以及多个客户请求的问题：</p>
 <ul>
 <li>服务端进程同时监听多个端口，客户端可通过不同的端口向服务端发送数据</li>
 <li>分别使用<code>select</code>或者<code>poll/epoll</code>来监听这些端口，对于每个请求都启动一个新的线程进行处理</li>
 </ul>
-<h2 id="IO复用：服务端如何同时处理多个客户请求"><a href="#IO复用：服务端如何同时处理多个客户请求" class="headerlink" title="IO复用：服务端如何同时处理多个客户请求"></a>IO复用：服务端如何同时处理多个客户请求</h2><p>目前在Linux下，常见的IO复用(I&#x2F;O multiplexing)方式有:</p>
+<h2
+id="io复用服务端如何同时处理多个客户请求">IO复用：服务端如何同时处理多个客户请求</h2>
+<p>目前在Linux下，常见的IO复用(I/O multiplexing)方式有:</p>
 <ul>
-<li><code>select</code>: 可监听的文件描述符(fd)最大不超过1024(由<code>_SC_OPEN_MAX</code>确定）；</li>
+<li><code>select</code>:
+可监听的文件描述符(fd)最大不超过1024(由<code>_SC_OPEN_MAX</code>确定）；</li>
 <li><code>poll</code>:对监听的fd个数没有限制，但是随着fd数目的增加，性能也会随着下降，因为每次收到有可用fd事件时，poll都需要遍历整个监听集合；</li>
-<li><code>epoll</code>: 对监听的fd个数无限制，不同与poll的地方时，epoll监听返回的是一个可用fd的集合，而不是整个监听fd的集合，因此效率上比poll更高；</li>
+<li><code>epoll</code>:
+对监听的fd个数无限制，不同与poll的地方时，epoll监听返回的是一个可用fd的集合，而不是整个监听fd的集合，因此效率上比poll更高；</li>
 </ul>
 <p>接下来，就具体看看这种IO复用方式如何处理服务端的请求。</p>
 <p>为了监听多个端口，需要在服务端进程启动时，创建多个socket:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span>* argv[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (argc &lt; <span class="number">2</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;Usage %s &lt;port_1&gt; &lt;port_2&gt; ... \n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* io multiplex */</span></span><br><span class="line">    fd_set sockset;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">timeval</span> timeout;</span><br><span class="line">    <span class="comment">/* is server running */</span></span><br><span class="line">    <span class="type">int</span> running = <span class="number">1</span>;</span><br><span class="line">    <span class="comment">/* max file descriptors of socket */</span></span><br><span class="line">    <span class="type">int</span> maxFd = <span class="number">-1</span>; </span><br><span class="line">    <span class="type">int</span>* serverSock;</span><br><span class="line">    <span class="type">int</span> portNum = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    serverSock = (<span class="type">int</span>*)<span class="built_in">malloc</span>((argc - <span class="number">1</span>) * <span class="built_in">sizeof</span>(<span class="type">int</span>));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">1</span>; i &lt; argc; ++i) &#123;</span><br><span class="line">		<span class="type">int</span> port = <span class="built_in">atoi</span>(argv[i]);</span><br><span class="line">		serverSock[portNum++] = <span class="built_in">createServerSocket</span>(port);</span><br><span class="line">		maxFd = serverSock[portNum<span class="number">-1</span>] &gt; maxFd ? serverSock[portNum<span class="number">-1</span>] : maxFd;</span><br><span class="line">    &#125;</span><br><span class="line">   ... </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>接着，利用<code>select</code>或者<code>poll</code>或者<code>epoll</code>来实现上述端口的监听：</p>
-<h3 id="select"><a href="#select" class="headerlink" title="select"></a><strong><code>select</code></strong></h3><p>使用<code>select</code>需要做以下几个事情：</p>
+<h3 id="select"><strong><code>select</code></strong></h3>
+<p>使用<code>select</code>需要做以下几个事情：</p>
 <ul>
 <li>创建一个fd集合: <code>fd_set sockset;</code></li>
 <li>每次使用前都需要将其清空:<code>FD_ZERO(&amp;sockset);</code></li>
-<li>将所要监听的fd保存到<code>sockset</code>中: <code>FD_SET(serverSock[p], &amp;sockset);</code></li>
-<li>设置监听的超时时间，监听对应的fd集合：<code>select(maxFd + 1, &amp;sockset, NULL, NULL, &amp;timeout) </code>,如果该调用返回-1则意味着超时，否则表示有新的IO事件了，可通过<code>FD_ISSET(serverSock[p], &amp;sockset)</code>来检查对应的fd是否处于可读写的状态</li>
+<li>将所要监听的fd保存到<code>sockset</code>中:
+<code>FD_SET(serverSock[p], &amp;sockset);</code></li>
+<li>设置监听的超时时间，监听对应的fd集合：<code>select(maxFd + 1, &amp;sockset, NULL, NULL, &amp;timeout)</code>,如果该调用返回-1则意味着超时，否则表示有新的IO事件了，可通过<code>FD_ISSET(serverSock[p], &amp;sockset)</code>来检查对应的fd是否处于可读写的状态</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">while</span>(running) &#123;</span><br><span class="line">	<span class="comment">/* this must be reset for every time select() is called */</span></span><br><span class="line">	<span class="built_in">FD_ZERO</span>(&amp;sockset);</span><br><span class="line">	<span class="built_in">FD_SET</span>(STDIN_FILENO, &amp;sockset);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (<span class="type">int</span> p = <span class="number">0</span>; p &lt; portNum; ++p) &#123;</span><br><span class="line">	    <span class="built_in">FD_SET</span>(serverSock[p], &amp;sockset);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* timeout for select IO */</span></span><br><span class="line">	<span class="comment">/* must be called every time select() is called */</span></span><br><span class="line">	timeout.tv_sec = DEFAULT_TIMEOUT;</span><br><span class="line">	timeout.tv_usec = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (<span class="built_in">select</span>(maxFd + <span class="number">1</span>, &amp;sockset, <span class="literal">NULL</span>, <span class="literal">NULL</span>, &amp;timeout) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">	    <span class="built_in">printf</span>(<span class="string">&quot;fail to get ready fd for %d seconds, waiting...again&quot;</span>, DEFAULT_TIMEOUT);</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	    <span class="keyword">if</span> (<span class="built_in">FD_ISSET</span>(STDIN_FILENO, &amp;sockset)) &#123;</span><br><span class="line">	        <span class="built_in">printf</span>(<span class="string">&quot;server is gonna to shut down\n&quot;</span>);</span><br><span class="line">	        running = <span class="number">0</span>;</span><br><span class="line">	    &#125;</span><br><span class="line"></span><br><span class="line">	    <span class="keyword">for</span> (<span class="type">int</span> p = <span class="number">0</span>; p &lt; portNum; ++p) &#123;</span><br><span class="line">	        <span class="keyword">if</span> (<span class="built_in">FD_ISSET</span>(serverSock[p], &amp;sockset)) &#123;</span><br><span class="line">	            <span class="type">pthread_t</span> tid;</span><br><span class="line">	            <span class="type">int</span> clientFd = <span class="built_in">acceptConnection</span>(serverSock[p]);</span><br><span class="line">	            <span class="comment">/* create pthread to handle client request */</span></span><br><span class="line">	            <span class="built_in">pthread_create</span>(&amp;tid, <span class="literal">NULL</span>, (<span class="type">void</span>*)handleRequest, (<span class="type">void</span>*)&amp;clientFd);</span><br><span class="line">	        &#125;</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>| select linux man page: <a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/select.2.html">http://man7.org/linux/man-pages/man2/select.2.html</a></p>
-<h3 id="poll"><a href="#poll" class="headerlink" title="poll"></a><strong><code>poll</code></strong></h3><p>poll有一个专门的数据结构<code>pollfd</code>来记录监听的fd: 其由三部分组成，一个是监听的fd，一个是需要监听的事件，比如<code>POLLIN/POLLPRI</code>；一个监听返回的事件，比如‵POLLOUT&#x2F;POLLERR&#x2F;POLLHUP&#96;，</p>
+<div class="line-block">select linux man page:
+http://man7.org/linux/man-pages/man2/select.2.html</div>
+<h3 id="poll"><strong><code>poll</code></strong></h3>
+<p>poll有一个专门的数据结构<code>pollfd</code>来记录监听的fd:
+其由三部分组成，一个是监听的fd，一个是需要监听的事件，比如<code>POLLIN/POLLPRI</code>；一个监听返回的事件，比如‵POLLOUT/POLLERR/POLLHUP`，</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">pollfd</span> &#123;</span><br><span class="line">	<span class="type">int</span>   fd;         <span class="comment">/* file descriptor */</span></span><br><span class="line">	<span class="type">short</span> events;     <span class="comment">/* requested events */</span></span><br><span class="line">	<span class="type">short</span> revents;    <span class="comment">/* returned events */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
 <p>利用poll来监听多个IO事件，需要：</p>
 <ul>
-<li><p>创建一个<code>pollfd</code>数组用于保存监听的fd集合: <code>struct pollfd pollFds[MAX_PORTS];</code></p>
-</li>
+<li><p>创建一个<code>pollfd</code>数组用于保存监听的fd集合:
+<code>struct pollfd pollFds[MAX_PORTS];</code></p></li>
 <li><p>将需要监听的fd添加到该集合:</p>
-  <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; argc; ++i) &#123;</span><br><span class="line">pollFds[i].fd = <span class="built_in">createServerSocket</span>(<span class="built_in">atoi</span>(argv[i]));</span><br><span class="line">pollFds[i].events = POLLIN;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure></li>
-<li><p>指定超时时间，监听fd集合: <code>int ready = poll(pollFds, maxFds, MAX_POLL_TIMEOUT);</code>, 如果返回小于0的值，则表示出现了错误；如果返回值为0，则表示超时，返回一个大于0的值，表示当前可用的fd的个数</p>
-</li>
+<p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; argc; ++i) &#123;</span><br><span class="line">pollFds[i].fd = <span class="built_in">createServerSocket</span>(<span class="built_in">atoi</span>(argv[i]));</span><br><span class="line">pollFds[i].events = POLLIN;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure></p></li>
+<li><p>指定超时时间，监听fd集合:
+<code>int ready = poll(pollFds, maxFds, MAX_POLL_TIMEOUT);</code>,
+如果返回小于0的值，则表示出现了错误；如果返回值为0，则表示超时，返回一个大于0的值，表示当前可用的fd的个数</p></li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> running = <span class="number">1</span>;</span><br><span class="line"><span class="keyword">while</span> (running) &#123;</span><br><span class="line">    <span class="type">int</span> ready = <span class="built_in">poll</span>(pollFds, maxFds, MAX_POLL_TIMEOUT);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ready &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">perror</span>(<span class="string">&quot;fail to poll&quot;</span>);</span><br><span class="line">        <span class="keyword">goto</span> errout;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (ready == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="comment">//printf(&quot;timeout\n&quot;);</span></span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">memset</span>(buf, <span class="number">0</span>, MAX_BUF_SIZE);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; maxFds; ++i) &#123;</span><br><span class="line">            <span class="keyword">if</span> (pollFds[i].fd &gt; <span class="number">0</span> &amp;&amp; (pollFds[i].events &amp; POLLIN)) &#123;</span><br><span class="line">                <span class="keyword">if</span> (pollFds[i].fd == STDIN_FILENO) &#123;</span><br><span class="line">                    <span class="comment">// read from stdin stream</span></span><br><span class="line">                    <span class="keyword">if</span> (<span class="built_in">fgets</span>(buf, MAX_BUF_SIZE, stdin) == <span class="literal">NULL</span>) &#123;</span><br><span class="line">                        <span class="built_in">perror</span>(<span class="string">&quot;fail to read stdin&quot;</span>);</span><br><span class="line">                        <span class="keyword">continue</span>;</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="type">int</span> len = <span class="built_in">strlen</span>(buf);</span><br><span class="line">                    <span class="keyword">if</span> (<span class="built_in">send</span>(pollFds[i].fd, buf, len , <span class="number">0</span>) != len) &#123;</span><br><span class="line">                        <span class="built_in">perror</span>(<span class="string">&quot;fail to send data&quot;</span>);</span><br><span class="line">                        <span class="keyword">continue</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="type">int</span> fd = <span class="built_in">acceptConnection</span>(pollFds[i].fd);</span><br><span class="line">                    <span class="keyword">if</span> (fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                        <span class="built_in">perror</span>(<span class="string">&quot;fail to accept connection&quot;</span>);</span><br><span class="line">                    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                        <span class="type">pthread_t</span> tid;</span><br><span class="line">                        <span class="keyword">if</span> (<span class="built_in">pthread_create</span>(&amp;tid, <span class="literal">NULL</span>, handleRequst, (<span class="type">void</span>*)&amp;fd) != <span class="number">0</span>) &#123;</span><br><span class="line">                            <span class="built_in">perror</span>(<span class="string">&quot;fail to create handle thread&quot;</span>);</span><br><span class="line">                            <span class="built_in">close</span>(fd);</span><br><span class="line">                            <span class="keyword">goto</span> errout;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>| poll man page： <a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/poll.2.html">http://man7.org/linux/man-pages/man2/poll.2.html</a></p>
-<h3 id="epoll"><a href="#epoll" class="headerlink" title="epoll"></a><strong><code>epoll</code></strong></h3><p>epoll使用一个数据结构<code>epoll_event</code>来描述所监听的fd集合:</p>
+<div class="line-block">poll man page：
+http://man7.org/linux/man-pages/man2/poll.2.html</div>
+<h3 id="epoll"><strong><code>epoll</code></strong></h3>
+<p>epoll使用一个数据结构<code>epoll_event</code>来描述所监听的fd集合:</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">union</span> <span class="title class_">epoll_data</span> &#123;</span><br><span class="line">            <span class="type">void</span>    *ptr;</span><br><span class="line">            <span class="type">int</span>      fd;</span><br><span class="line">            <span class="type">uint32_t</span> u32;</span><br><span class="line">            <span class="type">uint64_t</span> u64;</span><br><span class="line">        &#125; <span class="type">epoll_data_t</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">struct</span> <span class="title class_">epoll_event</span> &#123;</span><br><span class="line">            <span class="type">uint32_t</span>     events;    <span class="comment">/* Epoll events */</span></span><br><span class="line">            <span class="type">epoll_data_t</span> data;      <span class="comment">/* User data variable */</span></span><br><span class="line">        &#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>这里的<code>events</code>表示所发生的事件类型，有<code>EPOLLIN/EPOLLOUT/EPOLLHUP</code>，这里的取值跟poll中的事件基本一致。使用epoll的步骤:</p>
 <ul>
-<li>声明两个epoll_event集合,一个用于监听，一个用于监听返回: <code>struct epoll_event polledEv[MAX_PORTS], readyEv[MAX_PORTS];</code></li>
-<li>在kernel创建一个epoll的fd: <code>int epollFd = epoll_create1(0);</code></li>
+<li>声明两个epoll_event集合,一个用于监听，一个用于监听返回:
+<code>struct epoll_event polledEv[MAX_PORTS], readyEv[MAX_PORTS];</code></li>
+<li>在kernel创建一个epoll的fd:
+<code>int epollFd = epoll_create1(0);</code></li>
 <li>将需要监听的fd保存到epoll_event中：<code>epoll_ctl(epollFd, EPOLL_CTL_ADD, sockFd, &amp;polledEv[i])</code></li>
-<li>等待可用的集合: <code>int ready = epoll_wait(epollFd, readyEv, MAX_PORTS, 5);</code>， 返回小于零表示出现错误；返回0表示超时；返回大于0，表示当前有多少个可用的文件描述符。相应的集合保存到<code>readyEv</code>中，因此只需要遍历这个子集即可得到对应可用的fd</li>
+<li>等待可用的集合:
+<code>int ready = epoll_wait(epollFd, readyEv, MAX_PORTS, 5);</code>，
+返回小于零表示出现错误；返回0表示超时；返回大于0，表示当前有多少个可用的文件描述符。相应的集合保存到<code>readyEv</code>中，因此只需要遍历这个子集即可得到对应可用的fd</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">epoll_event</span> polledEv[MAX_PORTS], readyEv[MAX_PORTS];</span><br><span class="line"></span><br><span class="line">  <span class="type">int</span> i;</span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; argc; ++i) &#123;</span><br><span class="line">polledEv[i].data.fd = <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="type">int</span> epollFd = <span class="built_in">epoll_create1</span>(<span class="number">0</span>);</span><br><span class="line">  <span class="keyword">if</span> (epollFd &lt; <span class="number">0</span>) &#123;</span><br><span class="line"><span class="built_in">perror</span>(<span class="string">&quot;fail to create epoll for stdin&quot;</span>);</span><br><span class="line"><span class="built_in">exit</span>(EXIT_FAILURE);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  polledEv[<span class="number">0</span>].data.fd = STDIN_FILENO;</span><br><span class="line">  polledEv[<span class="number">0</span>].events = EPOLLIN;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">epoll_ctl</span>(epollFd, EPOLL_CTL_ADD, STDIN_FILENO, &amp;polledEv[<span class="number">0</span>]) &lt; <span class="number">0</span>) &#123;</span><br><span class="line"><span class="built_in">perror</span>(<span class="string">&quot;epoll_ctl: stdin&quot;</span>);</span><br><span class="line"><span class="built_in">exit</span>(EXIT_FAILURE);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; argc; ++i) &#123;</span><br><span class="line"><span class="type">int</span> sockFd = <span class="built_in">createServerSocket</span>(<span class="built_in">atoi</span>(argv[i]));</span><br><span class="line"><span class="keyword">if</span> (sockFd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">	<span class="built_in">perror</span>(<span class="string">&quot;fail to create socket&quot;</span>);</span><br><span class="line">	<span class="keyword">continue</span>; </span><br><span class="line">&#125; </span><br><span class="line"></span><br><span class="line">polledEv[i].data.fd = sockFd;</span><br><span class="line">polledEv[i].events = EPOLLIN;</span><br><span class="line"><span class="keyword">if</span> (<span class="built_in">epoll_ctl</span>(epollFd, EPOLL_CTL_ADD, sockFd, &amp;polledEv[i]) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">	<span class="built_in">perror</span>(<span class="string">&quot;epoll_ctl&quot;</span>);</span><br><span class="line">	<span class="built_in">close</span>(sockFd);</span><br><span class="line">	<span class="built_in">exit</span>(EXIT_FAILURE);</span><br><span class="line">&#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="type">int</span> running = <span class="number">1</span>;</span><br><span class="line">  <span class="keyword">while</span> (running) &#123;</span><br><span class="line"><span class="type">int</span> ready = <span class="built_in">epoll_wait</span>(epollFd, readyEv, MAX_PORTS, <span class="number">5</span>);</span><br><span class="line"><span class="keyword">if</span> (ready &lt; <span class="number">0</span>) &#123;</span><br><span class="line">	<span class="built_in">perror</span>(<span class="string">&quot;epoll_wait:&quot;</span>);</span><br><span class="line">	<span class="keyword">goto</span> errout;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (ready == <span class="number">0</span>) &#123;</span><br><span class="line">	<span class="comment">//printf(&quot;timeout\n&quot;)</span></span><br><span class="line">	<span class="keyword">continue</span>;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ready; ++i) &#123;</span><br><span class="line">		<span class="type">int</span> fd = <span class="built_in">acceptConnecton</span>(readyEv[i].data.fd);</span><br><span class="line">		<span class="keyword">if</span> (fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">			<span class="built_in">perror</span>(<span class="string">&quot;fail to accept request&quot;</span>);</span><br><span class="line">			<span class="keyword">continue</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="type">pthread_t</span> tid;</span><br><span class="line">		<span class="keyword">if</span> (<span class="built_in">pthread_create</span>(&amp;tid, <span class="literal">NULL</span>, handleRequest, (<span class="type">void</span>*)&amp;fd) != <span class="number">0</span>) &#123;</span><br><span class="line">			<span class="built_in">perror</span>(<span class="string">&quot;fail to create handle thread&quot;</span>);</span><br><span class="line">			<span class="built_in">close</span>(fd);</span><br><span class="line">			<span class="keyword">goto</span> errout;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>| epoll man page: <a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man7/epoll.7.html">http://man7.org/linux/man-pages/man7/epoll.7.html</a></p>
+<div class="line-block">epoll man page:
+http://man7.org/linux/man-pages/man7/epoll.7.html</div>
 <p>最后，对于每个客户请求，都创建一个新的线程来处理请求：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">handleRequest</span><span class="params">(<span class="type">void</span>* args)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> fd = *((<span class="type">int</span>*)args);</span><br><span class="line">    <span class="keyword">if</span> (fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		<span class="built_in">pthread_exit</span>(<span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;handleRequest(): from fd=%d\n&quot;</span>, fd);</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> buf[MAX_BUF_SIZE];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(<span class="number">1</span>) &#123;</span><br><span class="line">		<span class="keyword">if</span> (<span class="built_in">recv</span>(fd, buf, MAX_BUF_SIZE, <span class="number">0</span>) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">&quot;fail to receive message from client\n&quot;</span>);</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;Client(%d): %s\n&quot;</span>, fd, buf);</span><br><span class="line"></span><br><span class="line">		<span class="type">int</span> len = <span class="built_in">strlen</span>(buf);</span><br><span class="line">		buf[len] = <span class="number">0</span>;</span><br><span class="line">		<span class="keyword">if</span> (<span class="built_in">send</span>(fd, buf, len, <span class="number">0</span>) != len) &#123;</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">&quot;fail to echo&quot;</span>);</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">close</span>(fd);</span><br><span class="line">    <span class="built_in">pthread_exit</span>(<span class="literal">NULL</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这里分别采用<code>select</code>，<code>poll</code>以及<code>epoll</code>在服务端监听客户IO事件，只是作为演示学习用，实际服务器端使用的是更为复杂的IO复用模型，更多相关的资料可参考C10K: <a target="_blank" rel="noopener" href="http://www.kegel.com/c10k.html%E3%80%82">http://www.kegel.com/c10k.html。</a></p>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
-<li><a target="_blank" rel="noopener" href="https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_71/rzab6/howdosockets.htm">https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_71&#x2F;rzab6&#x2F;howdosockets.htm</a></li>
-<li><a target="_blank" rel="noopener" href="http://beej.us/guide/bgipc/html/multi/index.html">http://beej.us/guide/bgipc/html/multi/index.html</a></li>
-<li><a target="_blank" rel="noopener" href="http://www.kegel.com/c10k.html">http://www.kegel.com/c10k.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/13918/">LWN email list: epoll as a system call</a></li>
-<li><a target="_blank" rel="noopener" href="https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html">https://people.eecs.berkeley.edu/~sangjin&#x2F;2012&#x2F;12&#x2F;21&#x2F;epoll-vs-kqueue.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/14168/">https://lwn.net/Articles/14168/</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.programering.com/a/MzN4IDMwATM.html">https://www.programering.com/a/MzN4IDMwATM.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://notes.shichao.io/unp/ch6/">https://notes.shichao.io/unp/ch6/</a></li>
+<p>这里分别采用<code>select</code>，<code>poll</code>以及<code>epoll</code>在服务端监听客户IO事件，只是作为演示学习用，实际服务器端使用的是更为复杂的IO复用模型，更多相关的资料可参考C10K:
+http://www.kegel.com/c10k.html。</p>
+<h2 id="参考文献">参考文献</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_71/rzab6/howdosockets.htm">https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_71/rzab6/howdosockets.htm</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://beej.us/guide/bgipc/html/multi/index.html">http://beej.us/guide/bgipc/html/multi/index.html</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://www.kegel.com/c10k.html">http://www.kegel.com/c10k.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/13918/">LWN email list: epoll as a
+system call</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html">https://people.eecs.berkeley.edu/~sangjin/2012/12/21/epoll-vs-kqueue.html</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://lwn.net/Articles/14168/">https://lwn.net/Articles/14168/</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.programering.com/a/MzN4IDMwATM.html">https://www.programering.com/a/MzN4IDMwATM.html</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://notes.shichao.io/unp/ch6/">https://notes.shichao.io/unp/ch6/</a></li>
 </ul>
 
     </article>
@@ -643,7 +666,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">https://sniffer.site/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">July 21st 2018, 10:46:49 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">2021-08-11, 15:03:19</a>
+            <p>更新日期：<a href="https://sniffer.site/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">2026-09-03, 14:08:31</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -809,7 +832,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#socket%E7%BC%96%E7%A8%8B%E5%9F%BA%E7%A1%80"><span class="toc-number">1.</span> <span class="toc-text">socket编程基础</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#IO%E5%A4%8D%E7%94%A8%EF%BC%9A%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%A6%82%E4%BD%95%E5%90%8C%E6%97%B6%E5%A4%84%E7%90%86%E5%A4%9A%E4%B8%AA%E5%AE%A2%E6%88%B7%E8%AF%B7%E6%B1%82"><span class="toc-number">2.</span> <span class="toc-text">IO复用：服务端如何同时处理多个客户请求</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#select"><span class="toc-number">2.1.</span> <span class="toc-text">select</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#poll"><span class="toc-number">2.2.</span> <span class="toc-text">poll</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#epoll"><span class="toc-number">2.3.</span> <span class="toc-text">epoll</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#socket%E7%BC%96%E7%A8%8B%E5%9F%BA%E7%A1%80"><span class="toc-number">1.</span> <span class="toc-text">socket编程基础</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#io%E5%A4%8D%E7%94%A8%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%A6%82%E4%BD%95%E5%90%8C%E6%97%B6%E5%A4%84%E7%90%86%E5%A4%9A%E4%B8%AA%E5%AE%A2%E6%88%B7%E8%AF%B7%E6%B1%82"><span class="toc-number">2.</span> <span class="toc-text">IO复用：服务端如何同时处理多个客户请求</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#select"><span class="toc-number">2.1.</span> <span class="toc-text">select</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#poll"><span class="toc-number">2.2.</span> <span class="toc-text">poll</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#epoll"><span class="toc-number">2.3.</span> <span class="toc-text">epoll</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1458,7 +1481,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2909,7 +2943,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2927,6 +2961,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3785,44 +3825,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3840,14 +3855,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3860,14 +3880,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3878,11 +3898,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3900,14 +3915,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3923,6 +3933,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3955,31 +3975,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3988,6 +3983,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -4010,19 +4010,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4038,6 +4028,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4065,14 +4090,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4085,39 +4110,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4128,16 +4143,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4165,6 +4170,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4180,9 +4210,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4200,41 +4240,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4245,14 +4250,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4280,16 +4290,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4310,9 +4310,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4330,24 +4340,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4355,24 +4365,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4385,9 +4405,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4410,9 +4435,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4435,6 +4460,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4450,14 +4485,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4468,6 +4503,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4485,41 +4540,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4533,6 +4553,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4555,11 +4590,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4575,16 +4605,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4598,6 +4618,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4620,16 +4655,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4645,24 +4670,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4673,6 +4683,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4715,6 +4740,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4730,14 +4775,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4758,21 +4798,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4840,19 +4865,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4870,6 +4885,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4885,16 +4925,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4903,6 +4933,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4925,21 +4970,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4958,16 +4988,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4995,11 +5015,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5020,14 +5035,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5055,19 +5085,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5080,6 +5105,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5088,6 +5118,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5100,6 +5140,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5121,6 +5166,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5131,19 +5181,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5151,14 +5191,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5176,14 +5216,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5199,11 +5239,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

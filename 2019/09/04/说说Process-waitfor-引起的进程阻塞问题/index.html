@@ -19,22 +19,20 @@
         <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
     
     <meta name="description" content="关于编程,生活,工作">
-    <meta name="description" content="最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:  从一个串口&#x2F;dev&#x2F;ttyUSBX读取数据 将数据写入到本地目录(读缓存大小为1KB)  本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读&#x2F;写的子线程, 然后通过pthread_join主动等待子线程完成后退出. 问题是, 应用A调用的">
+    <meta name="description" content="最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:  从一个串口&#x2F;dev&#x2F;ttyUSBX读取数据 将数据写入到本地目录(读缓存大小为1KB)  本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读&#x2F;写的子线程, 然后通过pthread_join主动等待子线程完成后退出. 问题是, 应用A调用的时保存的日">
 <meta property="og:type" content="article">
 <meta property="og:title" content="说说Process.waitfor()引起的进程阻塞问题">
 <meta property="og:url" content="https://sniffer.site/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:  从一个串口&#x2F;dev&#x2F;ttyUSBX读取数据 将数据写入到本地目录(读缓存大小为1KB)  本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读&#x2F;写的子线程, 然后通过pthread_join主动等待子线程完成后退出. 问题是, 应用A调用的">
+<meta property="og:description" content="最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:  从一个串口&#x2F;dev&#x2F;ttyUSBX读取数据 将数据写入到本地目录(读缓存大小为1KB)  本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读&#x2F;写的子线程, 然后通过pthread_join主动等待子线程完成后退出. 问题是, 应用A调用的时保存的日">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/process_stack.jpg">
 <meta property="article:published_time" content="2019-09-04T08:35:16.000Z">
-<meta property="article:modified_time" content="2022-03-16T04:30:58.717Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.713Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="Process">
 <meta property="article:tag" content="waitfor">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/process_stack.jpg">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -527,50 +525,80 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>最近碰到一个看似很怪异的问题, 在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码, 这个本地进程做的事情其实并不复杂:</p>
+        <p>最近碰到一个看似很怪异的问题,
+在两个APP上调用同样的本地指令得到的结果却大相径庭; 看源代码,
+这个本地进程做的事情其实并不复杂:</p>
 <ul>
 <li>从一个串口<code>/dev/ttyUSBX</code>读取数据</li>
 <li>将数据写入到本地目录(读缓存大小为1KB)</li>
 </ul>
-<p>本地进程的代码逻辑其实相当简单: 主线程起来后主动创建一个负责读&#x2F;写的子线程, 然后通过<code>pthread_join</code>主动等待子线程完成后退出.</p>
-<p>问题是, 应用A调用的时保存的日志大小雷打不动的停留在不到4M就停止了, 而应用B可以一直写数据. 看应用A调用时, 通过<code>debuggerd -b &lt;tid&gt; </code>查看本地进程的堆栈, 大概是这样的:</p>
+<p>本地进程的代码逻辑其实相当简单:
+主线程起来后主动创建一个负责读/写的子线程,
+然后通过<code>pthread_join</code>主动等待子线程完成后退出.</p>
+<p>问题是, 应用A调用的时保存的日志大小雷打不动的停留在不到4M就停止了,
+而应用B可以一直写数据. 看应用A调用时,
+通过<code>debuggerd -b &lt;tid&gt;</code>查看本地进程的堆栈,
+大概是这样的:</p>
 <span id="more"></span>
-
-
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/process_stack.jpg" alt="process stack"></p>
-<p>说明此时本地进程一直在”卡”在写数据上了, 那到底卡在哪里了? 查看<code>cat /proc/&lt;pid&gt;/wchan</code>(也可以通过<code>strace -p &lt;pid&gt;</code>来查看目前进程所调用的系统调用), 就是本地进程的正在执行的系统调用, 发现是<code>pipe_wait</code>, 这个是怎么回事? 本地进程本身并不会用到pipe来进行数据的传输, 那很可能是Java父进程与本地进程之间的数据通信管道了. </p>
-<p>回到最开始的问题, 为何两个APP调用同样的指令会有如此大的差异了? 我们再来看看应用A与应用B之间执行的代码到底有多少的差异?</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/process_stack.jpg"
+alt="process stack" /></p>
+<p>说明此时本地进程一直在”卡”在写数据上了, 那到底卡在哪里了?
+查看<code>cat /proc/&lt;pid&gt;/wchan</code>(也可以通过<code>strace -p &lt;pid&gt;</code>来查看目前进程所调用的系统调用),
+就是本地进程的正在执行的系统调用, 发现是<code>pipe_wait</code>,
+这个是怎么回事? 本地进程本身并不会用到pipe来进行数据的传输,
+那很可能是Java父进程与本地进程之间的数据通信管道了.</p>
+<p>回到最开始的问题, 为何两个APP调用同样的指令会有如此大的差异了?
+我们再来看看应用A与应用B之间执行的代码到底有多少的差异?</p>
 <ul>
 <li>应用A的调用逻辑</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">Process</span> <span class="variable">process</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    process = Runtime.getRuntime().exec(COMMAND);</span><br><span class="line">    process.waitFor();</span><br><span class="line">&#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">if</span>(process != <span class="literal">null</span>) &#123;</span><br><span class="line">        process.destroy();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
 <ul>
 <li>应用B的调用逻辑</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">Process</span> <span class="variable">process</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    process = Runtime.getRuntime().exec(COMMAND);</span><br><span class="line">&#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">    e.printStackTrace();</span><br><span class="line">&#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">    <span class="keyword">if</span>(process != <span class="literal">null</span>) &#123;</span><br><span class="line">        process.destroy();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这么一对比, 看起来问题是出在<code>Process.waitfor()</code>上了, 看了网上一个类似的案例<code>https://www.cnblogs.com/embedded-linux/p/6986525.html</code>, 顿时觉得豁然开朗, 这个不就是我碰到问题末!  看 <code>java.lang.Process</code>的文档说明(这里只拿了最关键的一段话): </p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line">By default, the created process does not have its own terminal</span><br><span class="line">or console.  All its standard I/O (i.e. stdin, stdout, stderr)</span><br><span class="line">operations will be redirected to the parent process, where they can</span><br><span class="line">be accessed via the streams obtained using the methods</span><br><span class="line">&#123;@link #getOutputStream()&#125;,</span><br><span class="line">&#123;@link #getInputStream()&#125;, and</span><br><span class="line"> &#123;@link #getErrorStream()&#125;.</span><br><span class="line">The parent process uses these streams to feed input to and get output</span><br><span class="line">from the process.  Because some native platforms only provide</span><br><span class="line">limited buffer size for standard input and output streams, failure</span><br><span class="line">to promptly write the input stream or read the output stream of</span><br><span class="line">the process may cause the process to block, or even deadlock.</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这段话的大概意思是, 通过Java创建的本地子进程本身是没有标准输入&#x2F;输出以及错误流的, 这三个流都会被重定向到父进程; 父进程则通过<code>Process.getInputStream()/getOutputStream</code>等来获取子进程的流, 而如果父进程如果一直不读取子进程的输出流, 由于平台本身的输入输出流的缓冲大小是有限的, 此时子进程就可能阻塞, 甚至死锁(如果父进程也在等待子进程的话). 这样看起来, 问题的原因就很明显了:  应用A没有处理子进程的输出流, 且调用了<code>Process.waitfor()</code>, 由于本地进程一直在打印输出日志, 导致输出缓冲区满了之后发生阻塞, 而父进程并不知道子进程发生了阻塞, 一直傻傻的等.现在看来, 调用任何接口之前看<strong>看文档</strong>总是有益的, 至少在定位分析问题的时候可以少走弯路.</p>
-<p>我们先来看下Java调用本地进程的整个处理流程, 再来看具体如何解决这个问题.  调用<code>Runtime.exec(cmd)</code>:</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">      <span class="keyword">public</span> Process <span class="title function_">exec</span><span class="params">(String prog)</span> <span class="keyword">throws</span> java.io.IOException &#123;</span><br><span class="line">    <span class="keyword">return</span> exec(prog, <span class="literal">null</span>, <span class="literal">null</span>);</span><br><span class="line">      &#125;</span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line">      <span class="keyword">public</span> Process <span class="title function_">exec</span><span class="params">(String prog, String[] envp, File directory)</span> <span class="keyword">throws</span> java.io.IOException &#123;</span><br><span class="line"><span class="comment">// Sanity checks</span></span><br><span class="line"><span class="keyword">if</span> (prog == <span class="literal">null</span>) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>(<span class="string">&quot;prog == null&quot;</span>);</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (prog.isEmpty()) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;prog is empty&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Break down into tokens, as described in Java docs</span></span><br><span class="line"><span class="type">StringTokenizer</span> <span class="variable">tokenizer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringTokenizer</span>(prog);</span><br><span class="line"><span class="type">int</span> <span class="variable">length</span> <span class="operator">=</span> tokenizer.countTokens();</span><br><span class="line">String[] progArray = <span class="keyword">new</span> <span class="title class_">String</span>[length];</span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; length; i++) &#123;</span><br><span class="line">    progArray[i] = tokenizer.nextToken();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Delegate</span></span><br><span class="line"><span class="keyword">return</span> exec(progArray, envp, directory);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  </span><br><span class="line">  <span class="keyword">public</span> Process <span class="title function_">exec</span><span class="params">(String[] progArray, String[] envp, File directory)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">      <span class="comment">// ProcessManager is responsible for all argument checking.</span></span><br><span class="line">      <span class="keyword">return</span> ProcessManager.getInstance().exec(progArray, envp, directory, <span class="literal">false</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<p>这么一对比, 看起来问题是出在<code>Process.waitfor()</code>上了,
+看了网上一个类似的案例<code>https://www.cnblogs.com/embedded-linux/p/6986525.html</code>,
+顿时觉得豁然开朗, 这个不就是我碰到问题末! 看
+<code>java.lang.Process</code>的文档说明(这里只拿了最关键的一段话):</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line">By default, the created process does not have its own terminal</span><br><span class="line">or console.  All its standard I/O (i.e. stdin, stdout, stderr)</span><br><span class="line">operations will be redirected to the parent process, where they can</span><br><span class="line">be accessed via the streams obtained using the methods</span><br><span class="line">&#123;@link #getOutputStream()&#125;,</span><br><span class="line">&#123;@link #getInputStream()&#125;, and</span><br><span class="line"> &#123;@link #getErrorStream()&#125;.</span><br><span class="line">The parent process uses these streams to feed input to and get output</span><br><span class="line">from the process.  Because some native platforms only provide</span><br><span class="line">limited buffer size for standard input and output streams, failure</span><br><span class="line">to promptly write the input stream or read the output stream of</span><br><span class="line">the process may cause the process to block, or even deadlock.</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这段话的大概意思是,
+通过Java创建的本地子进程本身是没有标准输入/输出以及错误流的,
+这三个流都会被重定向到父进程;
+父进程则通过<code>Process.getInputStream()/getOutputStream</code>等来获取子进程的流,
+而如果父进程如果一直不读取子进程的输出流,
+由于平台本身的输入输出流的缓冲大小是有限的, 此时子进程就可能阻塞,
+甚至死锁(如果父进程也在等待子进程的话). 这样看起来,
+问题的原因就很明显了: 应用A没有处理子进程的输出流,
+且调用了<code>Process.waitfor()</code>, 由于本地进程一直在打印输出日志,
+导致输出缓冲区满了之后发生阻塞, 而父进程并不知道子进程发生了阻塞,
+一直傻傻的等.现在看来,
+调用任何接口之前看<strong>看文档</strong>总是有益的,
+至少在定位分析问题的时候可以少走弯路.</p>
+<p>我们先来看下Java调用本地进程的整个处理流程,
+再来看具体如何解决这个问题. 调用<code>Runtime.exec(cmd)</code>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">      <span class="keyword">public</span> Process <span class="title function_">exec</span><span class="params">(String prog)</span> <span class="keyword">throws</span> java.io.IOException &#123;</span><br><span class="line">    <span class="keyword">return</span> exec(prog, <span class="literal">null</span>, <span class="literal">null</span>);</span><br><span class="line">      &#125;</span><br><span class="line">  </span><br><span class="line"></span><br><span class="line">      <span class="keyword">public</span> Process <span class="title function_">exec</span><span class="params">(String prog, String[] envp, File directory)</span> <span class="keyword">throws</span> java.io.IOException &#123;</span><br><span class="line"><span class="comment">// Sanity checks</span></span><br><span class="line"><span class="keyword">if</span> (prog == <span class="literal">null</span>) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>(<span class="string">&quot;prog == null&quot;</span>);</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (prog.isEmpty()) &#123;</span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;prog is empty&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Break down into tokens, as described in Java docs</span></span><br><span class="line"><span class="type">StringTokenizer</span> <span class="variable">tokenizer</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">StringTokenizer</span>(prog);</span><br><span class="line"><span class="type">int</span> <span class="variable">length</span> <span class="operator">=</span> tokenizer.countTokens();</span><br><span class="line">String[] progArray = <span class="keyword">new</span> <span class="title class_">String</span>[length];</span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; length; i++) &#123;</span><br><span class="line">    progArray[i] = tokenizer.nextToken();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Delegate</span></span><br><span class="line"><span class="keyword">return</span> exec(progArray, envp, directory);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> Process <span class="title function_">exec</span><span class="params">(String[] progArray, String[] envp, File directory)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">      <span class="comment">// ProcessManager is responsible for all argument checking.</span></span><br><span class="line">      <span class="keyword">return</span> ProcessManager.getInstance().exec(progArray, envp, directory, <span class="literal">false</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>接着调用<code>ProcessManager.getInstance().exec()</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Executes a process and returns an object representing it.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> Process <span class="title function_">exec</span><span class="params">(String[] taintedCommand, String[] taintedEnvironment, File workingDirectory,</span></span><br><span class="line"><span class="params">        <span class="type">boolean</span> redirectErrorStream)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">    <span class="comment">// Make sure we throw the same exceptions as the RI.</span></span><br><span class="line">    <span class="keyword">if</span> (taintedCommand == <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>(<span class="string">&quot;taintedCommand == null&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (taintedCommand.length == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IndexOutOfBoundsException</span>(<span class="string">&quot;taintedCommand.length == 0&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Handle security and safety by copying mutable inputs and checking them.</span></span><br><span class="line">    String[] command = taintedCommand.clone();</span><br><span class="line">    String[] environment = taintedEnvironment != <span class="literal">null</span> ? taintedEnvironment.clone() : <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Check we&#x27;re not passing null Strings to the native exec.</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; command.length; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (command[i] == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>(<span class="string">&quot;taintedCommand[&quot;</span> + i + <span class="string">&quot;] == null&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// The environment is allowed to be null or empty, but no element may be null.</span></span><br><span class="line">    <span class="keyword">if</span> (environment != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; environment.length; i++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (environment[i] == <span class="literal">null</span>) &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>(<span class="string">&quot;taintedEnvironment[&quot;</span> + i + <span class="string">&quot;] == null&quot;</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">FileDescriptor</span> <span class="variable">in</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FileDescriptor</span>();</span><br><span class="line">    <span class="type">FileDescriptor</span> <span class="variable">out</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FileDescriptor</span>();</span><br><span class="line">    <span class="type">FileDescriptor</span> <span class="variable">err</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FileDescriptor</span>();</span><br><span class="line"></span><br><span class="line">    <span class="type">String</span> <span class="variable">workingPath</span> <span class="operator">=</span> (workingDirectory == <span class="literal">null</span>)</span><br><span class="line">            ? <span class="literal">null</span></span><br><span class="line">            : workingDirectory.getPath();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Ensure onExit() doesn&#x27;t access the process map before we add our</span></span><br><span class="line">    <span class="comment">// entry.</span></span><br><span class="line">    <span class="keyword">synchronized</span> (processReferences) &#123;</span><br><span class="line">        <span class="type">int</span> pid;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 调用JNI方法, 创建一个子进程, 并返回对应的PID</span></span><br><span class="line">            pid = exec(command, environment, workingPath, in, out, err, redirectErrorStream);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            <span class="type">IOException</span> <span class="variable">wrapper</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IOException</span>(<span class="string">&quot;Error running exec().&quot;</span></span><br><span class="line">                    + <span class="string">&quot; Command: &quot;</span> + Arrays.toString(command)</span><br><span class="line">                    + <span class="string">&quot; Working Directory: &quot;</span> + workingDirectory</span><br><span class="line">                    + <span class="string">&quot; Environment: &quot;</span> + Arrays.toString(environment));</span><br><span class="line">            wrapper.initCause(e);</span><br><span class="line">            <span class="keyword">throw</span> wrapper;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="type">ProcessImpl</span> <span class="variable">process</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ProcessImpl</span>(pid, in, out, err);</span><br><span class="line">        <span class="type">ProcessReference</span> <span class="variable">processReference</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ProcessReference</span>(process, referenceQueue);</span><br><span class="line">        processReferences.put(pid, processReference);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * This will wake up the child monitor thread in case there</span></span><br><span class="line"><span class="comment">         * weren&#x27;t previously any children to wait on.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        processReferences.notifyAll();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> process;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>在看下对应的JNI方法<code>java_lang_ProcessManager.cpp</code>,  看到<code>ExecuteProcess</code>中将子进程的输入输出以及错误流均重定向到pipe的一端, 而pipe的另一端则对应着父进程的输出输入以及错误流, 这样一看子进程所阻塞的函数<code>pipe_wait</code>正是因为输出流缓冲满了, 无法再继续写了(那么, 可能还有疑问? 为何本地进程一直要写pipe了, 手动输入命令调用下就知道, 这个本地进程一直变态的在打印自己写入数据的文件名到标准输出).</p>
+<p>在看下对应的JNI方法<code>java_lang_ProcessManager.cpp</code>,
+看到<code>ExecuteProcess</code>中将子进程的输入输出以及错误流均重定向到pipe的一端,
+而pipe的另一端则对应着父进程的输出输入以及错误流,
+这样一看子进程所阻塞的函数<code>pipe_wait</code>正是因为输出流缓冲满了,
+无法再继续写了(那么, 可能还有疑问? 为何本地进程一直要写pipe了,
+手动输入命令调用下就知道,
+这个本地进程一直变态的在打印自己写入数据的文件名到标准输出).</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">pid_t</span> <span class="title">ProcessManager_exec</span><span class="params">(JNIEnv* env, jclass, jobjectArray javaCommands,</span></span></span><br><span class="line"><span class="params"><span class="function">	                         jobjectArray javaEnvironment, jstring javaWorkingDirectory,</span></span></span><br><span class="line"><span class="params"><span class="function">	                         jobject inDescriptor, jobject outDescriptor, jobject errDescriptor,</span></span></span><br><span class="line"><span class="params"><span class="function">	                         jboolean redirectErrorStream)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">  <span class="function">ExecStrings <span class="title">commands</span><span class="params">(env, javaCommands)</span></span>;</span><br><span class="line">  <span class="function">ExecStrings <span class="title">environment</span><span class="params">(env, javaEnvironment)</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Extract working directory string.</span></span><br><span class="line">  <span class="type">const</span> <span class="type">char</span>* workingDirectory = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="keyword">if</span> (javaWorkingDirectory != <span class="literal">NULL</span>) &#123;</span><br><span class="line">    workingDirectory = env-&gt;<span class="built_in">GetStringUTFChars</span>(javaWorkingDirectory, <span class="literal">NULL</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="type">pid_t</span> result = <span class="built_in">ExecuteProcess</span>(env, commands.<span class="built_in">get</span>(), environment.<span class="built_in">get</span>(), workingDirectory,</span><br><span class="line">	                        inDescriptor, outDescriptor, errDescriptor, redirectErrorStream);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Clean up working directory string.</span></span><br><span class="line">  <span class="keyword">if</span> (javaWorkingDirectory != <span class="literal">NULL</span>) &#123;</span><br><span class="line">    env-&gt;<span class="built_in">ReleaseStringUTFChars</span>(javaWorkingDirectory, workingDirectory);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/** Executes a command in a child process. */</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">pid_t</span> <span class="title">ExecuteProcess</span><span class="params">(JNIEnv* env, <span class="type">char</span>** commands, <span class="type">char</span>** environment,</span></span></span><br><span class="line"><span class="params"><span class="function">	                    <span class="type">const</span> <span class="type">char</span>* workingDirectory, jobject inDescriptor,</span></span></span><br><span class="line"><span class="params"><span class="function">	                    jobject outDescriptor, jobject errDescriptor,</span></span></span><br><span class="line"><span class="params"><span class="function">	                    jboolean redirectErrorStream)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Create 4 pipes: stdin, stdout, stderr, and an exec() status pipe.</span></span><br><span class="line">  <span class="type">int</span> pipes[PIPE_COUNT * <span class="number">2</span>] = &#123; <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span> &#125;;</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; PIPE_COUNT; i++) &#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">pipe</span>(pipes + i * <span class="number">2</span>) == <span class="number">-1</span>) &#123;</span><br><span class="line">      <span class="built_in">jniThrowIOException</span>(env, errno);</span><br><span class="line">      <span class="built_in">ClosePipes</span>(pipes, <span class="number">-1</span>);</span><br><span class="line">      <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="type">int</span> stdinIn = pipes[<span class="number">0</span>];</span><br><span class="line">  <span class="type">int</span> stdinOut = pipes[<span class="number">1</span>];</span><br><span class="line">  <span class="type">int</span> stdoutIn = pipes[<span class="number">2</span>];</span><br><span class="line">  <span class="type">int</span> stdoutOut = pipes[<span class="number">3</span>];</span><br><span class="line">  <span class="type">int</span> stderrIn = pipes[<span class="number">4</span>];</span><br><span class="line">  <span class="type">int</span> stderrOut = pipes[<span class="number">5</span>];</span><br><span class="line">  <span class="type">int</span> statusIn = pipes[<span class="number">6</span>];</span><br><span class="line">  <span class="type">int</span> statusOut = pipes[<span class="number">7</span>];</span><br><span class="line"></span><br><span class="line">  <span class="type">pid_t</span> childPid = fork();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If fork() failed...</span></span><br><span class="line">  <span class="keyword">if</span> (childPid == <span class="number">-1</span>) &#123;</span><br><span class="line">    <span class="built_in">jniThrowIOException</span>(env, errno);</span><br><span class="line">    <span class="built_in">ClosePipes</span>(pipes, <span class="number">-1</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If this is the child process...</span></span><br><span class="line">  <span class="keyword">if</span> (childPid == <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// Note: We cannot malloc(3) or free(3) after this point!</span></span><br><span class="line">    <span class="comment">// A thread in the parent that no longer exists in the child may have held the heap lock</span></span><br><span class="line">    <span class="comment">// when we forked, so an attempt to malloc(3) or free(3) would result in deadlock.</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Replace stdin, out, and err with pipes.</span></span><br><span class="line">    <span class="built_in">dup2</span>(stdinIn, <span class="number">0</span>);</span><br><span class="line">    <span class="built_in">dup2</span>(stdoutOut, <span class="number">1</span>);</span><br><span class="line">    <span class="keyword">if</span> (redirectErrorStream) &#123;</span><br><span class="line">      <span class="built_in">dup2</span>(stdoutOut, <span class="number">2</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="built_in">dup2</span>(stderrOut, <span class="number">2</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Close all but statusOut. This saves some work in the next step.</span></span><br><span class="line">    <span class="built_in">ClosePipes</span>(pipes, statusOut);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Make statusOut automatically close if execvp() succeeds.</span></span><br><span class="line">    <span class="built_in">fcntl</span>(statusOut, F_SETFD, FD_CLOEXEC);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Close remaining unwanted open fds.</span></span><br><span class="line">    <span class="built_in">CloseNonStandardFds</span>(statusOut);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Switch to working directory.</span></span><br><span class="line">    <span class="keyword">if</span> (workingDirectory != <span class="literal">NULL</span>) &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">chdir</span>(workingDirectory) == <span class="number">-1</span>) &#123;</span><br><span class="line">	<span class="built_in">AbortChild</span>(statusOut);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Set up environment.</span></span><br><span class="line">    <span class="keyword">if</span> (environment != <span class="literal">NULL</span>) &#123;</span><br><span class="line">      <span class="keyword">extern</span> <span class="type">char</span>** environ; <span class="comment">// Standard, but not in any header file.</span></span><br><span class="line">      environ = environment;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Execute process. By convention, the first argument in the arg array</span></span><br><span class="line">    <span class="comment">// should be the command itself.</span></span><br><span class="line">    <span class="built_in">execvp</span>(commands[<span class="number">0</span>], commands);</span><br><span class="line">    <span class="built_in">AbortChild</span>(statusOut);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// This is the parent process.</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// Close child&#x27;s pipe ends.</span></span><br><span class="line">  <span class="built_in">close</span>(stdinIn);</span><br><span class="line">  <span class="built_in">close</span>(stdoutOut);</span><br><span class="line">  <span class="built_in">close</span>(stderrOut);</span><br><span class="line">  <span class="built_in">close</span>(statusOut);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Check status pipe for an error code. If execvp(2) succeeds, the other</span></span><br><span class="line">  <span class="comment">// end of the pipe should automatically close, in which case, we&#x27;ll read</span></span><br><span class="line">  <span class="comment">// nothing.</span></span><br><span class="line">  <span class="type">int</span> child_errno;</span><br><span class="line">  <span class="type">ssize_t</span> count = <span class="built_in">TEMP_FAILURE_RETRY</span>(<span class="built_in">read</span>(statusIn, &amp;child_errno, <span class="built_in">sizeof</span>(<span class="type">int</span>)));</span><br><span class="line">  <span class="built_in">close</span>(statusIn);</span><br><span class="line">  <span class="keyword">if</span> (count &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// chdir(2) or execvp(2) in the child failed.</span></span><br><span class="line">    <span class="comment">// <span class="doctag">TODO:</span> track which so we can be more specific in the detail message.</span></span><br><span class="line">    <span class="built_in">jniThrowIOException</span>(env, child_errno);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">close</span>(stdoutIn);</span><br><span class="line">    <span class="built_in">close</span>(stdinOut);</span><br><span class="line">    <span class="built_in">close</span>(stderrIn);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Reap our zombie child right away.</span></span><br><span class="line">    <span class="type">int</span> status;</span><br><span class="line">    <span class="type">int</span> rc = <span class="built_in">TEMP_FAILURE_RETRY</span>(<span class="built_in">waitpid</span>(childPid, &amp;status, <span class="number">0</span>));</span><br><span class="line">    <span class="keyword">if</span> (rc == <span class="number">-1</span>) &#123;</span><br><span class="line">      <span class="built_in">ALOGW</span>(<span class="string">&quot;waitpid on failed exec failed: %s&quot;</span>, <span class="built_in">strerror</span>(errno));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Fill in file descriptor wrappers.</span></span><br><span class="line">  <span class="built_in">jniSetFileDescriptorOfFD</span>(env, inDescriptor, stdoutIn);</span><br><span class="line">  <span class="built_in">jniSetFileDescriptorOfFD</span>(env, outDescriptor, stdinOut);</span><br><span class="line">  <span class="built_in">jniSetFileDescriptorOfFD</span>(env, errDescriptor, stderrIn);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> childPid;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>如果有兴趣还可以继续看下kernel的代码<code>fs/pipe.c</code>是如何实现<code>pipe_write/pipe_read</code>以及<code>pipe_wait</code>是如何发生的.</p>
 <p>这么一看代码流程, 如何解决这个问题的思路也有了, 大致有这么几种:</p>
 <ul>
-<li>直接在Java代码中去掉<code>Process.waitfor()</code>, 这个方法可能还是会有导致子进程阻塞的风险, 虽然不会死锁</li>
-<li>在新的线程中读取子线程的输出流:<code>Process.getInputStream()</code>, 这样确保子进程不会被阻塞</li>
+<li>直接在Java代码中去掉<code>Process.waitfor()</code>,
+这个方法可能还是会有导致子进程阻塞的风险, 虽然不会死锁</li>
+<li>在新的线程中读取子线程的输出流:<code>Process.getInputStream()</code>,
+这样确保子进程不会被阻塞</li>
 <li>直接将子进程的流全部丢弃(如果本身不感兴趣的话)</li>
-<li>要写本地进程的人把所有这些不必要的打印全部去掉(不是好方案, 去掉日志定位问题更难)</li>
+<li>要写本地进程的人把所有这些不必要的打印全部去掉(不是好方案,
+去掉日志定位问题更难)</li>
 </ul>
 
     </article>
@@ -580,7 +608,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">https://sniffer.site/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">September 4th 2019, 4:35:16 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">2022-03-16, 12:30:58</a>
+            <p>更新日期：<a href="https://sniffer.site/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1395,7 +1423,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2846,7 +2885,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2864,6 +2903,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3722,44 +3767,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3777,14 +3797,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3797,14 +3822,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3815,11 +3840,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3837,14 +3857,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3860,6 +3875,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3892,31 +3917,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3925,6 +3925,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3947,19 +3952,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3975,6 +3970,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4002,14 +4032,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4022,39 +4052,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4065,16 +4085,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4102,6 +4112,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4117,9 +4152,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4137,41 +4182,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4182,14 +4192,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4217,16 +4232,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4247,9 +4252,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4267,24 +4282,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4292,24 +4307,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4322,9 +4347,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4347,9 +4377,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4372,6 +4402,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4387,14 +4427,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4405,6 +4445,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4422,41 +4482,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4470,6 +4495,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4492,11 +4532,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4512,16 +4547,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4535,6 +4560,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4557,16 +4597,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4582,24 +4612,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4610,6 +4625,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4652,6 +4682,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4667,14 +4717,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4695,21 +4740,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4777,19 +4807,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4807,6 +4827,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4822,16 +4867,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4840,6 +4875,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4862,21 +4912,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4895,16 +4930,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4932,11 +4957,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4957,14 +4977,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -4992,19 +5027,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5017,6 +5047,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5025,6 +5060,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5037,6 +5082,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5058,6 +5108,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5068,19 +5123,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5088,14 +5133,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5113,14 +5158,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5136,11 +5181,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

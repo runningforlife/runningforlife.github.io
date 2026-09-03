@@ -26,15 +26,13 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="容器(Containers)是一种创建轻量级虚拟的应用执行环境的技术；基于容器技术，我们可以轻松的在同一个操作系统中构建出多个隔离、虚拟的运行环境，不同于基于虚拟化技术(hypervisor)的硬件级别的隔离方案，容器通过Linux内核中的命名空间(Namespace)以及控制分组(Cgroups)来实现进程级资源如CPU、内存、IO、网络等隔离与管理。目前常见的容器方案有Linux Contai">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/lxc-architecture.png">
 <meta property="article:published_time" content="2025-06-06T01:30:52.000Z">
-<meta property="article:modified_time" content="2025-07-18T09:20:12.843Z">
+<meta property="article:modified_time" content="2026-09-03T05:13:01.411Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="LXC">
 <meta property="article:tag" content="虚拟化">
 <meta property="article:tag" content="容器">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/lxc-architecture.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -527,21 +525,27 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>容器(<code>Containers</code>)是一种创建轻量级<code>虚拟</code>的应用执行环境的技术；基于容器技术，我们可以轻松的在同一个操作系统中构建出多个隔离、虚拟的运行环境，不同于基于虚拟化技术(<code>hypervisor</code>)的硬件级别的隔离方案，容器通过<code>Linux</code>内核中的命名空间(<code>Namespace</code>)以及控制分组(<code>Cgroups</code>)来实现进程级资源如CPU、内存、IO、网络等隔离与管理。目前常见的容器方案有<a target="_blank" rel="noopener" href="https://linuxcontainers.org/"><code>Linux Containers(LXC)</code></a>与<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Docker_(software)"><code>Docker</code></a>；<code>LXC</code>可以用于进程执行也可以用于启动一个系统镜像（包含<code>rootfs</code>的完整系统执行环境），而<code>Docker</code>一般用于云计算中的应用程序的打包运行。</p>
+        <p>容器(<code>Containers</code>)是一种创建轻量级<code>虚拟</code>的应用执行环境的技术；基于容器技术，我们可以轻松的在同一个操作系统中构建出多个隔离、虚拟的运行环境，不同于基于虚拟化技术(<code>hypervisor</code>)的硬件级别的隔离方案，容器通过<code>Linux</code>内核中的命名空间(<code>Namespace</code>)以及控制分组(<code>Cgroups</code>)来实现进程级资源如CPU、内存、IO、网络等隔离与管理。目前常见的容器方案有<a
+target="_blank" rel="noopener" href="https://linuxcontainers.org/"><code>Linux Containers(LXC)</code></a>与<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Docker_(software)"><code>Docker</code></a>；<code>LXC</code>可以用于进程执行也可以用于启动一个系统镜像（包含<code>rootfs</code>的完整系统执行环境），而<code>Docker</code>一般用于云计算中的应用程序的打包运行。</p>
 <p>深入Linux容器文章系列准备分为上下两篇来写，第一篇主要围绕<code>LXC</code>容器的基本实现原理以及如何在<code>ubuntu</code>系统中创建自己的容器；下篇主要从源码的角度分析下<code>LXC</code>是如何实现的。这篇文章，我们着重了解下<code>LXC</code>的实现原理，主要从如下两个方面进行介绍：</p>
 <ul>
-<li>首先从<code>namespace</code>、<code>cgroups</code>两个基本的概念介绍<code>LXC</code>的基本原理</li>
-<li>基于<code>Ubuntu</code>系统搭建、启动一个完整的<code>LXC</code>容器</li>
+<li><p>首先从<code>namespace</code>、<code>cgroups</code>两个基本的概念介绍<code>LXC</code>的基本原理</p></li>
+<li><p>基于<code>Ubuntu</code>系统搭建、启动一个完整的<code>LXC</code>容器
+<span id="more"></span></p></li>
 </ul>
-<span id="more"></span>
-
 <blockquote>
 <p>本文基于内核5.10版本源代码分析</p>
 </blockquote>
-<h2 id="LXC的实现原理"><a href="#LXC的实现原理" class="headerlink" title="LXC的实现原理"></a><strong>LXC的实现原理</strong></h2><p><code>LXC</code>是一种操作系统级别的系统隔离方案，容器之间通过<code>namespace</code>与<code>cgroups</code>来实现资源的隔离与控制；<code>SELinux</code>则用于控制宿主系统与容器以及容器与容器之间的安全隔离与权限控制。在容器与内核中间通过容器运行时环境来统一管理不同的容器的创建、启动与销毁，不同容器之间实际是共用一个内核与所有的硬件设备，这个不同于<code>XEN</code>、<code>QNX</code>这样的虚拟化方案：</p>
-<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/lxc-architecture.png" alt="LXC-architecture"></p>
+<h2 id="lxc的实现原理">LXC的实现原理</h2>
+<p><code>LXC</code>是一种操作系统级别的系统隔离方案，容器之间通过<code>namespace</code>与<code>cgroups</code>来实现资源的隔离与控制；<code>SELinux</code>则用于控制宿主系统与容器以及容器与容器之间的安全隔离与权限控制。在容器与内核中间通过容器运行时环境来统一管理不同的容器的创建、启动与销毁，不同容器之间实际是共用一个内核与所有的硬件设备，这个不同于<code>XEN</code>、<code>QNX</code>这样的虚拟化方案：</p>
+<p><img
+src="https://md-files.oss-cn-shenzhen.aliyuncs.com/lxc-architecture.png"
+alt="lxc-architecture" /></p>
 <p>下面我们就来看看构成<code>LXC</code>的两个基础能力<code>namespace</code>与<code>cgroups</code>。</p>
-<h3 id="namespace-命名空间"><a href="#namespace-命名空间" class="headerlink" title="namespace(命名空间)"></a><strong>namespace(命名空间)</strong></h3><p>内核中的<a target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/namespaces.7.html"><code>namespace</code></a>是用于隔离不同进程资源的手段；每个进程在初始化的时候，都会有自己的命名空间用于管理系统的资源，比如CPU、网络、IPC（跨进程通讯）、PID等，这样不同命名空间的进程资源是相互隔离的，无法被对方看到、访问。这个跟编程语言中的命名空间有点类似，本质上都是对不同类型的资源进行隔离，避免相互影响。</p>
+<h3 id="namespace命名空间">namespace(命名空间)</h3>
+<p>内核中的<a
+target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/namespaces.7.html"><code>namespace</code></a>是用于隔离不同进程资源的手段；每个进程在初始化的时候，都会有自己的命名空间用于管理系统的资源，比如CPU、网络、IPC（跨进程通讯）、PID等，这样不同命名空间的进程资源是相互隔离的，无法被对方看到、访问。这个跟编程语言中的命名空间有点类似，本质上都是对不同类型的资源进行隔离，避免相互影响。</p>
 <p>当前内核中，有8中不同类型的命名空间：</p>
 <table>
 <thead>
@@ -551,7 +555,8 @@
 <th>隔离的资源</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>Cgroup</td>
 <td>CLONE_NEWCGROUP</td>
 <td>cgroup根目录</td>
@@ -591,96 +596,95 @@
 <td>CLONE_NEWUTS</td>
 <td>主机名、NIS域服务名</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
 <p>在内核代码中，所有的命名空间都用一个结构体<code>struct nsproxy</code>封装起来，进程的数据结构<code>struct task_struct</code>会有一个对应的指针来表示该进程所属的命名空间：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> &#123;</span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_THREAD_INFO_IN_TASK</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * For reasons of header soup (see current_thread_info()), this</span></span><br><span class="line"><span class="comment">	 * must be the first element of task_struct.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">thread_info</span>		<span class="title">thread_info</span>;</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	<span class="comment">/* -1 unrunnable, 0 runnable, &gt;0 stopped: */</span></span><br><span class="line">	<span class="keyword">volatile</span> <span class="type">long</span>			state;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * This begins the randomizable portion of task_struct. Only</span></span><br><span class="line"><span class="comment">	 * scheduling-critical items should be added above here.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	randomized_struct_fields_start</span><br><span class="line"></span><br><span class="line">	<span class="type">void</span>				*<span class="built_in">stack</span>;</span><br><span class="line">	<span class="type">refcount_t</span>			usage;</span><br><span class="line">	<span class="comment">/* Per task flags (PF_*), defined further below: */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			flags;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			ptrace;</span><br><span class="line">	...</span><br><span class="line">	<span class="type">int</span>				on_rq;</span><br><span class="line"></span><br><span class="line">	<span class="type">int</span>				prio;</span><br><span class="line">	<span class="type">int</span>				static_prio;</span><br><span class="line">	<span class="type">int</span>				normal_prio;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			rt_priority;</span><br><span class="line"></span><br><span class="line">	<span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">sched_class</span>	*<span class="title">sched_class</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_entity</span>		<span class="title">se</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_rt_entity</span>		<span class="title">rt</span>;</span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_CGROUP_SCHED</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">task_group</span>		*<span class="title">sched_task_group</span>;</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_dl_entity</span>		<span class="title">dl</span>;</span></span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			policy;</span><br><span class="line">	<span class="type">int</span>				nr_cpus_allowed;</span><br><span class="line">	<span class="type">const</span> <span class="type">cpumask_t</span>			*cpus_ptr;</span><br><span class="line">	<span class="type">cpumask_t</span>			cpus_mask;</span><br><span class="line">	...</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_info</span>		<span class="title">sched_info</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span>		<span class="title">tasks</span>;</span></span><br><span class="line">	...</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span>		*<span class="title">mm</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span>		*<span class="title">active_mm</span>;</span></span><br><span class="line">	...</span><br><span class="line">	<span class="type">int</span>				exit_state;</span><br><span class="line">	<span class="type">int</span>				exit_code;</span><br><span class="line">	<span class="type">int</span>				exit_signal;</span><br><span class="line">	<span class="comment">/* The signal sent when the parent dies: */</span></span><br><span class="line">	<span class="type">int</span>				pdeath_signal;</span><br><span class="line">	<span class="comment">/* JOBCTL_*, siglock protected: */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			jobctl;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Used for emulating ABI behavior of previous Linux versions: */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			personality;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Scheduler bits, serialized by scheduler locks: */</span></span><br><span class="line">	<span class="type">unsigned</span>			sched_reset_on_fork:<span class="number">1</span>;</span><br><span class="line">	<span class="type">unsigned</span>			sched_contributes_to_load:<span class="number">1</span>;</span><br><span class="line">	<span class="type">unsigned</span>			sched_migrated:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PSI</span></span><br><span class="line">	<span class="type">unsigned</span>			sched_psi_wake_requeue:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Bit to tell LSMs we&#x27;re in execve(): */</span></span><br><span class="line">	<span class="type">unsigned</span>			in_execve:<span class="number">1</span>;</span><br><span class="line">	<span class="type">unsigned</span>			in_iowait:<span class="number">1</span>;</span><br><span class="line">	...</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_CGROUPS</span></span><br><span class="line">	<span class="comment">/* disallow userland-initiated cgroup migration */</span></span><br><span class="line">	<span class="type">unsigned</span>			no_cgroup_migration:<span class="number">1</span>;</span><br><span class="line">	<span class="comment">/* task is frozen/stopped (used by the cgroup freezer) */</span></span><br><span class="line">	<span class="type">unsigned</span>			frozen:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_BLK_CGROUP</span></span><br><span class="line">	<span class="type">unsigned</span>			use_memdelay:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PSI</span></span><br><span class="line">	<span class="comment">/* Stalled due to lack of memory */</span></span><br><span class="line">	<span class="type">unsigned</span>			in_memstall:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	...</span><br><span class="line">	<span class="type">pid_t</span>				pid;</span><br><span class="line">	<span class="type">pid_t</span>				tgid;</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">/* Namespaces: */</span>  --&gt; 命名空间</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">nsproxy</span>			*<span class="title">nsproxy</span>;</span></span><br><span class="line">    ...</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> &#123;</span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_THREAD_INFO_IN_TASK</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * For reasons of header soup (see current_thread_info()), this</span></span><br><span class="line"><span class="comment">	 * must be the first element of task_struct.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">thread_info</span>		<span class="title">thread_info</span>;</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	<span class="comment">/* -1 unrunnable, 0 runnable, &gt;0 stopped: */</span></span><br><span class="line">	<span class="keyword">volatile</span> <span class="type">long</span>			state;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * This begins the randomizable portion of task_struct. Only</span></span><br><span class="line"><span class="comment">	 * scheduling-critical items should be added above here.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	randomized_struct_fields_start</span><br><span class="line"></span><br><span class="line">	<span class="type">void</span>				*<span class="built_in">stack</span>;</span><br><span class="line">	<span class="type">refcount_t</span>			usage;</span><br><span class="line">	<span class="comment">/* Per task flags (PF_*), defined further below: */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			flags;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			ptrace;</span><br><span class="line">	...</span><br><span class="line">	<span class="type">int</span>				on_rq;</span><br><span class="line"></span><br><span class="line">	<span class="type">int</span>				prio;</span><br><span class="line">	<span class="type">int</span>				static_prio;</span><br><span class="line">	<span class="type">int</span>				normal_prio;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			rt_priority;</span><br><span class="line"></span><br><span class="line">	<span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">sched_class</span>	*<span class="title">sched_class</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_entity</span>		<span class="title">se</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_rt_entity</span>		<span class="title">rt</span>;</span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_CGROUP_SCHED</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">task_group</span>		*<span class="title">sched_task_group</span>;</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_dl_entity</span>		<span class="title">dl</span>;</span></span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			policy;</span><br><span class="line">	<span class="type">int</span>				nr_cpus_allowed;</span><br><span class="line">	<span class="type">const</span> <span class="type">cpumask_t</span>			*cpus_ptr;</span><br><span class="line">	<span class="type">cpumask_t</span>			cpus_mask;</span><br><span class="line">	...</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sched_info</span>		<span class="title">sched_info</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span>		<span class="title">tasks</span>;</span></span><br><span class="line">	...</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span>		*<span class="title">mm</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span>		*<span class="title">active_mm</span>;</span></span><br><span class="line">	...</span><br><span class="line">	<span class="type">int</span>				exit_state;</span><br><span class="line">	<span class="type">int</span>				exit_code;</span><br><span class="line">	<span class="type">int</span>				exit_signal;</span><br><span class="line">	<span class="comment">/* The signal sent when the parent dies: */</span></span><br><span class="line">	<span class="type">int</span>				pdeath_signal;</span><br><span class="line">	<span class="comment">/* JOBCTL_*, siglock protected: */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			jobctl;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Used for emulating ABI behavior of previous Linux versions: */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span>			personality;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Scheduler bits, serialized by scheduler locks: */</span></span><br><span class="line">	<span class="type">unsigned</span>			sched_reset_on_fork:<span class="number">1</span>;</span><br><span class="line">	<span class="type">unsigned</span>			sched_contributes_to_load:<span class="number">1</span>;</span><br><span class="line">	<span class="type">unsigned</span>			sched_migrated:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PSI</span></span><br><span class="line">	<span class="type">unsigned</span>			sched_psi_wake_requeue:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Bit to tell LSMs we&#x27;re in execve(): */</span></span><br><span class="line">	<span class="type">unsigned</span>			in_execve:<span class="number">1</span>;</span><br><span class="line">	<span class="type">unsigned</span>			in_iowait:<span class="number">1</span>;</span><br><span class="line">	...</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_CGROUPS</span></span><br><span class="line">	<span class="comment">/* disallow userland-initiated cgroup migration */</span></span><br><span class="line">	<span class="type">unsigned</span>			no_cgroup_migration:<span class="number">1</span>;</span><br><span class="line">	<span class="comment">/* task is frozen/stopped (used by the cgroup freezer) */</span></span><br><span class="line">	<span class="type">unsigned</span>			frozen:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_BLK_CGROUP</span></span><br><span class="line">	<span class="type">unsigned</span>			use_memdelay:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PSI</span></span><br><span class="line">	<span class="comment">/* Stalled due to lack of memory */</span></span><br><span class="line">	<span class="type">unsigned</span>			in_memstall:<span class="number">1</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	...</span><br><span class="line">	<span class="type">pid_t</span>				pid;</span><br><span class="line">	<span class="type">pid_t</span>				tgid;</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">/* Namespaces: */</span>  --&gt; 命名空间</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">nsproxy</span>			*<span class="title">nsproxy</span>;</span></span><br><span class="line">    ...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>可以看到，结构体<code>struct nsproxy</code>实际是上述几种类型的命名空间的集合，每个命名空间都有指向各个类型命名空间的的指针，另外还包括了<code>count</code>用于计数，表示当前命名空间被多少个进程使用。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">nsproxy</span> &#123;</span></span><br><span class="line">	<span class="type">atomic_t</span> count;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">uts_namespace</span> *<span class="title">uts_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">ipc_namespace</span> *<span class="title">ipc_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">mnt_namespace</span> *<span class="title">mnt_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pid_namespace</span> *<span class="title">pid_ns_for_children</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net</span> 	     *<span class="title">net_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">time_namespace</span> *<span class="title">time_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">time_namespace</span> *<span class="title">time_ns_for_children</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">cgroup_namespace</span> *<span class="title">cgroup_ns</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">nsproxy</span> &#123;</span></span><br><span class="line">	<span class="type">atomic_t</span> count;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">uts_namespace</span> *<span class="title">uts_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">ipc_namespace</span> *<span class="title">ipc_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">mnt_namespace</span> *<span class="title">mnt_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pid_namespace</span> *<span class="title">pid_ns_for_children</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net</span> 	     *<span class="title">net_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">time_namespace</span> *<span class="title">time_ns</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">time_namespace</span> *<span class="title">time_ns_for_children</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">cgroup_namespace</span> *<span class="title">cgroup_ns</span>;</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>通过系统<code>proc</code>目录，我们可以查看当前系统中进程的命名空间信息；在3.8之前的版本，这些都是硬链接(<code>hard link</code>)，3.8版本开始统一使用符号链接(<code>symbolic link</code>)，由命名空间的名字加上对应的文件<code>inode</code>号组成的字符串。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">~<span class="comment"># ls -al /proc/1/ns/</span></span><br><span class="line">total 0</span><br><span class="line">dr-x--x--x 2 root root 0  6月  5 09:33 .</span><br><span class="line">dr-xr-xr-x 9 root root 0  6月  5 09:33 ..</span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 09:33 cgroup -&gt; <span class="string">&#x27;cgroup:[4026531835]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 ipc -&gt; <span class="string">&#x27;ipc:[4026531839]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 09:33 mnt -&gt; <span class="string">&#x27;mnt:[4026531841]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 net -&gt; <span class="string">&#x27;net:[4026531840]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 pid -&gt; <span class="string">&#x27;pid:[4026531836]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 pid_for_children -&gt; <span class="string">&#x27;pid:[4026531836]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 time -&gt; <span class="string">&#x27;time:[4026531834]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 time_for_children -&gt; <span class="string">&#x27;time:[4026531834]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 user -&gt; <span class="string">&#x27;user:[4026531837]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 uts -&gt; <span class="string">&#x27;uts:[4026531838]&#x27;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="cgroups-控制分组"><a href="#cgroups-控制分组" class="headerlink" title="cgroups(控制分组)"></a><strong>cgroups(控制分组)</strong></h2><p><code>cgroups(control groups)</code>是一种任务资源分配与管控的机制，比如我们可以通过<code>cpuset</code>控制分组将某些CPU分配给特定的分组；通过<code>memcfg</code>控制分组可以限制某些进程的内存使用。与Linux中的任务层级结构类似，<code>cgroups</code>也是一种树状的层级结构，子进程自动的继承了父进程的<code>cgroups</code>，两者之间不同的是，<code>cgroups</code>会同时存在多个子系统，每个子系统都有自己独立的层级结构。目前<code>Linux</code>内核中常见的<code>cgroups</code>有如下几种（具体的类型可以参考<code>linux/inclue/cgroup_subsys.h</code>中的定义）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">~<span class="comment"># ls -al /proc/1/ns/</span></span><br><span class="line">total 0</span><br><span class="line">dr-x--x--x 2 root root 0  6月  5 09:33 .</span><br><span class="line">dr-xr-xr-x 9 root root 0  6月  5 09:33 ..</span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 09:33 cgroup -&gt; <span class="string">&#x27;cgroup:[4026531835]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 ipc -&gt; <span class="string">&#x27;ipc:[4026531839]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 09:33 mnt -&gt; <span class="string">&#x27;mnt:[4026531841]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 net -&gt; <span class="string">&#x27;net:[4026531840]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 pid -&gt; <span class="string">&#x27;pid:[4026531836]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 pid_for_children -&gt; <span class="string">&#x27;pid:[4026531836]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 time -&gt; <span class="string">&#x27;time:[4026531834]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 time_for_children -&gt; <span class="string">&#x27;time:[4026531834]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 user -&gt; <span class="string">&#x27;user:[4026531837]&#x27;</span></span><br><span class="line">lrwxrwxrwx 1 root root 0  6月  5 15:41 uts -&gt; <span class="string">&#x27;uts:[4026531838]&#x27;</span></span><br></pre></td></tr></table></figure>
+<h2 id="cgroups控制分组">cgroups(控制分组)</h2>
+<p><code>cgroups(control groups)</code>是一种任务资源分配与管控的机制，比如我们可以通过<code>cpuset</code>控制分组将某些CPU分配给特定的分组；通过<code>memcfg</code>控制分组可以限制某些进程的内存使用。与Linux中的任务层级结构类似，<code>cgroups</code>也是一种树状的层级结构，子进程自动的继承了父进程的<code>cgroups</code>，两者之间不同的是，<code>cgroups</code>会同时存在多个子系统，每个子系统都有自己独立的层级结构。目前<code>Linux</code>内核中常见的<code>cgroups</code>有如下几种（具体的类型可以参考<code>linux/inclue/cgroup_subsys.h</code>中的定义）：</p>
 <ul>
-<li><code>cpu</code>子系统，为调度器提供限制进程的cpu使用率的参数</li>
-<li><code>cpuacct</code>子系统，可以统计<code>cgroups</code>中的进程的cpu使用数据</li>
-<li><code>cpuset</code>子系统，为<code>cgroups</code>中的进程分配单独的cpu节点或者内存节点</li>
-<li><code>memory</code>子系统，用于限制进程的内存使用量</li>
-<li><code>blkio</code>子系统，可以限制进程的块设备I&#x2F;O请求</li>
-<li><code>devices</code>子系统，可以控制<code>cgroups</code>中的进程访问某些设备</li>
-<li><code>net_cls</code>子系统，用于标记<code>cgroups</code>中进程的网络数据包，然后通过<code>tc(traffic control)</code>对数据包进行控制</li>
-<li><code>net_prio</code>子系统，用于动态设置某个网卡流量的优先级</li>
-<li><code>freezer</code>子系统，用于挂起或者恢复<code>cgroups</code>中的进程</li>
-<li><code>ns</code>子系统，可以让不同<code>cgroups</code>进程使用不同的<code>namespace</code></li>
-<li><code>perf_event</code>子系统，用于分析不同<code>cgroups</code>进程的性能</li>
-<li><code>pids</code>子系统，用于限制某个<code>cgroup</code>中的进程数量</li>
-<li><code>hugetlb</code>子系统，用于限制<code>cgroup</code>中进程的大页内存数量</li>
-<li><code>rdma</code>子系统，用于限制<code>cgroup</code>中的<code>RDMA(Remote Direct Memory Access)</code>的使用量</li>
+<li><p><code>cpu</code>子系统，为调度器提供限制进程的cpu使用率的参数</p></li>
+<li><p><code>cpuacct</code>子系统，可以统计<code>cgroups</code>中的进程的cpu使用数据</p></li>
+<li><p><code>cpuset</code>子系统，为<code>cgroups</code>中的进程分配单独的cpu节点或者内存节点</p></li>
+<li><p><code>memory</code>子系统，用于限制进程的内存使用量</p></li>
+<li><p><code>blkio</code>子系统，可以限制进程的块设备I/O请求</p></li>
+<li><p><code>devices</code>子系统，可以控制<code>cgroups</code>中的进程访问某些设备</p></li>
+<li><p><code>net_cls</code>子系统，用于标记<code>cgroups</code>中进程的网络数据包，然后通过<code>tc(traffic control)</code>对数据包进行控制</p></li>
+<li><p><code>net_prio</code>子系统，用于动态设置某个网卡流量的优先级</p></li>
+<li><p><code>freezer</code>子系统，用于挂起或者恢复<code>cgroups</code>中的进程</p></li>
+<li><p><code>ns</code>子系统，可以让不同<code>cgroups</code>进程使用不同的<code>namespace</code></p></li>
+<li><p><code>perf_event</code>子系统，用于分析不同<code>cgroups</code>进程的性能</p></li>
+<li><p><code>pids</code>子系统，用于限制某个<code>cgroup</code>中的进程数量</p></li>
+<li><p><code>hugetlb</code>子系统，用于限制<code>cgroup</code>中进程的大页内存数量</p></li>
+<li><p><code>rdma</code>子系统，用于限制<code>cgroup</code>中的<code>RDMA(Remote Direct Memory Access)</code>的使用量
+为了实现<code>cgroups</code>机制，内核在每个任务的结构体中都增加了一个<code>struct css_set</code>的指针，而<code>css_set</code>包含了引用计数的<code>cgroup_subsys_state</code>指针数组，每个<code>cgroup_subsys_state</code>对应着系统中注册的<code>cgroup</code>子系统类型。这样做一方面可以避免每个<code>task_struct</code>都保存一个<code>css_set</code>指针，减少存储的空间，另一方面在进程创建与退出的时候只需要对单个<code>css_set</code>进行操作，而无需对所有的子系统进行状态的更新：</p></li>
 </ul>
-<p>为了实现<code>cgroups</code>机制，内核在每个任务的结构体中都增加了一个<code>struct css_set</code>的指针，而<code>css_set</code>包含了引用计数的<code>cgroup_subsys_state</code>指针数组，每个<code>cgroup_subsys_state</code>对应着系统中注册的<code>cgroup</code>子系统类型。这样做一方面可以避免每个<code>task_struct</code>都保存一个<code>css_set</code>指针，减少存储的空间，另一方面在进程创建与退出的时候只需要对单个<code>css_set</code>进行操作，而无需对所有的子系统进行状态的更新：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">css_set</span> &#123;</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Set of subsystem states, one for each subsystem. This array is</span></span><br><span class="line"><span class="comment">	 * immutable after creation apart from the init_css_set during</span></span><br><span class="line"><span class="comment">	 * subsystem registration (at boot time).</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">cgroup_subsys_state</span> *<span class="title">subsys</span>[<span class="title">CGROUP_SUBSYS_COUNT</span>];</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* reference count */</span></span><br><span class="line">	<span class="type">refcount_t</span> refcount;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * For a domain cgroup, the following points to self.  If threaded,</span></span><br><span class="line"><span class="comment">	 * to the matching cset of the nearest domain ancestor.  The</span></span><br><span class="line"><span class="comment">	 * dom_cset provides access to the domain cgroup and its csses to</span></span><br><span class="line"><span class="comment">	 * which domain level resource consumptions should be charged.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">css_set</span> *<span class="title">dom_cset</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* the default cgroup associated with this css_set */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">cgroup</span> *<span class="title">dfl_cgrp</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* internal task count, protected by css_set_lock */</span></span><br><span class="line">	<span class="type">int</span> nr_tasks;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Lists running through all tasks using this cgroup group.</span></span><br><span class="line"><span class="comment">	 * mg_tasks lists tasks which belong to this cset but are in the</span></span><br><span class="line"><span class="comment">	 * process of being migrated out or in.  Protected by</span></span><br><span class="line"><span class="comment">	 * css_set_rwsem, but, during migration, once tasks are moved to</span></span><br><span class="line"><span class="comment">	 * mg_tasks, it can be read safely while holding cgroup_mutex.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">tasks</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">mg_tasks</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">dying_tasks</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* all css_task_iters currently walking this cset */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">task_iters</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * On the default hierarhcy, -&gt;subsys[ssid] may point to a css</span></span><br><span class="line"><span class="comment">	 * attached to an ancestor instead of the cgroup this css_set is</span></span><br><span class="line"><span class="comment">	 * associated with.  The following node is anchored at</span></span><br><span class="line"><span class="comment">	 * -&gt;subsys[ssid]-&gt;cgroup-&gt;e_csets[ssid] and provides a way to</span></span><br><span class="line"><span class="comment">	 * iterate through all css&#x27;s attached to a given cgroup.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">e_cset_node</span>[<span class="title">CGROUP_SUBSYS_COUNT</span>];</span></span><br><span class="line">	...</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>内核把<code>cgroup</code>当做一个特殊的文件系统来对待，因此用户想要浏览与管理<code>cgroup</code>，首先需要通过挂载<code>cgroup</code>文件系统，然后像操作文件一样来管理整个<code>cgroup</code>的层级结构；目前内核支持<a target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/cgroups.7.html"><code>cgroup1</code>与<code>cgroup2</code>两种类型</a>，具体挂载的时候需要制定不同的参数：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">#cgroup1 </span></span><br><span class="line">mount -t cgroup -o all cgroup /sys/fs/cgroup</span><br><span class="line"></span><br><span class="line"><span class="comment">#cgroup2</span></span><br><span class="line">mount -t cgroup2 none /sys/fs/cgroup</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">css_set</span> &#123;</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Set of subsystem states, one for each subsystem. This array is</span></span><br><span class="line"><span class="comment">	 * immutable after creation apart from the init_css_set during</span></span><br><span class="line"><span class="comment">	 * subsystem registration (at boot time).</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">cgroup_subsys_state</span> *<span class="title">subsys</span>[<span class="title">CGROUP_SUBSYS_COUNT</span>];</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* reference count */</span></span><br><span class="line">	<span class="type">refcount_t</span> refcount;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * For a domain cgroup, the following points to self.  If threaded,</span></span><br><span class="line"><span class="comment">	 * to the matching cset of the nearest domain ancestor.  The</span></span><br><span class="line"><span class="comment">	 * dom_cset provides access to the domain cgroup and its csses to</span></span><br><span class="line"><span class="comment">	 * which domain level resource consumptions should be charged.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">css_set</span> *<span class="title">dom_cset</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* the default cgroup associated with this css_set */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">cgroup</span> *<span class="title">dfl_cgrp</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* internal task count, protected by css_set_lock */</span></span><br><span class="line">	<span class="type">int</span> nr_tasks;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Lists running through all tasks using this cgroup group.</span></span><br><span class="line"><span class="comment">	 * mg_tasks lists tasks which belong to this cset but are in the</span></span><br><span class="line"><span class="comment">	 * process of being migrated out or in.  Protected by</span></span><br><span class="line"><span class="comment">	 * css_set_rwsem, but, during migration, once tasks are moved to</span></span><br><span class="line"><span class="comment">	 * mg_tasks, it can be read safely while holding cgroup_mutex.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">tasks</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">mg_tasks</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">dying_tasks</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* all css_task_iters currently walking this cset */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">task_iters</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * On the default hierarhcy, -&gt;subsys[ssid] may point to a css</span></span><br><span class="line"><span class="comment">	 * attached to an ancestor instead of the cgroup this css_set is</span></span><br><span class="line"><span class="comment">	 * associated with.  The following node is anchored at</span></span><br><span class="line"><span class="comment">	 * -&gt;subsys[ssid]-&gt;cgroup-&gt;e_csets[ssid] and provides a way to</span></span><br><span class="line"><span class="comment">	 * iterate through all css&#x27;s attached to a given cgroup.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">e_cset_node</span>[<span class="title">CGROUP_SUBSYS_COUNT</span>];</span></span><br><span class="line">	...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>内核把<code>cgroup</code>当做一个特殊的文件系统来对待，因此用户想要浏览与管理<code>cgroup</code>，首先需要通过挂载<code>cgroup</code>文件系统，然后像操作文件一样来管理整个<code>cgroup</code>的层级结构；目前内核支持<a
+target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/cgroups.7.html"><code>cgroup1</code>与<code>cgroup2</code>两种类型</a>，具体挂载的时候需要制定不同的参数：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#cgroup1 </span></span><br><span class="line">mount -t cgroup -o all cgroup /sys/fs/cgroup</span><br><span class="line"></span><br><span class="line"><span class="comment">#cgroup2</span></span><br><span class="line">mount -t cgroup2 none /sys/fs/cgroup</span><br></pre></td></tr></table></figure>
 <p>系统初始化时，会调用<code>cgroup_init</code>对整个<code>cgroup</code>系统进行初始化，并注册两个特殊的文件系统<code>cgroup/cgroup2</code>到内核中，这样用户就可以对<code>cgroup</code>进行类似于常规文件设备进行操作了（在Linux内核中真是万物皆可为文件），具体可以参考内核的代码<code>kernel/cgroup/cgroup.c</code>。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">file_system_type</span> <span class="title">cgroup_fs_type</span> =</span> &#123;</span><br><span class="line">	.name			= <span class="string">&quot;cgroup&quot;</span>,</span><br><span class="line">	.init_fs_context	= cgroup_init_fs_context,</span><br><span class="line">	.parameters		= cgroup1_fs_parameters,</span><br><span class="line">	.kill_sb		= cgroup_kill_sb,</span><br><span class="line">	.fs_flags		= FS_USERNS_MOUNT,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">file_system_type</span> <span class="title">cgroup2_fs_type</span> =</span> &#123;</span><br><span class="line">	.name			= <span class="string">&quot;cgroup2&quot;</span>,</span><br><span class="line">	.init_fs_context	= cgroup_init_fs_context,</span><br><span class="line">	.parameters		= cgroup2_fs_parameters,</span><br><span class="line">	.kill_sb		= cgroup_kill_sb,</span><br><span class="line">	.fs_flags		= FS_USERNS_MOUNT,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * cgroup_init - cgroup initialization</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Register cgroup filesystem and /proc file, and initialize</span></span><br><span class="line"><span class="comment"> * any subsystems that didn&#x27;t request early init.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">int</span> __init <span class="title function_">cgroup_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* init_css_set.subsys[] has been updated, re-hash */</span></span><br><span class="line">	hash_del(&amp;init_css_set.hlist);</span><br><span class="line">	hash_add(css_set_table, &amp;init_css_set.hlist,</span><br><span class="line">		 css_set_hash(init_css_set.subsys));</span><br><span class="line"></span><br><span class="line">	WARN_ON(sysfs_create_mount_point(fs_kobj, <span class="string">&quot;cgroup&quot;</span>));</span><br><span class="line">	WARN_ON(register_filesystem(&amp;cgroup_fs_type));</span><br><span class="line">	WARN_ON(register_filesystem(&amp;cgroup2_fs_type));</span><br><span class="line">	WARN_ON(!proc_create_single(<span class="string">&quot;cgroups&quot;</span>, <span class="number">0</span>, <span class="literal">NULL</span>, proc_cgroupstats_show));</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_CPUSETS</span></span><br><span class="line">	WARN_ON(register_filesystem(&amp;cpuset_fs_type));</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">file_system_type</span> <span class="title">cgroup_fs_type</span> =</span> &#123;</span><br><span class="line">	.name			= <span class="string">&quot;cgroup&quot;</span>,</span><br><span class="line">	.init_fs_context	= cgroup_init_fs_context,</span><br><span class="line">	.parameters		= cgroup1_fs_parameters,</span><br><span class="line">	.kill_sb		= cgroup_kill_sb,</span><br><span class="line">	.fs_flags		= FS_USERNS_MOUNT,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">file_system_type</span> <span class="title">cgroup2_fs_type</span> =</span> &#123;</span><br><span class="line">	.name			= <span class="string">&quot;cgroup2&quot;</span>,</span><br><span class="line">	.init_fs_context	= cgroup_init_fs_context,</span><br><span class="line">	.parameters		= cgroup2_fs_parameters,</span><br><span class="line">	.kill_sb		= cgroup_kill_sb,</span><br><span class="line">	.fs_flags		= FS_USERNS_MOUNT,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * cgroup_init - cgroup initialization</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Register cgroup filesystem and /proc file, and initialize</span></span><br><span class="line"><span class="comment"> * any subsystems that didn&#x27;t request early init.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">int</span> __init <span class="title function_">cgroup_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* init_css_set.subsys[] has been updated, re-hash */</span></span><br><span class="line">	hash_del(&amp;init_css_set.hlist);</span><br><span class="line">	hash_add(css_set_table, &amp;init_css_set.hlist,</span><br><span class="line">		 css_set_hash(init_css_set.subsys));</span><br><span class="line"></span><br><span class="line">	WARN_ON(sysfs_create_mount_point(fs_kobj, <span class="string">&quot;cgroup&quot;</span>));</span><br><span class="line">	WARN_ON(register_filesystem(&amp;cgroup_fs_type));</span><br><span class="line">	WARN_ON(register_filesystem(&amp;cgroup2_fs_type));</span><br><span class="line">	WARN_ON(!proc_create_single(<span class="string">&quot;cgroups&quot;</span>, <span class="number">0</span>, <span class="literal">NULL</span>, proc_cgroupstats_show));</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_CPUSETS</span></span><br><span class="line">	WARN_ON(register_filesystem(&amp;cpuset_fs_type));</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>我们可以通过<code>/proc/cgroups</code>查看内核支持的<code>cgroup</code>类型；也可以通过<code>/proc/&lt;pid&gt;/cgroup</code>来查看某个具体进程所在的<code>cgroup</code>种类。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">~$ <span class="built_in">cat</span> /proc/cgroups </span><br><span class="line"><span class="comment">#subsys_name    hierarchy   num_cgroups   enabled</span></span><br><span class="line">cpuset          0           259            1</span><br><span class="line">cpu             0           259            1</span><br><span class="line">cpuacct         0           259            1</span><br><span class="line">blkio           0           259            1</span><br><span class="line">memory          0           259            1</span><br><span class="line">devices         0           259            1</span><br><span class="line">freezer         0           259            1</span><br><span class="line">net_cls         0           259            1</span><br><span class="line">perf_event      0           259            1</span><br><span class="line">net_prio        0           259            1</span><br><span class="line">hugetlb         0           259            1</span><br><span class="line">pids            0           259            1</span><br><span class="line">rdma            0           259            1</span><br><span class="line">misc            0           259            1</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="如何启动LXC容器"><a href="#如何启动LXC容器" class="headerlink" title="如何启动LXC容器"></a><strong>如何启动<code>LXC</code>容器</strong></h2><p><a target="_blank" rel="noopener" href="https://linuxcontainers.org/"><code>LXC</code>容器</a>相关的代码与工具都是开源的，其包含了好几个独立的组件：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">~$ <span class="built_in">cat</span> /proc/cgroups </span><br><span class="line"><span class="comment">#subsys_name    hierarchy   num_cgroups   enabled</span></span><br><span class="line">cpuset          0           259            1</span><br><span class="line">cpu             0           259            1</span><br><span class="line">cpuacct         0           259            1</span><br><span class="line">blkio           0           259            1</span><br><span class="line">memory          0           259            1</span><br><span class="line">devices         0           259            1</span><br><span class="line">freezer         0           259            1</span><br><span class="line">net_cls         0           259            1</span><br><span class="line">perf_event      0           259            1</span><br><span class="line">net_prio        0           259            1</span><br><span class="line">hugetlb         0           259            1</span><br><span class="line">pids            0           259            1</span><br><span class="line">rdma            0           259            1</span><br><span class="line">misc            0           259            1</span><br></pre></td></tr></table></figure>
+<h2 id="如何启动lxc容器">如何启动LXC容器</h2>
+<p><a
+target="_blank" rel="noopener" href="https://linuxcontainers.org/"><code>LXC</code>容器</a>相关的代码与工具都是开源的，其包含了好几个独立的组件：</p>
 <ul>
-<li><code>liblxc</code>库，主要包括容器核心的代码实现</li>
-<li>其他编程语言如<code>python/lua/Go/ruby/Haskkell</code>的胶水接口</li>
-<li>一整套创建、启动、监控、销毁容器的工具</li>
-<li>不同系统环境容器模版，可以在<a target="_blank" rel="noopener" href="https://linuxcontainers.org/lxc/downloads/">LXC官网</a>找到参考的模版</li>
+<li><p><code>liblxc</code>库，主要包括容器核心的代码实现</p></li>
+<li><p>其他编程语言如<code>python/lua/Go/ruby/Haskkell</code>的胶水接口</p></li>
+<li><p>一整套创建、启动、监控、销毁容器的工具</p></li>
+<li><p>不同系统环境容器模版，可以在<a
+target="_blank" rel="noopener" href="https://linuxcontainers.org/lxc/downloads/">LXC官网</a>找到参考的模版
+接下来我们就以<code>Ubuntu</code>系统为例说明如何利用<code>LXC</code>工具来启动容器。首先，需要安装<code>LXC</code>容器相关的依赖库，执行如下命令：</p></li>
 </ul>
-<p>接下来我们就以<code>Ubuntu</code>系统为例说明如何利用<code>LXC</code>工具来启动容器。首先，需要安装<code>LXC</code>容器相关的依赖库，执行如下命令：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sudo apt-get install lxc</span><br><span class="line"></span><br><span class="line">sudo apt-get install lxc-templates</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>安装成功后，可以看到系统中多了很多<code>LXC</code>相关的工具，比如<code>lxc-create</code>&#x2F;<code>lxc-start</code>&#x2F;<code>lxc-stop</code>等；为了确保容器功能的正常，在创建容器之前，执行<code>lxc-checkconfig</code>来检查当前系统的配置是否满足要求，执行完后会输出相关的配置信息状态，可以看到当前系统版本是满足容器的运行环境的。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">~$ lxc-checkconfig </span><br><span class="line">LXC version 5.0.0~git2209-g5a7b9ce67</span><br><span class="line">Kernel configuration not found at /proc/config.gz; searching...</span><br><span class="line">Kernel configuration found at /boot/config-6.2.0-36-generic</span><br><span class="line">--- Namespaces ---</span><br><span class="line">Namespaces: enabled</span><br><span class="line">Utsname namespace: enabled</span><br><span class="line">Ipc namespace: enabled</span><br><span class="line">Pid namespace: enabled</span><br><span class="line">User namespace: enabled</span><br><span class="line">Network namespace: enabled</span><br><span class="line"></span><br><span class="line">--- Control <span class="built_in">groups</span> ---</span><br><span class="line">Cgroups: enabled</span><br><span class="line">Cgroup namespace: enabled</span><br><span class="line"></span><br><span class="line">Cgroup v1 mount points: </span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Cgroup v2 mount points: </span><br><span class="line">/sys/fs/cgroup</span><br><span class="line"></span><br><span class="line">Cgroup v1 systemd controller: missing</span><br><span class="line">Cgroup v1 freezer controller: missing</span><br><span class="line">Cgroup ns_cgroup: required</span><br><span class="line">Cgroup device: enabled</span><br><span class="line">Cgroup <span class="built_in">sched</span>: enabled</span><br><span class="line">Cgroup cpu account: enabled</span><br><span class="line">Cgroup memory controller: enabled</span><br><span class="line">Cgroup cpuset: enabled</span><br><span class="line"></span><br><span class="line">--- Misc ---</span><br><span class="line">Veth pair device: enabled, not loaded</span><br><span class="line">Macvlan: enabled, not loaded</span><br><span class="line">Vlan: enabled, not loaded</span><br><span class="line">Bridges: enabled, loaded</span><br><span class="line">Advanced netfilter: enabled, loaded</span><br><span class="line">CONFIG_IP_NF_TARGET_MASQUERADE: enabled, not loaded</span><br><span class="line">CONFIG_IP6_NF_TARGET_MASQUERADE: enabled, not loaded</span><br><span class="line">CONFIG_NETFILTER_XT_TARGET_CHECKSUM: enabled, not loaded</span><br><span class="line">CONFIG_NETFILTER_XT_MATCH_COMMENT: enabled, not loaded</span><br><span class="line">FUSE (<span class="keyword">for</span> use with lxcfs): enabled, not loaded</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get install lxc</span><br><span class="line"></span><br><span class="line">sudo apt-get install lxc-templates</span><br></pre></td></tr></table></figure>
+<p>安装成功后，可以看到系统中多了很多<code>LXC</code>相关的工具，比如<code>lxc-create</code>/<code>lxc-start</code>/<code>lxc-stop</code>等；为了确保容器功能的正常，在创建容器之前，执行<code>lxc-checkconfig</code>来检查当前系统的配置是否满足要求，执行完后会输出相关的配置信息状态，可以看到当前系统版本是满足容器的运行环境的。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">~$ lxc-checkconfig </span><br><span class="line">LXC version 5.0.0~git2209-g5a7b9ce67</span><br><span class="line">Kernel configuration not found at /proc/config.gz; searching...</span><br><span class="line">Kernel configuration found at /boot/config-6.2.0-36-generic</span><br><span class="line">--- Namespaces ---</span><br><span class="line">Namespaces: enabled</span><br><span class="line">Utsname namespace: enabled</span><br><span class="line">Ipc namespace: enabled</span><br><span class="line">Pid namespace: enabled</span><br><span class="line">User namespace: enabled</span><br><span class="line">Network namespace: enabled</span><br><span class="line"></span><br><span class="line">--- Control <span class="built_in">groups</span> ---</span><br><span class="line">Cgroups: enabled</span><br><span class="line">Cgroup namespace: enabled</span><br><span class="line"></span><br><span class="line">Cgroup v1 mount points: </span><br><span class="line"></span><br><span class="line">Cgroup v2 mount points: </span><br><span class="line">/sys/fs/cgroup</span><br><span class="line"></span><br><span class="line">Cgroup v1 systemd controller: missing</span><br><span class="line">Cgroup v1 freezer controller: missing</span><br><span class="line">Cgroup ns_cgroup: required</span><br><span class="line">Cgroup device: enabled</span><br><span class="line">Cgroup <span class="built_in">sched</span>: enabled</span><br><span class="line">Cgroup cpu account: enabled</span><br><span class="line">Cgroup memory controller: enabled</span><br><span class="line">Cgroup cpuset: enabled</span><br><span class="line"></span><br><span class="line">--- Misc ---</span><br><span class="line">Veth pair device: enabled, not loaded</span><br><span class="line">Macvlan: enabled, not loaded</span><br><span class="line">Vlan: enabled, not loaded</span><br><span class="line">Bridges: enabled, loaded</span><br><span class="line">Advanced netfilter: enabled, loaded</span><br><span class="line">CONFIG_IP_NF_TARGET_MASQUERADE: enabled, not loaded</span><br><span class="line">CONFIG_IP6_NF_TARGET_MASQUERADE: enabled, not loaded</span><br><span class="line">CONFIG_NETFILTER_XT_TARGET_CHECKSUM: enabled, not loaded</span><br><span class="line">CONFIG_NETFILTER_XT_MATCH_COMMENT: enabled, not loaded</span><br><span class="line">FUSE (<span class="keyword">for</span> use with lxcfs): enabled, not loaded</span><br><span class="line"></span><br><span class="line">...</span><br></pre></td></tr></table></figure>
 <p>接着，通过<code>lxc-create</code>来创建一个容器，这里我们以<code>busybox</code>这个容器模版来执行创建:</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># 管理容器需要root权限</span></span><br><span class="line">sudo lxc-create -n busybox-lxc -t busybox</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 管理容器需要root权限</span></span><br><span class="line">sudo lxc-create -n busybox-lxc -t busybox</span><br></pre></td></tr></table></figure>
 <p>创建成功后，可以通过<code>lxc-info</code>来查看对应容器的状态，未启动的容器状态是<code>STOPPED</code>（停止态）：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">~$ sudo lxc-info -n busybox-lxc</span><br><span class="line">Name:           busybox-lxc</span><br><span class="line">State:          STOPPED</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">~$ sudo lxc-info -n busybox-lxc</span><br><span class="line">Name:           busybox-lxc</span><br><span class="line">State:          STOPPED</span><br></pre></td></tr></table></figure>
 <p>接着，我们需要通过<code>lxc-start</code>来启动该容器，让其处于运行状态，此时再检查容器状态就变为了<code>RUNNING</code>(运行态)：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># 启动容器</span></span><br><span class="line">~$ sudo lxc-start -n busybox-lxc</span><br><span class="line"></span><br><span class="line">~$ sudo lxc-info -n busybox-lxc</span><br><span class="line">Name:           busybox-lxc</span><br><span class="line">State:          RUNNING</span><br><span class="line">PID:            83579</span><br><span class="line">Link:           vethlkXyJr</span><br><span class="line"> TX bytes:      612 bytes</span><br><span class="line"> RX bytes:      5.92 KiB</span><br><span class="line"> Total bytes:   6.52 KiB</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 启动容器</span></span><br><span class="line">~$ sudo lxc-start -n busybox-lxc</span><br><span class="line"></span><br><span class="line">~$ sudo lxc-info -n busybox-lxc</span><br><span class="line">Name:           busybox-lxc</span><br><span class="line">State:          RUNNING</span><br><span class="line">PID:            83579</span><br><span class="line">Link:           vethlkXyJr</span><br><span class="line"> TX bytes:      612 bytes</span><br><span class="line"> RX bytes:      5.92 KiB</span><br><span class="line"> Total bytes:   6.52 KiB</span><br></pre></td></tr></table></figure>
 <p>除了通过<code>lxc-info</code>查看容器状态外，还可以通过<code>lxc-attach</code>开启一个模拟的终端进入到容器内部查看系统运行的状态，登录成功后，会弹出一个新的终端符<code>/#</code>：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">sudo lxc-attach -n busybox-lxc</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">BusyBox v1.30.1 (Ubuntu 1:1.30.1-7ubuntu3) built-in shell (ash)</span><br><span class="line">Enter <span class="string">&#x27;help&#x27;</span> <span class="keyword">for</span> a list of built-in commands.</span><br><span class="line"></span><br><span class="line">/ <span class="comment"># </span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">sudo lxc-attach -n busybox-lxc</span><br><span class="line"></span><br><span class="line">BusyBox v1.30.1 (Ubuntu 1:1.30.1-7ubuntu3) built-in shell (ash)</span><br><span class="line">Enter <span class="string">&#x27;help&#x27;</span> <span class="keyword">for</span> a list of built-in commands.</span><br><span class="line"></span><br><span class="line">/ <span class="comment"># </span></span><br></pre></td></tr></table></figure>
 <p>试着在终端输入<code>top</code>指令看看系统的进程状态，可以看到系统主要有几个进程：</p>
 <ul>
-<li>两个名为<code>init</code>进程，但<code>pid</code>并不一样，为啥有两个<code>init</code>进程了？这个留到下篇文章再深入分析。</li>
-<li>一个<code>syslogd</code>进程用于收集系统日志</li>
-<li><code>udhcpc</code>进程用于<code>DHCP</code>服务IP地址的分配与管理</li>
-<li><code>getty</code>用于与伪终端进行交互的守护进程</li>
+<li><p>两个名为<code>init</code>进程，但<code>pid</code>并不一样，为啥有两个<code>init</code>进程了？这个留到下篇文章再深入分析。</p></li>
+<li><p>一个<code>syslogd</code>进程用于收集系统日志</p></li>
+<li><p><code>udhcpc</code>进程用于<code>DHCP</code>服务IP地址的分配与管理</p></li>
+<li><p><code>getty</code>用于与伪终端进行交互的守护进程</p></li>
 </ul>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Mem: 40201368K used, 549680K free, 1329880K shrd, 738404K buff, 19484428K cached</span><br><span class="line">CPU:   5% usr   0% sys   0% nic  94% idle   0% io   0% irq   0% sirq</span><br><span class="line">Load average: 0.91 1.13 1.47 2/2955 21</span><br><span class="line">  PID  PPID USER     STAT   VSZ %VSZ %CPU COMMAND</span><br><span class="line">    1     0 root     S     2456   0%   0% init</span><br><span class="line">    4     1 root     S     2456   0%   0% /bin/syslogd</span><br><span class="line">   14     1 root     S     2456   0%   0% /bin/udhcpc</span><br><span class="line">   15     1 root     S     2456   0%   0% /bin/getty -L tty1 115200 vt100</span><br><span class="line">   16     1 root     S     2456   0%   0% init</span><br><span class="line">   17     0 root     S     2456   0%   0% /bin/sh</span><br><span class="line">   21    17 root     R     2456   0%   0% top</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>至此我们创建并启动了一个容器，如果要停止或者销毁某个容器，可以使用<code>lxc-stop</code>&#x2F;<code>lxc-destroy</code>命令；除了这些指令外，<code>LXC</code>还提供了如下几个常用的命令，便于对容器进行管控：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Mem: 40201368K used, 549680K free, 1329880K shrd, 738404K buff, 19484428K cached</span><br><span class="line">CPU:   5% usr   0% sys   0% nic  94% idle   0% io   0% irq   0% sirq</span><br><span class="line">Load average: 0.91 1.13 1.47 2/2955 21</span><br><span class="line">  PID  PPID USER     STAT   VSZ %VSZ %CPU COMMAND</span><br><span class="line">    1     0 root     S     2456   0%   0% init</span><br><span class="line">    4     1 root     S     2456   0%   0% /bin/syslogd</span><br><span class="line">   14     1 root     S     2456   0%   0% /bin/udhcpc</span><br><span class="line">   15     1 root     S     2456   0%   0% /bin/getty -L tty1 115200 vt100</span><br><span class="line">   16     1 root     S     2456   0%   0% init</span><br><span class="line">   17     0 root     S     2456   0%   0% /bin/sh</span><br><span class="line">   21    17 root     R     2456   0%   0% top</span><br></pre></td></tr></table></figure>
+<p>至此我们创建并启动了一个容器，如果要停止或者销毁某个容器，可以使用<code>lxc-stop</code>/<code>lxc-destroy</code>命令；除了这些指令外，<code>LXC</code>还提供了如下几个常用的命令，便于对容器进行管控：</p>
 <ul>
-<li><code>lxc-execute</code>在某个容器中执行一个特定的程序</li>
-<li><code>lxc-freeze/lxc-unfreeze</code>冻结、解冻某个容器的所有进程</li>
-<li><code>lxc-cgroup</code>管理容器中的<code>cgroup</code>配置</li>
-<li><code>lxc-monitor</code>监控容器的状态</li>
-<li><code>lxc-device</code>管理容器中的设备</li>
-<li><code>lxc-snapshot</code>保存容器快照</li>
+<li><p><code>lxc-execute</code>在某个容器中执行一个特定的程序</p></li>
+<li><p><code>lxc-freeze/lxc-unfreeze</code>冻结、解冻某个容器的所有进程</p></li>
+<li><p><code>lxc-cgroup</code>管理容器中的<code>cgroup</code>配置</p></li>
+<li><p><code>lxc-monitor</code>监控容器的状态</p></li>
+<li><p><code>lxc-device</code>管理容器中的设备</p></li>
+<li><p><code>lxc-snapshot</code>保存容器快照
+下一篇文章主要从源码的角度介绍下<code>LXC</code>容器具体是如何实现的。</p></li>
 </ul>
-<p>下一篇文章主要从源码的角度介绍下<code>LXC</code>容器具体是如何实现的。</p>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="https://github.com/lxc/lxc">https://github.com/lxc/lxc</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.linuxjournal.com/content/exploring-lxc-containerization-ubuntu-servers">https://www.linuxjournal.com/content/exploring-lxc-containerization-ubuntu-servers</a></li>
-<li><a target="_blank" rel="noopener" href="https://linuxcontainers.org/lxc/downloads/">https://linuxcontainers.org/lxc/downloads/</a></li>
-<li><a target="_blank" rel="noopener" href="https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html">https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/cgroups.7.html">https://man7.org/linux/man-pages/man7/cgroups.7.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/Friz-zy/awesome-linux-containers">https://github.com/Friz-zy/awesome-linux-containers</a></li>
+<h2 id="参考文献">参考文献</h2>
+<ul>
+<li><p><a
+target="_blank" rel="noopener" href="https://github.com/lxc/lxc">https://github.com/lxc/lxc</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.linuxjournal.com/content/exploring-lxc-containerization-ubuntu-servers">https://www.linuxjournal.com/content/exploring-lxc-containerization-ubuntu-servers</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://linuxcontainers.org/lxc/downloads/">https://linuxcontainers.org/lxc/downloads/</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html">https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/cgroups.7.html">https://man7.org/linux/man-pages/man7/cgroups.7.html</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://github.com/Friz-zy/awesome-linux-containers">https://github.com/Friz-zy/awesome-linux-containers</a></p></li>
 </ul>
 
     </article>
@@ -690,7 +694,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">https://sniffer.site/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">June 6th 2025, 9:30:52 am</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">2025-07-18, 17:20:12</a>
+            <p>更新日期：<a href="https://sniffer.site/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">2026-09-03, 13:13:01</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -856,7 +860,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="toc-number">1.</span> <span class="toc-text">LXC的实现原理</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#namespace-%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4"><span class="toc-number">1.1.</span> <span class="toc-text">namespace(命名空间)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#cgroups-%E6%8E%A7%E5%88%B6%E5%88%86%E7%BB%84"><span class="toc-number">2.</span> <span class="toc-text">cgroups(控制分组)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%90%AF%E5%8A%A8LXC%E5%AE%B9%E5%99%A8"><span class="toc-number">3.</span> <span class="toc-text">如何启动LXC容器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">4.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#lxc%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="toc-number">1.</span> <span class="toc-text">LXC的实现原理</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#namespace%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4"><span class="toc-number">1.1.</span> <span class="toc-text">namespace(命名空间)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#cgroups%E6%8E%A7%E5%88%B6%E5%88%86%E7%BB%84"><span class="toc-number">2.</span> <span class="toc-text">cgroups(控制分组)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%90%AF%E5%8A%A8lxc%E5%AE%B9%E5%99%A8"><span class="toc-number">3.</span> <span class="toc-text">如何启动LXC容器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">4.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1505,7 +1509,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2956,7 +2971,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2974,6 +2989,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3832,44 +3853,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3887,14 +3883,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3907,14 +3908,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3925,11 +3926,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3947,14 +3943,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3970,6 +3961,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -4002,31 +4003,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -4035,6 +4011,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -4057,19 +4038,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4085,6 +4056,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4112,14 +4118,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4132,39 +4138,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4175,16 +4171,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4212,6 +4198,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4227,9 +4238,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4247,41 +4268,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4292,14 +4278,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4327,16 +4318,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4357,9 +4338,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4377,24 +4368,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4402,24 +4393,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4432,9 +4433,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4457,9 +4463,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4482,6 +4488,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4497,14 +4513,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4515,6 +4531,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4532,41 +4568,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4580,6 +4581,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4602,11 +4618,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4622,16 +4633,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4645,6 +4646,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4667,16 +4683,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4692,24 +4698,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4720,6 +4711,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4762,6 +4768,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4777,14 +4803,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4805,21 +4826,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4887,19 +4893,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4917,6 +4913,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4932,16 +4953,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4950,6 +4961,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4972,21 +4998,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -5005,16 +5016,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -5042,11 +5043,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5067,14 +5063,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5102,19 +5113,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5127,6 +5133,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5135,6 +5146,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5147,6 +5168,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5168,6 +5194,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5178,19 +5209,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5198,14 +5219,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5223,14 +5244,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5246,11 +5267,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

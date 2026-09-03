@@ -19,23 +19,20 @@
         <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
     
     <meta name="description" content="关于编程,生活,工作">
-    <meta name="description" content="前言Android作为一个通用的移动平台，其首要的功能就是通话、短信以及上网等通信功能。那么，从系统的角度来看，Android究竟是怎么实现与网络的交互的了？ 这篇文章里，就来看一看Android中负责通信功能的Telephony中间层，通常也被称之为RIL(Radio Interface Layer)的具体实现原理与架构。 Android手机要实现与网络端的通信，需要跨越两个层：  RIL Ja">
+    <meta name="description" content="前言 Android作为一个通用的移动平台，其首要的功能就是通话、短信以及上网等通信功能。那么，从系统的角度来看，Android究竟是怎么实现与网络的交互的了？ 这篇文章里，就来看一看Android中负责通信功能的Telephony中间层，通常也被称之为RIL(Radio Interface Layer)的具体实现原理与架构。 Android手机要实现与网络端的通信，需要跨越两个层：  RIL J">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Android RIL概述">
 <meta property="og:url" content="https://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="前言Android作为一个通用的移动平台，其首要的功能就是通话、短信以及上网等通信功能。那么，从系统的角度来看，Android究竟是怎么实现与网络的交互的了？ 这篇文章里，就来看一看Android中负责通信功能的Telephony中间层，通常也被称之为RIL(Radio Interface Layer)的具体实现原理与架构。 Android手机要实现与网络端的通信，需要跨越两个层：  RIL Ja">
+<meta property="og:description" content="前言 Android作为一个通用的移动平台，其首要的功能就是通话、短信以及上网等通信功能。那么，从系统的角度来看，Android究竟是怎么实现与网络的交互的了？ 这篇文章里，就来看一看Android中负责通信功能的Telephony中间层，通常也被称之为RIL(Radio Interface Layer)的具体实现原理与架构。 Android手机要实现与网络端的通信，需要跨越两个层：  RIL J">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_ril_architecture.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CallProcess.png">
 <meta property="article:published_time" content="2016-11-19T08:56:00.000Z">
-<meta property="article:modified_time" content="2023-07-09T12:27:31.054Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.687Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Android">
 <meta property="article:tag" content="RIL">
 <meta property="article:tag" content="RILD">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_ril_architecture.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -528,77 +525,109 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a><strong>前言</strong></h2><p>Android作为一个通用的移动平台，其首要的功能就是通话、短信以及上网等通信功能。那么，从系统的角度来看，Android究竟是怎么实现与网络的交互的了？ 这篇文章里，就来看一看Android中负责通信功能的Telephony中间层，通常也被称之为RIL(Radio Interface Layer)的具体实现原理与架构。</p>
+        <h2 id="前言"><strong>前言</strong></h2>
+<p>Android作为一个通用的移动平台，其首要的功能就是通话、短信以及上网等通信功能。那么，从系统的角度来看，Android究竟是怎么实现与网络的交互的了？
+这篇文章里，就来看一看Android中负责通信功能的Telephony中间层，通常也被称之为RIL(Radio
+Interface Layer)的具体实现原理与架构。</p>
 <p>Android手机要实现与网络端的通信，需要跨越两个层：</p>
 <ul>
 <li>RIL Java(RILJ)：负责将上层APP的通信请求发送给HAL层；</li>
-<li>RIL C++(RILD)： 系统守护进程，负责将RILJ的请求命令发送给CP(Communication Processor)</li>
+<li>RIL C++(RILD)：
+系统守护进程，负责将RILJ的请求命令发送给CP(Communication Processor)</li>
 </ul>
 <span id="more"></span>
-
-<h2 id="什么是RIL"><a href="#什么是RIL" class="headerlink" title="什么是RIL"></a><strong>什么是RIL</strong></h2><p>简单的说，RIL(Radio Interface Layer)，就是将应用程序的通信请求发送给CP的中间层，其包括两个部分，一个是Java层RILJ,一个是C++层（不妨看作是CP对应的HAL层）RILD。 </p>
+<h2 id="什么是ril"><strong>什么是RIL</strong></h2>
+<p>简单的说，RIL(Radio Interface
+Layer)，就是将应用程序的通信请求发送给CP的中间层，其包括两个部分，一个是Java层RILJ,一个是C++层（不妨看作是CP对应的HAL层）RILD。</p>
 <p>RILJ属于系统Phone进程的一部分，随Phone进程启动而加载；而RILD守护进程是通过Android的Init进程进行加载的。</p>
-<h2 id="RIL结构"><a href="#RIL结构" class="headerlink" title="RIL结构"></a><strong>RIL结构</strong></h2><p>下图是一个Android RIL的一个结构图。整个通信过程有四个层：</p>
+<h2 id="ril结构"><strong>RIL结构</strong></h2>
+<p>下图是一个Android RIL的一个结构图。整个通信过程有四个层：</p>
 <ul>
-<li>最上层的是应用程序，如通话，短信以及SIM卡管理，它们主要负责将用户的指令发送到RIL Framework(以后统称RILJ）；</li>
-<li>RILJ为上层提供了通用的API，如TelephonyManager(包括通话，网络状态； SubscriptionManager(卡状态）以及SmsManager等，同时RILJ还负责维持与RILD的通信，并将上层的请求发送给RILD；</li>
+<li>最上层的是应用程序，如通话，短信以及SIM卡管理，它们主要负责将用户的指令发送到RIL
+Framework(以后统称RILJ）；</li>
+<li>RILJ为上层提供了通用的API，如TelephonyManager(包括通话，网络状态；
+SubscriptionManager(卡状态）以及SmsManager等，同时RILJ还负责维持与RILD的通信，并将上层的请求发送给RILD；</li>
 <li>RILD是系统的守护进程，对于支持通话功能的移动平台是必不可少的。RILD的功能主要功能是将RILJ发送过来的请求继续传递给CP，同时会及时将CP的状态变化发送给RILJ；</li>
 <li>Linux驱动层：kernel驱动层接受到数据后，将指令传给CP，最后由CP发送给网络端，等网络返回结果后，CP将传回给RILD；</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_ril_architecture.png" alt="RIL Architecture"></p>
-<p>RILJ与RILD（RILD与CP的通信）都是通过一个个消息进行数据传递。消息主要分两种：一种是RILJ主动发送的请求（solicited），常见的有<code>RIL_REQUEST_GET_SIM_STATUS</code>(获取SIM卡状态）， <code>RIL_REQUEST_DIAL</code>(拨打电话），<code>RIL_REQUEST_SEND_SMS</code>（发送短信）， <code>RIL_REQUEST_GET_CURRENT_CALLS</code>（获取当前通话状态），<code>RIL_REQUEST_VOICE_REGISTRATION_STATE</code>（获取网络状态）； 另一种则是从CP主动上报给RIL的消息（unsolicited)，如网络状态发生变化时，CP会上报<code>RIL_UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED</code>，有新短信时，会上报<code>RIL_UNSOL_RESPONSE_NEW_SMS</code>，有来电时会上报<code>RIL_UNSOL_CALL_RING</code>。</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/android_ril_architecture.png"
+alt="RIL Architecture" /></p>
+<p>RILJ与RILD（RILD与CP的通信）都是通过一个个消息进行数据传递。消息主要分两种：一种是RILJ主动发送的请求（solicited），常见的有<code>RIL_REQUEST_GET_SIM_STATUS</code>(获取SIM卡状态），
+<code>RIL_REQUEST_DIAL</code>(拨打电话），<code>RIL_REQUEST_SEND_SMS</code>（发送短信），
+<code>RIL_REQUEST_GET_CURRENT_CALLS</code>（获取当前通话状态），<code>RIL_REQUEST_VOICE_REGISTRATION_STATE</code>（获取网络状态）；
+另一种则是从CP主动上报给RIL的消息（unsolicited)，如网络状态发生变化时，CP会上报<code>RIL_UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED</code>，有新短信时，会上报<code>RIL_UNSOL_RESPONSE_NEW_SMS</code>，有来电时会上报<code>RIL_UNSOL_CALL_RING</code>。</p>
 <blockquote>
-<p>RIL相关的请求命令与数据结构都定义在<code>/android/hardware/ril/include/telephony/ril.h </code></p>
+<p>RIL相关的请求命令与数据结构都定义在<code>/android/hardware/ril/include/telephony/ril.h</code></p>
 </blockquote>
 <p>在整个过程中，有几个关键问题：</p>
-<ol>
+<ol type="1">
 <li>上层是如何得知RILJ状态变化的；</li>
 <li>RILJ与RILD是怎么进行通信的？</li>
 <li>RILJD与CP又是如何进行通信的？</li>
 </ol>
 <p>围绕这三个问题点，我们来看一下具体的细节。</p>
-<h3 id="上层如何得知RILJ状态变化"><a href="#上层如何得知RILJ状态变化" class="headerlink" title="上层如何得知RILJ状态变化"></a><strong>上层如何得知RILJ状态变化</strong></h3><p>为方便上层实时监听网络状态、通话状态以及CP的状态变化，RIL提供了一个专门的监听接口<code>IPhoneStateListener.aidl</code>，上层需要监听上述状态变化时，只需要实现上述接口,并在Android系统服务TelephonyRegistry中对上述接口实现进行注册：</p>
+<h3
+id="上层如何得知rilj状态变化"><strong>上层如何得知RILJ状态变化</strong></h3>
+<p>为方便上层实时监听网络状态、通话状态以及CP的状态变化，RIL提供了一个专门的监听接口<code>IPhoneStateListener.aidl</code>，上层需要监听上述状态变化时，只需要实现上述接口,并在Android系统服务TelephonyRegistry中对上述接口实现进行注册：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">listen</span><span class="params">(String pkgForDebug, IPhoneStateListener callback, <span class="type">int</span> events, <span class="type">boolean</span> notifyNow)</span>;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>另外，也可以在TelephonyManager中对RIL状态进行监听：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">listen</span><span class="params">(PhoneStateListener listener, <span class="type">int</span> events)</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <blockquote>
-<p>源代码: <code>/android/frameworks/base/telephony/java/com/android/internal/telephony/IPhoneStateListener.aidl </code></p>
+<p>源代码:
+<code>/android/frameworks/base/telephony/java/com/android/internal/telephony/IPhoneStateListener.aidl</code></p>
 </blockquote>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">oneway <span class="keyword">interface</span> <span class="title class_">IPhoneStateListener</span> &#123;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onServiceStateChanged</span><span class="params">(in ServiceState serviceState)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onSignalStrengthChanged</span><span class="params">(<span class="type">int</span> asu)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onMessageWaitingIndicatorChanged</span><span class="params">(<span class="type">boolean</span> mwi)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onCallForwardingIndicatorChanged</span><span class="params">(<span class="type">boolean</span> cfi)</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// we use bundle here instead of CellLocation so it can get the right subclass</span></span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onCellLocationChanged</span><span class="params">(in Bundle location)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onCallStateChanged</span><span class="params">(<span class="type">int</span> state, String incomingNumber)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onDataConnectionStateChanged</span><span class="params">(<span class="type">int</span> state, <span class="type">int</span> networkType)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onDataActivity</span><span class="params">(<span class="type">int</span> direction)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onSignalStrengthsChanged</span><span class="params">(in SignalStrength signalStrength)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onOtaspChanged</span><span class="params">(in <span class="type">int</span> otaspMode)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onCellInfoChanged</span><span class="params">(in List&lt;CellInfo&gt; cellInfo)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onPreciseCallStateChanged</span><span class="params">(in PreciseCallState callState)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onPreciseDataConnectionStateChanged</span><span class="params">(in PreciseDataConnectionState dataConnectionState)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onDataConnectionRealTimeInfoChanged</span><span class="params">(in DataConnectionRealTimeInfo dcRtInfo)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onVoLteServiceStateChanged</span><span class="params">(in VoLteServiceState lteState)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onOemHookRawEvent</span><span class="params">(in <span class="type">byte</span>[] rawData)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onCarrierNetworkChange</span><span class="params">(in <span class="type">boolean</span> active)</span>;</span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onFdnUpdated</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">void</span> <span class="title function_">onVoiceRadioBearerHoStateChanged</span><span class="params">(<span class="type">int</span> state)</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h3 id="RILJ与RILD如何通信"><a href="#RILJ与RILD如何通信" class="headerlink" title="RILJ与RILD如何通信"></a><strong>RILJ与RILD如何通信</strong></h3><p>RILJ在创建过程中，会启动两个线程：RILSender和RILReceiver,RILSender负责将指令发送给RILD,而RILReceiver则负责从读取从RILD发送过来的数据。RILJ与RILD的通信通道就是在RILReceiver中建立起来的。</p>
+<h3 id="rilj与rild如何通信"><strong>RILJ与RILD如何通信</strong></h3>
+<p>RILJ在创建过程中，会启动两个线程：RILSender和RILReceiver,RILSender负责将指令发送给RILD,而RILReceiver则负责从读取从RILD发送过来的数据。RILJ与RILD的通信通道就是在RILReceiver中建立起来的。</p>
 <p>我们来看一看RILReciver的代码：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">  <span class="keyword">class</span> <span class="title class_">RILReceiver</span> <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">      <span class="type">byte</span>[] buffer;</span><br><span class="line"></span><br><span class="line">      RILReceiver() &#123;</span><br><span class="line">...</span><br><span class="line">      <span class="meta">@Override</span></span><br><span class="line">      <span class="keyword">public</span> <span class="keyword">void</span></span><br><span class="line">      <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">          <span class="type">int</span> <span class="variable">retryCount</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">          <span class="type">String</span> <span class="variable">rilSocket</span> <span class="operator">=</span> <span class="string">&quot;rild&quot;</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 尝试与RILD建立连接</span></span><br><span class="line">          <span class="keyword">try</span> &#123;<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">              <span class="type">LocalSocket</span> <span class="variable">s</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">              LocalSocketAddress l;</span><br><span class="line"></span><br><span class="line">              <span class="keyword">if</span> (mInstanceId == <span class="literal">null</span> || mInstanceId == <span class="number">0</span> ) &#123;</span><br><span class="line">                  rilSocket = SOCKET_NAME_RIL[<span class="number">0</span>];</span><br><span class="line">              &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                  rilSocket = SOCKET_NAME_RIL[mInstanceId];</span><br><span class="line">              &#125;</span><br><span class="line"></span><br><span class="line">              <span class="keyword">try</span> &#123;</span><br><span class="line">                  s = <span class="keyword">new</span> <span class="title class_">LocalSocket</span>();</span><br><span class="line">                  l = <span class="keyword">new</span> <span class="title class_">LocalSocketAddress</span>(rilSocket,</span><br><span class="line">                          LocalSocketAddress.Namespace.RESERVED);</span><br><span class="line">                  s.connect(l);</span><br><span class="line">              &#125; <span class="keyword">catch</span> (IOException ex)&#123;</span><br><span class="line">			...</span><br><span class="line">                  <span class="comment">// don&#x27;t print an error message after the the first time</span></span><br><span class="line">                  <span class="comment">// or after the 8th time</span></span><br><span class="line"></span><br><span class="line">                  <span class="keyword">if</span> (retryCount == <span class="number">8</span>) &#123;</span><br><span class="line">                      Rlog.e (RILJ_LOG_TAG,</span><br><span class="line">                          <span class="string">&quot;Couldn&#x27;t find &#x27;&quot;</span> + rilSocket</span><br><span class="line">                          + <span class="string">&quot;&#x27; socket after &quot;</span> + retryCount</span><br><span class="line">                          + <span class="string">&quot; times, continuing to retry silently&quot;</span>);</span><br><span class="line">                  &#125; <span class="keyword">else</span> <span class="keyword">if</span> (retryCount &gt;= <span class="number">0</span> &amp;&amp; retryCount &lt; <span class="number">8</span>) &#123;</span><br><span class="line">                      Rlog.i (RILJ_LOG_TAG,</span><br><span class="line">                          <span class="string">&quot;Couldn&#x27;t find &#x27;&quot;</span> + rilSocket</span><br><span class="line">                          + <span class="string">&quot;&#x27; socket; retrying after timeout&quot;</span>);</span><br><span class="line">                  &#125;</span><br><span class="line">			...</span><br><span class="line"></span><br><span class="line">                  retryCount++;</span><br><span class="line">                  <span class="keyword">continue</span>;</span><br><span class="line">              &#125;</span><br><span class="line"></span><br><span class="line">              retryCount = <span class="number">0</span>;</span><br><span class="line">              mSocket = s;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 从socket读取数据</span></span><br><span class="line">              <span class="type">int</span> <span class="variable">length</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">              <span class="keyword">try</span> &#123;</span><br><span class="line">                  <span class="type">InputStream</span> <span class="variable">is</span> <span class="operator">=</span> mSocket.getInputStream();</span><br><span class="line"></span><br><span class="line">                  <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">                      Parcel p;</span><br><span class="line"></span><br><span class="line">                      length = readRilMessage(is, buffer);</span><br><span class="line"></span><br><span class="line">                      <span class="keyword">if</span> (length &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                          <span class="comment">// End-of-stream reached</span></span><br><span class="line">                          <span class="keyword">break</span>;</span><br><span class="line">                      &#125;</span><br><span class="line"></span><br><span class="line">                      p = Parcel.obtain();</span><br><span class="line">                      p.unmarshall(buffer, <span class="number">0</span>, length);</span><br><span class="line">                      p.setDataPosition(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">                      processResponse(p);</span><br><span class="line">                      p.recycle();</span><br><span class="line">                  &#125;</span><br><span class="line">              &#125; <span class="keyword">catch</span> (java.io.IOException ex) &#123;</span><br><span class="line">                  Rlog.i(RILJ_LOG_TAG, <span class="string">&quot;&#x27;&quot;</span> + rilSocket + <span class="string">&quot;&#x27; socket closed&quot;</span>,</span><br><span class="line">                        ex);</span><br><span class="line">              &#125; <span class="keyword">catch</span> (Throwable tr) &#123;</span><br><span class="line">                  Rlog.e(RILJ_LOG_TAG, <span class="string">&quot;Uncaught exception read length=&quot;</span> + length +</span><br><span class="line">                      <span class="string">&quot;Exception:&quot;</span> + tr.toString());</span><br><span class="line">              &#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">//无法读取数据，将CP状态设置为不可用</span></span><br><span class="line">              setRadioState (RadioState.RADIO_UNAVAILABLE);</span><br><span class="line">		...</span><br><span class="line">              mSocket = <span class="literal">null</span>;</span><br><span class="line">              RILRequest.resetSerial();</span><br><span class="line"></span><br><span class="line">              <span class="comment">// Clear request list on close</span></span><br><span class="line">              clearRequestList(RADIO_NOT_AVAILABLE, <span class="literal">false</span>);</span><br><span class="line">          &#125;&#125; <span class="keyword">catch</span> (Throwable tr) &#123;</span><br><span class="line">              Rlog.e(RILJ_LOG_TAG,<span class="string">&quot;Uncaught exception&quot;</span>, tr);</span><br><span class="line">          &#125;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>RILReceiver启动时，会建立一个UNIX Domain socket(LocalSocket，kernel层对应<code>/dev/socket/rild</code>)，与RILD进行通信，然后一直从socket中读取数据,并将数据传给上层。连接成功后，RILD会发送一个消息给RILJ，表示连接成功了，这样RILJ就可以将请求数据发送给RILD，进行通信了。</p>
-<h3 id="RILD与CP如何进行通信"><a href="#RILD与CP如何进行通信" class="headerlink" title="RILD与CP如何进行通信"></a><strong>RILD与CP如何进行通信</strong></h3><p>RILD与CP（可以看做是两个运行在不同CPU上的进程通信）交换数据方式一般有两种情况。如果AP与CP集中在一个芯片上，如高通的平台就是将AP与CP集中在一块芯片上，这时通常采用共享内存的方式实现跨进程通信；而如果不是在同一块芯片，而是AP与CP分别采用不同厂商的平台，则一般采用字符设备(character devices) 进行通信。总的说来，共享内存的方式在速度上要优于字符设备。</p>
+<p>RILReceiver启动时，会建立一个UNIX Domain
+socket(LocalSocket，kernel层对应<code>/dev/socket/rild</code>)，与RILD进行通信，然后一直从socket中读取数据,并将数据传给上层。连接成功后，RILD会发送一个消息给RILJ，表示连接成功了，这样RILJ就可以将请求数据发送给RILD，进行通信了。</p>
+<h3 id="rild与cp如何进行通信"><strong>RILD与CP如何进行通信</strong></h3>
+<p>RILD与CP（可以看做是两个运行在不同CPU上的进程通信）交换数据方式一般有两种情况。如果AP与CP集中在一个芯片上，如高通的平台就是将AP与CP集中在一块芯片上，这时通常采用共享内存的方式实现跨进程通信；而如果不是在同一块芯片，而是AP与CP分别采用不同厂商的平台，则一般采用字符设备(character
+devices) 进行通信。总的说来，共享内存的方式在速度上要优于字符设备。</p>
 <p>接下来，主要介绍下RILJ部分的代码结构。</p>
-<h2 id="RILJ代码结构"><a href="#RILJ代码结构" class="headerlink" title="RILJ代码结构"></a><strong>RILJ代码结构</strong></h2><p>RIL Framework (RILJ)的代码按照功能来划分的话，主要有以下几个组成部分：</p>
+<h2 id="rilj代码结构"><strong>RILJ代码结构</strong></h2>
+<p>RIL Framework
+(RILJ)的代码按照功能来划分的话，主要有以下几个组成部分：</p>
 <ul>
 <li>管理网络状态（信号强度，网络注册状态等）:<code>ServiceStateTracker</code>等；</li>
-<li>通话管理（拨号，接听，呼叫等待等）： <code>CallManager</code>,<code>GsmCallTracker</code>等</li>
-<li>SMS短信接收发送： <code>InboundSMSHandler</code>,<code>SmsDispater</code>等</li>
-<li>SIM卡管理： <code>UiccController</code>, <code>SubscriptionsController</code>等</li>
-<li>数据链接管理： <code>DcTracker</code>,<code>DctController</code>等</li>
-<li>Telephony 大管家： <code>PhoneBase</code>,<code>GsmPhone</code>,<code>PhoneProxy</code>等</li>
+<li>通话管理（拨号，接听，呼叫等待等）：
+<code>CallManager</code>,<code>GsmCallTracker</code>等</li>
+<li>SMS短信接收发送：
+<code>InboundSMSHandler</code>,<code>SmsDispater</code>等</li>
+<li>SIM卡管理： <code>UiccController</code>,
+<code>SubscriptionsController</code>等</li>
+<li>数据链接管理：
+<code>DcTracker</code>,<code>DctController</code>等</li>
+<li>Telephony 大管家：
+<code>PhoneBase</code>,<code>GsmPhone</code>,<code>PhoneProxy</code>等</li>
 </ul>
 <p>以上代码主要位于两个目录：</p>
 <ul>
-<li><code>/android/frameworks/opt/telephony/</code> （负责与RILD交互）</li>
-<li><code>/android/frameworks/base/telephony/</code> （对上层提供接口）</li>
+<li><code>/android/frameworks/opt/telephony/</code>
+（负责与RILD交互）</li>
+<li><code>/android/frameworks/base/telephony/</code>
+（对上层提供接口）</li>
 </ul>
 <p>下面，以拨打电话的流程作为示例看一看RIL是如何发挥作用的。</p>
-<h2 id="示例：-CALL流程"><a href="#示例：-CALL流程" class="headerlink" title="示例： CALL流程"></a>示例： <strong>CALL流程</strong></h2><p>下述是一个MO(Mobile Originated) 通话流程概要：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CallProcess.png" alt="RIL-call flow"></p>
-<ol>
-<li>APP向<code>TelecomManager</code>发送拨号请求（关于<code>TelecomManager</code>可以参考另一篇文章<a target="_blank" rel="noopener" href="http://blog.csdn.net/jason_wzn/article/details/58164251">Android Telecom系统服务</a>）；</li>
+<h2 id="示例-call流程">示例： <strong>CALL流程</strong></h2>
+<p>下述是一个MO(Mobile Originated) 通话流程概要：</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/CallProcess.png"
+alt="RIL-call flow" /></p>
+<ol type="1">
+<li>APP向<code>TelecomManager</code>发送拨号请求（关于<code>TelecomManager</code>可以参考另一篇文章<a
+target="_blank" rel="noopener" href="http://blog.csdn.net/jason_wzn/article/details/58164251">Android
+Telecom系统服务</a>）；</li>
 <li><code>TelecomManager</code>将通话请求发送给<code>GsmPhone</code>；</li>
 <li><code>GsmPhone</code>继续将指令传递给<code>GsmCallTracker</code>；</li>
 <li><code>GsmCallTracker</code>调用RILJ，RILJ将通话请求发送给RILD；</li>
 <li><code>RILD</code>接收到通话指令时，发送给CP；</li>
-<li>CP发送给网络，MT(Mobile Terminal)收到通话后，告知网络，由网络将该信息传递给MO已将通话信息发送给MT了（就是手机发出嘟嘟声音的时候）：通话状态由DIALING –&gt; ALERTING；</li>
+<li>CP发送给网络，MT(Mobile
+Terminal)收到通话后，告知网络，由网络将该信息传递给MO已将通话信息发送给MT了（就是手机发出嘟嘟声音的时候）：通话状态由DIALING
+–&gt; ALERTING；</li>
 <li>RILD收到通话状态变化的消息后，发送一个UNSOL_RESPONSE_CALL_STATE_CHANGED的消息给RILJ；</li>
 <li>RILJ通知<code>GsmCallTracker</code>通话状态变化了；</li>
 <li><code>GsmCallTracker</code>主动查询CALL状态：<code>pollCallWhenSafe()</code>，确保得到的信息是对的，没有发生变化；</li>
@@ -617,7 +646,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">https://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">November 19th 2016, 4:56:00 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">2023-07-09, 20:27:31</a>
+            <p>更新日期：<a href="https://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -783,7 +812,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFRIL"><span class="toc-number">2.</span> <span class="toc-text">什么是RIL</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RIL%E7%BB%93%E6%9E%84"><span class="toc-number">3.</span> <span class="toc-text">RIL结构</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%8A%E5%B1%82%E5%A6%82%E4%BD%95%E5%BE%97%E7%9F%A5RILJ%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96"><span class="toc-number">3.1.</span> <span class="toc-text">上层如何得知RILJ状态变化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RILJ%E4%B8%8ERILD%E5%A6%82%E4%BD%95%E9%80%9A%E4%BF%A1"><span class="toc-number">3.2.</span> <span class="toc-text">RILJ与RILD如何通信</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RILD%E4%B8%8ECP%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C%E9%80%9A%E4%BF%A1"><span class="toc-number">3.3.</span> <span class="toc-text">RILD与CP如何进行通信</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RILJ%E4%BB%A3%E7%A0%81%E7%BB%93%E6%9E%84"><span class="toc-number">4.</span> <span class="toc-text">RILJ代码结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%EF%BC%9A-CALL%E6%B5%81%E7%A8%8B"><span class="toc-number">5.</span> <span class="toc-text">示例： CALL流程</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFril"><span class="toc-number">2.</span> <span class="toc-text">什么是RIL</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ril%E7%BB%93%E6%9E%84"><span class="toc-number">3.</span> <span class="toc-text">RIL结构</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%8A%E5%B1%82%E5%A6%82%E4%BD%95%E5%BE%97%E7%9F%A5rilj%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96"><span class="toc-number">3.1.</span> <span class="toc-text">上层如何得知RILJ状态变化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#rilj%E4%B8%8Erild%E5%A6%82%E4%BD%95%E9%80%9A%E4%BF%A1"><span class="toc-number">3.2.</span> <span class="toc-text">RILJ与RILD如何通信</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#rild%E4%B8%8Ecp%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C%E9%80%9A%E4%BF%A1"><span class="toc-number">3.3.</span> <span class="toc-text">RILD与CP如何进行通信</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#rilj%E4%BB%A3%E7%A0%81%E7%BB%93%E6%9E%84"><span class="toc-number">4.</span> <span class="toc-text">RILJ代码结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B-call%E6%B5%81%E7%A8%8B"><span class="toc-number">5.</span> <span class="toc-text">示例： CALL流程</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1432,7 +1461,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2883,7 +2923,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2901,6 +2941,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3759,44 +3805,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3814,14 +3835,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3834,14 +3860,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3852,11 +3878,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3874,14 +3895,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3897,6 +3913,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3929,31 +3955,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3962,6 +3963,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3984,19 +3990,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4012,6 +4008,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4039,14 +4070,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4059,39 +4090,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4102,16 +4123,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4139,6 +4150,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4154,9 +4190,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4174,41 +4220,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4219,14 +4230,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4254,16 +4270,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4284,9 +4290,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4304,24 +4320,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4329,24 +4345,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4359,9 +4385,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4384,9 +4415,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4409,6 +4440,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4424,14 +4465,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4442,6 +4483,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4459,41 +4520,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4507,6 +4533,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4529,11 +4570,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4549,16 +4585,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4572,6 +4598,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4594,16 +4635,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4619,24 +4650,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4647,6 +4663,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4689,6 +4720,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4704,14 +4755,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4732,21 +4778,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4814,19 +4845,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4844,6 +4865,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4859,16 +4905,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4877,6 +4913,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4899,21 +4950,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4932,16 +4968,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4969,11 +4995,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4994,14 +5015,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5029,19 +5065,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5054,6 +5085,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5062,6 +5098,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5074,6 +5120,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5095,6 +5146,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5105,19 +5161,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5125,14 +5171,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5150,14 +5196,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5173,11 +5219,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

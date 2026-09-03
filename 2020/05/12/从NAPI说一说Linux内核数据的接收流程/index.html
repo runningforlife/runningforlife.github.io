@@ -26,15 +26,13 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="NAPI(New API)是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，网络驱动收到硬件中断后，通过poll(轮询)方式将传输过来的数据包统一处理， 在poll时通过禁止网络设备中断以减少硬件中断数量(Interrupt Mitigation)，从而实现更高的数据传输速率。 基于NAPI接口， 一般的网络传输(接收)有如下几个步骤：  网络设备驱动加载与初始化">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png">
 <meta property="article:published_time" content="2020-05-12T10:01:22.000Z">
-<meta property="article:modified_time" content="2022-10-11T02:16:45.033Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.662Z">
 <meta property="article:author" content="Jason Wang">
-<meta property="article:tag" content="Linux">
 <meta property="article:tag" content="TCP&#x2F;IP">
+<meta property="article:tag" content="Linux">
 <meta property="article:tag" content="NAPI">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -355,9 +353,9 @@
                     <div class= post-intro-tags >
     
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
-    
         <a class="post-tag" href="javascript:void(0);" data-tags="TCP/IP">TCP/IP</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="Linux">Linux</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="NAPI">NAPI</a>
     
@@ -527,129 +525,169 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/New_API">NAPI(New API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，网络驱动收到硬件中断后，通过poll(轮询)方式将传输过来的数据包统一处理， 在poll时通过禁止网络设备中断以减少硬件中断数量(<code>Interrupt Mitigation</code>)，从而实现更高的数据传输速率。</p>
+        <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/New_API">NAPI(New
+API)</a>是Linux内核针对网络数据传输做出的一个优化措施，其目的是在高负载的大数据传输时，网络驱动收到硬件中断后，通过poll(轮询)方式将传输过来的数据包统一处理，
+在poll时通过禁止网络设备中断以减少硬件中断数量(<code>Interrupt Mitigation</code>)，从而实现更高的数据传输速率。</p>
 <p>基于NAPI接口， 一般的网络传输(接收)有如下几个步骤：</p>
 <ul>
 <li>网络设备驱动加载与初始化（配置IP等）</li>
-<li>数据包从网络侧发送到网卡(<code>Network Interface Controller</code>, NIC)</li>
-<li>通过<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Direct_memory_access">DMA(Direct Memory Access)</a>，将数据从网卡拷贝到内存的环形缓冲区(ring buffer)</li>
+<li>数据包从网络侧发送到网卡(<code>Network Interface Controller</code>,
+NIC)</li>
+<li>通过<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Direct_memory_access">DMA(Direct
+Memory Access)</a>，将数据从网卡拷贝到内存的环形缓冲区(ring buffer)</li>
 <li>数据从网卡拷贝到内存后, NIC产生硬件中断告知内核有新的数据包达到</li>
-<li>内核收到中断后, 调用相应中断处理函数, 此时就会调用NAPI接口<code>__napi_schedule</code>开启poll线程（实际是触发一个软中断<code>NET_RX_SOFTIRQ</code>）(常规数据传输, 一般在处理NIC的中断时调用<code>netif_rx_action</code>处理网卡队列的数据）</li>
-<li><code>ksoftirqd</code>（每个CPU上都会启动一个软中断处理线程）收到软中断后被唤醒, 然后执行函数<code>net_rx_action</code>, 这个函数负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
-<li>解除网卡<code>ring buffer</code>中的DMA内存映射(unmapped), 数据由CPU负责处理, <code>netif_receive_skb</code>传递回内核协议栈</li>
-<li>如果内核支持数据包定向分发(<code>packet steering</code>)或者NIC本身支持多个接收队列的话, 从网卡过来的数据会在不同的CPU之间进行均衡, 这样可以获得更高的网络速率</li>
+<li>内核收到中断后, 调用相应中断处理函数,
+此时就会调用NAPI接口<code>__napi_schedule</code>开启poll线程（实际是触发一个软中断<code>NET_RX_SOFTIRQ</code>）(常规数据传输,
+一般在处理NIC的中断时调用<code>netif_rx_action</code>处理网卡队列的数据）</li>
+<li><code>ksoftirqd</code>（每个CPU上都会启动一个软中断处理线程）收到软中断后被唤醒,
+然后执行函数<code>net_rx_action</code>,
+这个函数负责调用NAPI的<code>poll</code>接口来获取内存环形缓冲区的数据包</li>
+<li>解除网卡<code>ring buffer</code>中的DMA内存映射(unmapped),
+数据由CPU负责处理, <code>netif_receive_skb</code>传递回内核协议栈</li>
+<li>如果内核支持数据包定向分发(<code>packet steering</code>)或者NIC本身支持多个接收队列的话,
+从网卡过来的数据会在不同的CPU之间进行均衡,
+这样可以获得更高的网络速率</li>
 <li>网络协议栈处理数据包，并将其发送到对应应用的<code>socket</code>接收缓冲区</li>
 </ul>
 <span id="more"></span>
-
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png" alt="网络数据接收流程"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/network_recieving_process.png"
+alt="网络数据接收流程" /></p>
 <p>下面就结合具体的代码来看看数据是如何一步步接收的（以intel的千兆以太网卡<code>kernel/drivers/net/intel/e1000</code>为例）。</p>
-<h2 id="驱动加载与设备初始化"><a href="#驱动加载与设备初始化" class="headerlink" title="驱动加载与设备初始化"></a><strong>驱动加载与设备初始化</strong></h2><p>看<code>e1000_main.c</code>代码，驱动的初始化首先要做的是注册一个<code>pci</code>设备驱动到内核，这样系统启动时会根据<code>PCI</code>的ID列表匹配到该网卡, 并执行设备枚举:</p>
+<h2 id="驱动加载与设备初始化"><strong>驱动加载与设备初始化</strong></h2>
+<p>看<code>e1000_main.c</code>代码，驱动的初始化首先要做的是注册一个<code>pci</code>设备驱动到内核，这样系统启动时会根据<code>PCI</code>的ID列表匹配到该网卡,
+并执行设备枚举:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __init <span class="title function_">e1000_init_module</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line">	pr_info(<span class="string">&quot;%s - version %s\n&quot;</span>, e1000_driver_string, e1000_driver_version);</span><br><span class="line"></span><br><span class="line">	pr_info(<span class="string">&quot;%s\n&quot;</span>, e1000_copyright);</span><br><span class="line"></span><br><span class="line">	ret = pci_register_driver(&amp;e1000_driver);</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">module_init(e1000_init_module);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">pci_driver</span> <span class="title">e1000_driver</span> =</span> &#123;</span><br><span class="line">	.name     = e1000_driver_name,</span><br><span class="line">	.id_table = e1000_pci_tbl,</span><br><span class="line">	.probe    = e1000_probe,</span><br><span class="line">	.remove   = e1000_remove,</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PM</span></span><br><span class="line">	<span class="comment">/* Power Management Hooks */</span></span><br><span class="line">	.suspend  = e1000_suspend,</span><br><span class="line">	.resume   = e1000_resume,</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	.shutdown = e1000_shutdown,</span><br><span class="line">	.err_handler = &amp;e1000_err_handler</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>匹配到网卡后， pci总线会调用驱动的<code>probe</code>函数， 大致会做如下几个事情：</p>
+<p>匹配到网卡后， pci总线会调用驱动的<code>probe</code>函数，
+大致会做如下几个事情：</p>
 <ul>
-<li>调用<code>alloc_etherdev</code> 分配一个网络设备对象，并注册到系统中</li>
+<li>调用<code>alloc_etherdev</code>
+分配一个网络设备对象，并注册到系统中</li>
 <li>通过<code>netif_napi_add</code>添加NAPI的poll接口</li>
 <li>设置网卡寄存器IO映射内存区域, 用于配置网卡</li>
 </ul>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">e1000_probe</span><span class="params">(<span class="keyword">struct</span> pci_dev *pdev, <span class="type">const</span> <span class="keyword">struct</span> pci_device_id *ent)</span></span><br><span class="line">&#123;</span><br><span class="line"> 	....</span><br><span class="line">	err = pci_request_selected_regions(pdev, bars, e1000_driver_name);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_pci_reg;</span><br><span class="line"></span><br><span class="line">	pci_set_master(pdev);</span><br><span class="line">	err = pci_save_state(pdev);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_alloc_etherdev;</span><br><span class="line"></span><br><span class="line">	err = -ENOMEM;</span><br><span class="line">	<span class="comment">// 分配网络对象</span></span><br><span class="line">	netdev = alloc_etherdev(<span class="keyword">sizeof</span>(<span class="keyword">struct</span> e1000_adapter));</span><br><span class="line">	<span class="keyword">if</span> (!netdev)</span><br><span class="line">		<span class="keyword">goto</span> err_alloc_etherdev;</span><br><span class="line"></span><br><span class="line">	SET_NETDEV_DEV(netdev, &amp;pdev-&gt;dev);</span><br><span class="line"></span><br><span class="line">	pci_set_drvdata(pdev, netdev);</span><br><span class="line">	adapter = netdev_priv(netdev);</span><br><span class="line">	adapter-&gt;netdev = netdev;</span><br><span class="line">	adapter-&gt;pdev = pdev;</span><br><span class="line">	adapter-&gt;msg_enable = netif_msg_init(debug, DEFAULT_MSG_ENABLE);</span><br><span class="line">	adapter-&gt;bars = bars;</span><br><span class="line">	adapter-&gt;need_ioport = need_ioport;</span><br><span class="line"></span><br><span class="line">	hw = &amp;adapter-&gt;hw;</span><br><span class="line">	hw-&gt;back = adapter;</span><br><span class="line"></span><br><span class="line">	err = -EIO;</span><br><span class="line">	<span class="comment">// 映射寄存器IO区域</span></span><br><span class="line">	hw-&gt;hw_addr = pci_ioremap_bar(pdev, BAR_0);</span><br><span class="line">	<span class="keyword">if</span> (!hw-&gt;hw_addr)</span><br><span class="line">		<span class="keyword">goto</span> err_ioremap;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (adapter-&gt;need_ioport) &#123;</span><br><span class="line">		<span class="keyword">for</span> (i = BAR_1; i &lt;= BAR_5; i++) &#123;</span><br><span class="line">			<span class="keyword">if</span> (pci_resource_len(pdev, i) == <span class="number">0</span>)</span><br><span class="line">				<span class="keyword">continue</span>;</span><br><span class="line">			<span class="keyword">if</span> (pci_resource_flags(pdev, i) &amp; IORESOURCE_IO) &#123;</span><br><span class="line">				hw-&gt;io_base = pci_resource_start(pdev, i);</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* make ready for any if (hw-&gt;...) below */</span></span><br><span class="line">	err = e1000_init_hw_struct(adapter, hw);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_sw_init;	</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">// 设置网络设备对象的操作接口</span></span><br><span class="line">	netdev-&gt;netdev_ops = &amp;e1000_netdev_ops;</span><br><span class="line">	e1000_set_ethtool_ops(netdev);</span><br><span class="line">	netdev-&gt;watchdog_timeo = <span class="number">5</span> * HZ;</span><br><span class="line">	<span class="comment">// 添加napi的poll接口</span></span><br><span class="line">	netif_napi_add(netdev, &amp;adapter-&gt;napi, e1000_clean, <span class="number">64</span>);</span><br><span class="line"></span><br><span class="line">	<span class="built_in">strncpy</span>(netdev-&gt;name, pci_name(pdev), <span class="keyword">sizeof</span>(netdev-&gt;name) - <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">	adapter-&gt;bd_number = cards_found;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* setup the private structure */</span></span><br><span class="line"></span><br><span class="line">	err = e1000_sw_init(adapter);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_sw_init;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!is_valid_ether_addr(netdev-&gt;dev_addr))</span><br><span class="line">		e_err(probe, <span class="string">&quot;Invalid MAC Address\n&quot;</span>);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">	INIT_DELAYED_WORK(&amp;adapter-&gt;watchdog_task, e1000_watchdog);</span><br><span class="line">	INIT_DELAYED_WORK(&amp;adapter-&gt;fifo_stall_task,</span><br><span class="line">			  e1000_82547_tx_fifo_stall_task);</span><br><span class="line">	INIT_DELAYED_WORK(&amp;adapter-&gt;phy_info_task, e1000_update_phy_info_task);</span><br><span class="line">	INIT_WORK(&amp;adapter-&gt;reset_task, e1000_reset_task);</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* initialize the wol settings based on the eeprom settings */</span></span><br><span class="line">	adapter-&gt;wol = adapter-&gt;eeprom_wol;</span><br><span class="line">	device_set_wakeup_enable(&amp;adapter-&gt;pdev-&gt;dev, adapter-&gt;wol);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Auto detect PHY address */</span></span><br><span class="line">	<span class="keyword">if</span> (hw-&gt;mac_type == e1000_ce4100) &#123;</span><br><span class="line">		<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">32</span>; i++) &#123;</span><br><span class="line">			hw-&gt;phy_addr = i;</span><br><span class="line">			e1000_read_phy_reg(hw, PHY_ID2, &amp;tmp);</span><br><span class="line">			<span class="keyword">if</span> (tmp == <span class="number">0</span> || tmp == <span class="number">0xFF</span>) &#123;</span><br><span class="line">				<span class="keyword">if</span> (i == <span class="number">31</span>)</span><br><span class="line">					<span class="keyword">goto</span> err_eeprom;</span><br><span class="line">				<span class="keyword">continue</span>;</span><br><span class="line">			&#125; <span class="keyword">else</span></span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* reset the hardware with the new settings */</span></span><br><span class="line">	e1000_reset(adapter);</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 设置网卡名字，注册网络设备对象</span></span><br><span class="line">	<span class="built_in">strcpy</span>(netdev-&gt;name, <span class="string">&quot;eth%d&quot;</span>);</span><br><span class="line">	err = register_netdev(netdev);</span><br><span class="line">	<span class="keyword">if</span> (err)</span><br><span class="line">		<span class="keyword">goto</span> err_register;</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">/* carrier off reporting is important to ethtool even BEFORE open */</span></span><br><span class="line">	netif_carrier_off(netdev);</span><br><span class="line"></span><br><span class="line">	e_info(probe, <span class="string">&quot;Intel(R) PRO/1000 Network Connection\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">	cards_found++;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>到这一步网卡还不是可用状态，需要通过用户配置网卡(开启网卡以及配置IP), 如<code>ifconfig eth0 up/ifconfig eth0 &lt;ip&gt;</code>. 设置网卡为<code>UP</code>时，会调用驱动的<code>ndo_open</code>函数：</p>
+<p>到这一步网卡还不是可用状态，需要通过用户配置网卡(开启网卡以及配置IP),
+如<code>ifconfig eth0 up/ifconfig eth0 &lt;ip&gt;</code>.
+设置网卡为<code>UP</code>时，会调用驱动的<code>ndo_open</code>函数：</p>
 <ul>
 <li>请求硬件中断，并使能该中断</li>
 <li><code>napi_enable</code>开启napi</li>
 <li>启动网络的发送队列，允许发送数据</li>
 </ul>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">e1000_open</span><span class="params">(<span class="keyword">struct</span> net_device *netdev)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_adapter</span> *<span class="title">adapter</span> =</span> netdev_priv(netdev);</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_hw</span> *<span class="title">hw</span> =</span> &amp;adapter-&gt;hw;</span><br><span class="line">	<span class="type">int</span> err;</span><br><span class="line"></span><br><span class="line">	netif_carrier_off(netdev);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* allocate transmit descriptors */</span></span><br><span class="line">	err = e1000_setup_all_tx_resources(adapter);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* allocate receive descriptors */</span></span><br><span class="line">	err = e1000_setup_all_rx_resources(adapter);</span><br><span class="line"></span><br><span class="line">	e1000_power_up_phy(adapter);</span><br><span class="line">	</span><br><span class="line">	...</span><br><span class="line">	err = e1000_request_irq(adapter);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* From here on the code is the same as e1000_up() */</span></span><br><span class="line">	clear_bit(__E1000_DOWN, &amp;adapter-&gt;flags);</span><br><span class="line"></span><br><span class="line">	napi_enable(&amp;adapter-&gt;napi);</span><br><span class="line"></span><br><span class="line">	e1000_irq_enable(adapter);</span><br><span class="line"></span><br><span class="line">	netif_start_queue(netdev);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* fire a link status change interrupt to start the watchdog */</span></span><br><span class="line">	ew32(ICS, E1000_ICS_LSC);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> E1000_SUCCESS;</span><br><span class="line">	</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>到此时网卡正常工作， 可以开始接发数据, 我们可以通过<code>ifconfig ethX</code>来查看当前网卡的状态. 接下来, 再来看看数据接收的具体流程。</p>
-<h2 id="网卡数据接收"><a href="#网卡数据接收" class="headerlink" title="网卡数据接收"></a><strong>网卡数据接收</strong></h2><p>网卡数据的接收大概有三个步骤：</p>
+<p>到此时网卡正常工作， 可以开始接发数据,
+我们可以通过<code>ifconfig ethX</code>来查看当前网卡的状态. 接下来,
+再来看看数据接收的具体流程。</p>
+<h2 id="网卡数据接收"><strong>网卡数据接收</strong></h2>
+<p>网卡数据的接收大概有三个步骤：</p>
 <ul>
 <li>网卡发送中断给驱动</li>
 <li>驱动处理函数处理中断，并启动一个<code>napi</code>处理任务</li>
 <li>发送接收数据的软中断<code>NET_RX_SOFTIRQ</code></li>
 <li>内核线程处理网络软中断，将数据包发送给上层协议栈</li>
 </ul>
-<h3 id="处理网卡中断"><a href="#处理网卡中断" class="headerlink" title="处理网卡中断"></a><strong>处理网卡中断</strong></h3><p>在网卡驱动初始化的过程，我们看到驱动会向内核请求中断, 并注册一个中断处理函数：</p>
+<h3 id="处理网卡中断"><strong>处理网卡中断</strong></h3>
+<p>在网卡驱动初始化的过程，我们看到驱动会向内核请求中断,
+并注册一个中断处理函数：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">e1000_request_irq</span><span class="params">(<span class="keyword">struct</span> e1000_adapter *adapter)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">netdev</span> =</span> adapter-&gt;netdev;</span><br><span class="line">	<span class="type">irq_handler_t</span> handler = e1000_intr;</span><br><span class="line">	<span class="type">int</span> irq_flags = IRQF_SHARED;</span><br><span class="line"></span><br><span class="line">	err = request_irq(adapter-&gt;pdev-&gt;irq, handler, irq_flags, netdev-&gt;name,</span><br><span class="line">		          netdev);</span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>当网卡产生数据中断后，调用中断处理函数： 对于napi来说，首先要禁止当前网卡的中断，如果当前没有在运行的napi任务，则调度一个新的napi任务<code>__napi_schedule</code>：</p>
+<p>当网卡产生数据中断后，调用中断处理函数：
+对于napi来说，首先要禁止当前网卡的中断，如果当前没有在运行的napi任务，则调度一个新的napi任务<code>__napi_schedule</code>：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">irqreturn_t</span> <span class="title function_">e1000_intr</span><span class="params">(<span class="type">int</span> irq, <span class="type">void</span> *data)</span></span><br><span class="line">&#123;</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* disable interrupts, without the synchronize_irq bit */</span></span><br><span class="line">	ew32(IMC, ~<span class="number">0</span>);</span><br><span class="line">	E1000_WRITE_FLUSH();</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (likely(napi_schedule_prep(&amp;adapter-&gt;napi))) &#123;</span><br><span class="line">		adapter-&gt;total_tx_bytes = <span class="number">0</span>;</span><br><span class="line">		adapter-&gt;total_tx_packets = <span class="number">0</span>;</span><br><span class="line">		adapter-&gt;total_rx_bytes = <span class="number">0</span>;</span><br><span class="line">		adapter-&gt;total_rx_packets = <span class="number">0</span>;</span><br><span class="line">		__napi_schedule(&amp;adapter-&gt;napi);</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">/* this really should not happen! if it does it is basically a</span></span><br><span class="line"><span class="comment">		 * bug, but not a hard error, so enable ints and continue</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (!test_bit(__E1000_DOWN, &amp;adapter-&gt;flags))</span><br><span class="line">			e1000_irq_enable(adapter);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> IRQ_HANDLED;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h3 id="启动napi任务，发送软中断"><a href="#启动napi任务，发送软中断" class="headerlink" title="启动napi任务，发送软中断"></a><strong>启动napi任务，发送软中断</strong></h3><p><code>__napi_schedule</code>在<code>/kernel/net/core/dev.c</code>中，其实际做了两件事：</p>
+<h3
+id="启动napi任务发送软中断"><strong>启动napi任务，发送软中断</strong></h3>
+<p><code>__napi_schedule</code>在<code>/kernel/net/core/dev.c</code>中，其实际做了两件事：</p>
 <ul>
 <li>将<code>napi_struct</code>添加到中断处理CPU的<code>softnet_data</code>对应的poll列表中</li>
 <li>发出一个<code>NET_RX_SOFTIRQ</code>的软中断，让内核线程<code>ksoftirqd</code>来处理对应的该<code>softirq</code>软中断</li>
 </ul>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">void</span> __napi_schedule(<span class="keyword">struct</span> napi_struct *n)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> flags;</span><br><span class="line"></span><br><span class="line">	local_irq_save(flags);</span><br><span class="line">	____napi_schedule(this_cpu_ptr(&amp;softnet_data), n);</span><br><span class="line">	local_irq_restore(flags);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> ____napi_schedule(<span class="keyword">struct</span> softnet_data *sd,</span><br><span class="line">				     <span class="keyword">struct</span> napi_struct *napi)</span><br><span class="line">&#123;</span><br><span class="line">	list_add_tail(&amp;napi-&gt;poll_list, &amp;sd-&gt;poll_list);</span><br><span class="line">	__raise_softirq_irqoff(NET_RX_SOFTIRQ);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p><code>__raise_softirq_irqoff</code>函数在<code>/kernel/softirq.c</code>中定义，其作用就是将当前CPU对应的<code>softirq</code>状态标记为待运行状态：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">void</span> __raise_softirq_irqoff(<span class="type">unsigned</span> <span class="type">int</span> nr)</span><br><span class="line">&#123;</span><br><span class="line">	trace_softirq_raise(nr);</span><br><span class="line">	or_softirq_pending(<span class="number">1UL</span> &lt;&lt; nr);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h3 id="处理网络软中断"><a href="#处理网络软中断" class="headerlink" title="处理网络软中断"></a><strong>处理网络软中断</strong></h3><p>内核在初始化的时候，每个CPU上都会启动一个专门的<code>ksoftirqd%d</code>（<code>%d</code>对应CPU的ID）内核线程用于处理CPU上的软中断（代码同样在<code>softirq.c</code>)中：</p>
+<h3 id="处理网络软中断"><strong>处理网络软中断</strong></h3>
+<p>内核在初始化的时候，每个CPU上都会启动一个专门的<code>ksoftirqd%d</code>（<code>%d</code>对应CPU的ID）内核线程用于处理CPU上的软中断（代码同样在<code>softirq.c</code>)中：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">smp_hotplug_thread</span> <span class="title">softirq_threads</span> =</span> &#123;</span><br><span class="line">	.store			= &amp;ksoftirqd,</span><br><span class="line">	.thread_should_run	= ksoftirqd_should_run,</span><br><span class="line">	.thread_fn		= run_ksoftirqd,</span><br><span class="line">	.thread_comm		= <span class="string">&quot;ksoftirqd/%u&quot;</span>,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> __init <span class="type">int</span> <span class="title function_">spawn_ksoftirqd</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	register_cpu_notifier(&amp;cpu_nfb);</span><br><span class="line"></span><br><span class="line">	BUG_ON(smpboot_register_percpu_thread(&amp;softirq_threads));</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line">early_initcall(spawn_ksoftirqd);</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>每个内核线程<code>ksoftirqd</code>实际一直执行的是<code>run_ksoftirqd</code>函数：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">run_ksoftirqd</span><span class="params">(<span class="type">unsigned</span> <span class="type">int</span> cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	local_irq_disable();</span><br><span class="line">	<span class="keyword">if</span> (local_softirq_pending()) &#123;</span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * We can safely run softirq on inline stack, as we are not deep</span></span><br><span class="line"><span class="comment">		 * in the task stack here.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		__do_softirq();</span><br><span class="line">		local_irq_enable();</span><br><span class="line">		cond_resched_rcu_qs();</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	local_irq_enable();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>函数<code>__do_softirq</code>检查当前CPU所有待处理的软中断，并调用对应的处理函数<code>softirq_action</code>：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">asmlinkage __visible <span class="type">void</span> __softirq_entry __do_softirq(<span class="type">void</span>)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">while</span> ((softirq_bit = ffs(pending))) &#123;</span><br><span class="line">		<span class="type">unsigned</span> <span class="type">int</span> vec_nr;</span><br><span class="line">		<span class="type">int</span> prev_count;</span><br><span class="line"></span><br><span class="line">		h += softirq_bit - <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">		vec_nr = h - softirq_vec;</span><br><span class="line">		...</span><br><span class="line">		h-&gt;action(h);</span><br><span class="line">		...</span><br><span class="line">		h++;</span><br><span class="line">		pending &gt;&gt;= softirq_bit;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>而<code>softirq_action</code>实际是在网络模块初始化的时候注册的(查看<code>/kernel/net/dev.c</code>)中的函数<code>net_dev_init</code>，通过调用<code>open_softirq</code>告知内核启动网络数据传输的两个软中断：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __init <span class="title function_">net_dev_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">if</span> (register_pernet_subsys(&amp;netdev_net_ops))</span><br><span class="line">		<span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 *	Initialise the packet receive queues.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line"></span><br><span class="line">	for_each_possible_cpu(i) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">softnet_data</span> *<span class="title">sd</span> =</span> &amp;per_cpu(softnet_data, i);</span><br><span class="line"></span><br><span class="line">		skb_queue_head_init(&amp;sd-&gt;input_pkt_queue);</span><br><span class="line">		skb_queue_head_init(&amp;sd-&gt;process_queue);</span><br><span class="line">		INIT_LIST_HEAD(&amp;sd-&gt;poll_list);</span><br><span class="line">		sd-&gt;output_queue_tailp = &amp;sd-&gt;output_queue;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_RPS</span></span><br><span class="line">		sd-&gt;csd.func = rps_trigger_softirq;</span><br><span class="line">		sd-&gt;csd.info = sd;</span><br><span class="line">		sd-&gt;cpu = i;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">		sd-&gt;backlog.poll = process_backlog;</span><br><span class="line">		sd-&gt;backlog.weight = weight_p;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	open_softirq(NET_TX_SOFTIRQ, net_tx_action);</span><br><span class="line">	open_softirq(NET_RX_SOFTIRQ, net_rx_action);</span><br><span class="line"></span><br><span class="line">	hotcpu_notifier(dev_cpu_callback, <span class="number">0</span>);</span><br><span class="line">	dst_subsys_init();</span><br><span class="line">	rc = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>也就说<code>h-&gt;action</code> 调用的实际是<code>net_rx_action</code>函数： 检查当前CPU的<code>softnet_data</code>的<code>poll_list</code>, 取出第一个设备的napi列表, 调用<code>napi_poll</code>获取对应网卡上的数据包，每个设备执行<code>poll</code>会受到两个参数的约束(确保不会占用过多的CPU资源):</p>
+<p>也就说<code>h-&gt;action</code>
+调用的实际是<code>net_rx_action</code>函数：
+检查当前CPU的<code>softnet_data</code>的<code>poll_list</code>,
+取出第一个设备的napi列表,
+调用<code>napi_poll</code>获取对应网卡上的数据包，每个设备执行<code>poll</code>会受到两个参数的约束(确保不会占用过多的CPU资源):</p>
 <ul>
-<li><code>netdev_budget_usecs</code>: 每个设备能够处理的最大时间长度(默认是<code>2000us</code>)</li>
-<li><code>netdev_budget</code>: 单个设备一次能处理的最大包的配额(默认是<code>300</code>)</li>
+<li><code>netdev_budget_usecs</code>:
+每个设备能够处理的最大时间长度(默认是<code>2000us</code>)</li>
+<li><code>netdev_budget</code>:
+单个设备一次能处理的最大包的配额(默认是<code>300</code>)</li>
 </ul>
-<p>一旦超过给定的时间限制或者处理的包达到配额上限, 则直接退出;如果当前<code>poll_list</code>不为空, 则再次触发一个软中断.</p>
+<p>一旦超过给定的时间限制或者处理的包达到配额上限,
+则直接退出;如果当前<code>poll_list</code>不为空,
+则再次触发一个软中断.</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">net_rx_action</span><span class="params">(<span class="keyword">struct</span> softirq_action *h)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">softnet_data</span> *<span class="title">sd</span> =</span> this_cpu_ptr(&amp;softnet_data);</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> time_limit = jiffies +</span><br><span class="line">		usecs_to_jiffies(netdev_budget_usecs);</span><br><span class="line">	<span class="type">int</span> budget = netdev_budget;</span><br><span class="line">	LIST_HEAD(<span class="built_in">list</span>);</span><br><span class="line">	LIST_HEAD(repoll);</span><br><span class="line"></span><br><span class="line">	local_irq_disable();</span><br><span class="line">	list_splice_init(&amp;sd-&gt;poll_list, &amp;<span class="built_in">list</span>);</span><br><span class="line">	local_irq_enable();</span><br><span class="line">	<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">napi_struct</span> *<span class="title">n</span>;</span></span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (list_empty(&amp;<span class="built_in">list</span>)) &#123;</span><br><span class="line">			<span class="keyword">if</span> (!sd_has_rps_ipi_waiting(sd) &amp;&amp; list_empty(&amp;repoll))</span><br><span class="line">				<span class="keyword">return</span>;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		n = list_first_entry(&amp;<span class="built_in">list</span>, <span class="keyword">struct</span> napi_struct, poll_list);</span><br><span class="line">		budget -= napi_poll(n, &amp;repoll);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* If softirq window is exhausted then punt.</span></span><br><span class="line"><span class="comment">		 * Allow this to run for 2 jiffies since which will allow</span></span><br><span class="line"><span class="comment">		 * an average latency of 1.5/HZ.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (unlikely(budget &lt;= <span class="number">0</span> ||</span><br><span class="line">			     time_after_eq(jiffies, time_limit))) &#123;</span><br><span class="line">			sd-&gt;time_squeeze++;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	local_irq_disable();</span><br><span class="line"></span><br><span class="line">	list_splice_tail_init(&amp;sd-&gt;poll_list, &amp;<span class="built_in">list</span>);</span><br><span class="line">	list_splice_tail(&amp;repoll, &amp;<span class="built_in">list</span>);</span><br><span class="line">	list_splice(&amp;<span class="built_in">list</span>, &amp;sd-&gt;poll_list);</span><br><span class="line">	<span class="keyword">if</span> (!list_empty(&amp;sd-&gt;poll_list))</span><br><span class="line">		__raise_softirq_irqoff(NET_RX_SOFTIRQ);</span><br><span class="line"></span><br><span class="line">	net_rps_action_and_irq_enable(sd);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>而<code>napi_poll</code>则调用最初网卡驱动注册的poll函数<code>e1000_clean</code>：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">napi_poll</span><span class="params">(<span class="keyword">struct</span> napi_struct *n, <span class="keyword">struct</span> list_head *repoll)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">void</span> *have;</span><br><span class="line">	<span class="type">int</span> work, weight;</span><br><span class="line"></span><br><span class="line">	list_del_init(&amp;n-&gt;poll_list);</span><br><span class="line"></span><br><span class="line">	have = netpoll_poll_lock(n);</span><br><span class="line"></span><br><span class="line">	weight = n-&gt;weight;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* This NAPI_STATE_SCHED test is for avoiding a race</span></span><br><span class="line"><span class="comment">	 * with netpoll&#x27;s poll_napi().  Only the entity which</span></span><br><span class="line"><span class="comment">	 * obtains the lock and sees NAPI_STATE_SCHED set will</span></span><br><span class="line"><span class="comment">	 * actually make the -&gt;poll() call.  Therefore we avoid</span></span><br><span class="line"><span class="comment">	 * accidentally calling -&gt;poll() when NAPI is not scheduled.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	work = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">if</span> (test_bit(NAPI_STATE_SCHED, &amp;n-&gt;state)) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">softnet_data</span> *<span class="title">sd</span> =</span> this_cpu_ptr(&amp;softnet_data);</span><br><span class="line"></span><br><span class="line">		sd-&gt;current_napi = n;</span><br><span class="line">		work = n-&gt;poll(n, weight);</span><br><span class="line">		trace_napi_poll(n);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> work;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>函数<code>e1000_clean</code>调用<code>clean_rx</code>从网卡的DMA区域取出数据, 如果处理完成, 则重新开启设备中断:</p>
+<p>函数<code>e1000_clean</code>调用<code>clean_rx</code>从网卡的DMA区域取出数据,
+如果处理完成, 则重新开启设备中断:</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">e1000_clean</span><span class="params">(<span class="keyword">struct</span> napi_struct *napi, <span class="type">int</span> budget)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_adapter</span> *<span class="title">adapter</span> =</span> container_of(napi, <span class="keyword">struct</span> e1000_adapter,</span><br><span class="line">						     napi);</span><br><span class="line">	<span class="type">int</span> tx_clean_complete = <span class="number">0</span>, work_done = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	tx_clean_complete = e1000_clean_tx_irq(adapter, &amp;adapter-&gt;tx_ring[<span class="number">0</span>]);</span><br><span class="line"></span><br><span class="line">	adapter-&gt;clean_rx(adapter, &amp;adapter-&gt;rx_ring[<span class="number">0</span>], &amp;work_done, budget);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!tx_clean_complete)</span><br><span class="line">		work_done = budget;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* If budget not fully consumed, exit the polling mode */</span></span><br><span class="line">	<span class="keyword">if</span> (work_done &lt; budget) &#123;</span><br><span class="line">		<span class="keyword">if</span> (likely(adapter-&gt;itr_setting &amp; <span class="number">3</span>))</span><br><span class="line">			e1000_set_itr(adapter);</span><br><span class="line">		napi_complete_done(napi, work_done);</span><br><span class="line">		<span class="keyword">if</span> (!test_bit(__E1000_DOWN, &amp;adapter-&gt;flags))</span><br><span class="line">			e1000_irq_enable(adapter);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> work_done;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h3 id="将skb-buff-发送给协议栈"><a href="#将skb-buff-发送给协议栈" class="headerlink" title="将skb_buff 发送给协议栈"></a><strong>将<code>skb_buff</code> 发送给协议栈</strong></h3><p><code>e1000_clean_rx_irq</code>不断的从网卡基于DMA地址从对应的内存环形缓冲区中获取网络数据包，并将数据包以<code>sk_buff</code>的形式传给协议栈进行处理. 简单来说, DMA地址就是外设(网卡)映射到内存的一个虚拟地址, 用于直接与内存(RAM)之间传送数据. 一般在驱动初始化的时候, 网卡通过<code>dma_map_single</code>为缓冲区的每个描述结构体中的数据映射到某个DMA地址, 网卡会把数据拷贝到该DMA地址;CPU收到中断后则数据交由CPU处理, 再通过<code>dma_unmap_single</code>清除掉这个DMA映射.</p>
+<h3 id="将skb_buff-发送给协议栈"><strong>将<code>skb_buff</code>
+发送给协议栈</strong></h3>
+<p><code>e1000_clean_rx_irq</code>不断的从网卡基于DMA地址从对应的内存环形缓冲区中获取网络数据包，并将数据包以<code>sk_buff</code>的形式传给协议栈进行处理.
+简单来说, DMA地址就是外设(网卡)映射到内存的一个虚拟地址,
+用于直接与内存(RAM)之间传送数据. 一般在驱动初始化的时候,
+网卡通过<code>dma_map_single</code>为缓冲区的每个描述结构体中的数据映射到某个DMA地址,
+网卡会把数据拷贝到该DMA地址;CPU收到中断后则数据交由CPU处理,
+再通过<code>dma_unmap_single</code>清除掉这个DMA映射.</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">bool</span> <span class="title function_">e1000_clean_rx_irq</span><span class="params">(<span class="keyword">struct</span> e1000_adapter *adapter,</span></span><br><span class="line"><span class="params">			       <span class="keyword">struct</span> e1000_rx_ring *rx_ring,</span></span><br><span class="line"><span class="params">			       <span class="type">int</span> *work_done, <span class="type">int</span> work_to_do)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">netdev</span> =</span> adapter-&gt;netdev;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pci_dev</span> *<span class="title">pdev</span> =</span> adapter-&gt;pdev;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_rx_desc</span> *<span class="title">rx_desc</span>, *<span class="title">next_rxd</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">e1000_rx_buffer</span> *<span class="title">buffer_info</span>, *<span class="title">next_buffer</span>;</span></span><br><span class="line">	u32 length;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> i;</span><br><span class="line">	<span class="type">int</span> cleaned_count = <span class="number">0</span>;</span><br><span class="line">	<span class="type">bool</span> cleaned = <span class="literal">false</span>;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> total_rx_bytes=<span class="number">0</span>, total_rx_packets=<span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	i = rx_ring-&gt;next_to_clean;</span><br><span class="line">	rx_desc = E1000_RX_DESC(*rx_ring, i);</span><br><span class="line">	buffer_info = &amp;rx_ring-&gt;buffer_info[i];</span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span> (rx_desc-&gt;status &amp; E1000_RXD_STAT_DD) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">sk_buff</span> *<span class="title">skb</span>;</span></span><br><span class="line">		u8 *data;</span><br><span class="line">		u8 status;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (*work_done &gt;= work_to_do)</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		(*work_done)++;</span><br><span class="line">		dma_rmb(); <span class="comment">/* read descriptor and rx_buffer_info after status DD */</span></span><br><span class="line"></span><br><span class="line">		status = rx_desc-&gt;status;</span><br><span class="line">		length = le16_to_cpu(rx_desc-&gt;length);</span><br><span class="line"></span><br><span class="line">		data = buffer_info-&gt;rxbuf.data;</span><br><span class="line">		prefetch(data);</span><br><span class="line">		skb = e1000_copybreak(adapter, buffer_info, length, data);</span><br><span class="line">		<span class="keyword">if</span> (!skb) &#123;</span><br><span class="line">			<span class="type">unsigned</span> <span class="type">int</span> frag_len = e1000_frag_len(adapter);</span><br><span class="line"></span><br><span class="line">			skb = build_skb(data - E1000_HEADROOM, frag_len);</span><br><span class="line">			<span class="keyword">if</span> (!skb) &#123;</span><br><span class="line">				adapter-&gt;alloc_rx_buff_failed++;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line"></span><br><span class="line">			skb_reserve(skb, E1000_HEADROOM);</span><br><span class="line">			<span class="comment">// 清除DMA地址的映射, 这时CPU开始接管相应的数据</span></span><br><span class="line">			dma_unmap_single(&amp;pdev-&gt;dev, buffer_info-&gt;dma,</span><br><span class="line">					 adapter-&gt;rx_buffer_len,</span><br><span class="line">					 DMA_FROM_DEVICE);</span><br><span class="line">			buffer_info-&gt;dma = <span class="number">0</span>;</span><br><span class="line">			buffer_info-&gt;rxbuf.data = <span class="literal">NULL</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (++i == rx_ring-&gt;count) i = <span class="number">0</span>;</span><br><span class="line">		next_rxd = E1000_RX_DESC(*rx_ring, i);</span><br><span class="line">		prefetch(next_rxd);</span><br><span class="line"></span><br><span class="line">		next_buffer = &amp;rx_ring-&gt;buffer_info[i];</span><br><span class="line"></span><br><span class="line">		cleaned = <span class="literal">true</span>;</span><br><span class="line">		cleaned_count++;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* !EOP means multiple descriptors were used to store a single</span></span><br><span class="line"><span class="comment">		 * packet, if thats the case we need to toss it.  In fact, we</span></span><br><span class="line"><span class="comment">		 * to toss every packet with the EOP bit clear and the next</span></span><br><span class="line"><span class="comment">		 * frame that _does_ have the EOP bit set, as it is by</span></span><br><span class="line"><span class="comment">		 * definition only a frame fragment</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">if</span> (unlikely(!(status &amp; E1000_RXD_STAT_EOP)))</span><br><span class="line">			adapter-&gt;discarding = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (adapter-&gt;discarding) &#123;</span><br><span class="line">			<span class="comment">/* All receives must fit into a single buffer */</span></span><br><span class="line">			netdev_dbg(netdev, <span class="string">&quot;Receive packet consumed multiple buffers\n&quot;</span>);</span><br><span class="line">			dev_kfree_skb(skb);</span><br><span class="line">			<span class="keyword">if</span> (status &amp; E1000_RXD_STAT_EOP)</span><br><span class="line">				adapter-&gt;discarding = <span class="literal">false</span>;</span><br><span class="line">			<span class="keyword">goto</span> next_desc;</span><br><span class="line">		&#125;</span><br><span class="line">		....</span><br><span class="line"></span><br><span class="line">process_skb:</span><br><span class="line">		total_rx_bytes += (length - <span class="number">4</span>); <span class="comment">/* don&#x27;t count FCS */</span></span><br><span class="line">		total_rx_packets++;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (likely(!(netdev-&gt;features &amp; NETIF_F_RXFCS)))</span><br><span class="line">			<span class="comment">/* adjust length to remove Ethernet CRC, this must be</span></span><br><span class="line"><span class="comment">			 * done after the TBI_ACCEPT workaround above</span></span><br><span class="line"><span class="comment">			 */</span></span><br><span class="line">			length -= <span class="number">4</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (buffer_info-&gt;rxbuf.data == <span class="literal">NULL</span>)</span><br><span class="line">			skb_put(skb, length);</span><br><span class="line">		<span class="keyword">else</span> <span class="comment">/* copybreak skb */</span></span><br><span class="line">			skb_trim(skb, length);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* Receive Checksum Offload */</span></span><br><span class="line">		e1000_rx_checksum(adapter,</span><br><span class="line">				  (u32)(status) |</span><br><span class="line">				  ((u32)(rx_desc-&gt;errors) &lt;&lt; <span class="number">24</span>),</span><br><span class="line">				  le16_to_cpu(rx_desc-&gt;csum), skb);</span><br><span class="line"></span><br><span class="line">		e1000_receive_skb(adapter, status, rx_desc-&gt;special, skb);</span><br><span class="line"></span><br><span class="line">next_desc:</span><br><span class="line">		rx_desc-&gt;status = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* return some buffers to hardware, one at a time is too slow */</span></span><br><span class="line">		<span class="keyword">if</span> (unlikely(cleaned_count &gt;= E1000_RX_BUFFER_WRITE)) &#123;</span><br><span class="line">			adapter-&gt;alloc_rx_buf(adapter, rx_ring, cleaned_count);</span><br><span class="line">			cleaned_count = <span class="number">0</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* use prefetched values */</span></span><br><span class="line">		rx_desc = next_rxd;</span><br><span class="line">		buffer_info = next_buffer;</span><br><span class="line">	&#125;</span><br><span class="line">	rx_ring-&gt;next_to_clean = i;</span><br><span class="line"></span><br><span class="line">	cleaned_count = E1000_DESC_UNUSED(rx_ring);</span><br><span class="line">	<span class="keyword">if</span> (cleaned_count)</span><br><span class="line">		adapter-&gt;alloc_rx_buf(adapter, rx_ring, cleaned_count);</span><br><span class="line"></span><br><span class="line">	adapter-&gt;total_rx_packets += total_rx_packets;</span><br><span class="line">	adapter-&gt;total_rx_bytes += total_rx_bytes;</span><br><span class="line">	netdev-&gt;stats.rx_bytes += total_rx_bytes;</span><br><span class="line">	netdev-&gt;stats.rx_packets += total_rx_packets;</span><br><span class="line">	<span class="keyword">return</span> cleaned;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p><code>e1000_receive_skb</code>实际调用<code>napi_gro_receive</code>将数据发送出去：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">e1000_receive_skb</span><span class="params">(<span class="keyword">struct</span> e1000_adapter *adapter, u8 status,</span></span><br><span class="line"><span class="params">			      __le16 vlan, <span class="keyword">struct</span> sk_buff *skb)</span></span><br><span class="line">&#123;</span><br><span class="line">	skb-&gt;protocol = eth_type_trans(skb, adapter-&gt;netdev);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (status &amp; E1000_RXD_STAT_VP) &#123;</span><br><span class="line">		u16 vid = le16_to_cpu(vlan) &amp; E1000_RXD_SPC_VLAN_MASK;</span><br><span class="line"></span><br><span class="line">		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vid);</span><br><span class="line">	&#125;</span><br><span class="line">	napi_gro_receive(&amp;adapter-&gt;napi, skb);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>函数<code>napi_gro_receive</code>首先会尝试通过<code>GRO</code>（<code>Generic Receive Offload</code>)的方式将数据发送出去，如果网卡本身不支持<code>GRO</code>则会直接将数据报传送给上层协议栈（简单来说GRO就是将数据包累积到一定数量后再传给上层，这样一次性的处理多个数据包从而提升效率，可以参考<a target="_blank" rel="noopener" href="https://lwn.net/Articles/358910/)%EF%BC%9A">https://lwn.net/Articles/358910/)：</a></p>
+<p>函数<code>napi_gro_receive</code>首先会尝试通过<code>GRO</code>（<code>Generic Receive Offload</code>)的方式将数据发送出去，如果网卡本身不支持<code>GRO</code>则会直接将数据报传送给上层协议栈（简单来说GRO就是将数据包累积到一定数量后再传给上层，这样一次性的处理多个数据包从而提升效率，可以参考https://lwn.net/Articles/358910/)：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// kernel/net/dev.c</span></span><br><span class="line"><span class="type">gro_result_t</span> <span class="title function_">napi_gro_receive</span><span class="params">(<span class="keyword">struct</span> napi_struct *napi, <span class="keyword">struct</span> sk_buff *skb)</span></span><br><span class="line">&#123;</span><br><span class="line">	trace_napi_gro_receive_entry(skb);</span><br><span class="line"></span><br><span class="line">	skb_gro_reset_offset(skb);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> napi_skb_finish(dev_gro_receive(napi, skb), skb);</span><br><span class="line">&#125;</span><br><span class="line">EXPORT_SYMBOL(napi_gro_receive);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>Intel这个网卡没有开启<code>GRO</code>，所以实际<code>dev_gro_receive</code>直接返回了<code>GRO_NORMAL</code>，这样就通过<code>netif_receive_skb_internal</code>处理数据包：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">gro_result_t</span> <span class="title function_">napi_skb_finish</span><span class="params">(<span class="type">gro_result_t</span> ret, <span class="keyword">struct</span> sk_buff *skb)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">switch</span> (ret) &#123;</span><br><span class="line">	<span class="keyword">case</span> GRO_NORMAL:</span><br><span class="line">		<span class="keyword">if</span> (netif_receive_skb_internal(skb))</span><br><span class="line">			ret = GRO_DROP;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">case</span> GRO_DROP:</span><br><span class="line">		kfree_skb(skb);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">case</span> GRO_MERGED_FREE:</span><br><span class="line">		<span class="keyword">if</span> (NAPI_GRO_CB(skb)-&gt;<span class="built_in">free</span> == NAPI_GRO_FREE_STOLEN_HEAD)</span><br><span class="line">			napi_skb_free_stolen_head(skb);</span><br><span class="line">		<span class="keyword">else</span></span><br><span class="line">			__kfree_skb(skb);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">case</span> GRO_HELD:</span><br><span class="line">	<span class="keyword">case</span> GRO_MERGED:</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>对于多核系统来说，一般数据传输处理的CPU跟中断处理的CPU是一致的，后来随着网卡速度的提升，如果把网卡的数据都放到一个CPU处理的话，会导致CPU负载过大进而导致数据传输的延迟，因此有人提出了RPS(<a target="_blank" rel="noopener" href="https://lwn.net/Articles/362339/">Receive packet steering</a>, 就是将数据包的处理任务均衡的分配到各个CPU；要支持该特性，需要打开配置<code>CONFIG_RPS</code>， 同时在内核的配置中<code>/sys/class/net/ethx/queues/rx-0/rps_cpus</code>中将需要处理数据包的CPU设置为<code>1</code>， 这样在处理数据的时候就会将数据包先放到各个CPU的数据队列中进行处理。</p>
+<p>对于多核系统来说，一般数据传输处理的CPU跟中断处理的CPU是一致的，后来随着网卡速度的提升，如果把网卡的数据都放到一个CPU处理的话，会导致CPU负载过大进而导致数据传输的延迟，因此有人提出了RPS(<a
+target="_blank" rel="noopener" href="https://lwn.net/Articles/362339/">Receive packet steering</a>,
+就是将数据包的处理任务均衡的分配到各个CPU；要支持该特性，需要打开配置<code>CONFIG_RPS</code>，
+同时在内核的配置中<code>/sys/class/net/ethx/queues/rx-0/rps_cpus</code>中将需要处理数据包的CPU设置为<code>1</code>，
+这样在处理数据的时候就会将数据包先放到各个CPU的数据队列中进行处理。</p>
 <p>这里假定该网卡没有配置RPS，接着会调用<code>__netif_receive_skb</code>处理网络数据。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">netif_receive_skb_internal</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	net_timestamp_check(netdev_tstamp_prequeue, skb);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (skb_defer_rx_timestamp(skb))</span><br><span class="line">		<span class="keyword">return</span> NET_RX_SUCCESS;</span><br><span class="line"></span><br><span class="line">	rcu_read_lock();</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_RPS</span></span><br><span class="line">	<span class="keyword">if</span> (static_key_false(&amp;rps_needed)) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">rps_dev_flow</span> <span class="title">voidflow</span>, *<span class="title">rflow</span> =</span> &amp;voidflow;</span><br><span class="line">		<span class="type">int</span> cpu = get_rps_cpu(skb-&gt;dev, skb, &amp;rflow);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (cpu &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">			ret = enqueue_to_backlog(skb, cpu, &amp;rflow-&gt;last_qtail);</span><br><span class="line">			rcu_read_unlock();</span><br><span class="line">			<span class="keyword">return</span> ret;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	ret = __netif_receive_skb(skb);</span><br><span class="line">	rcu_read_unlock();</span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
 <p><code>__netif_receive_skb</code>实际调用<code>__netif_receive_skb_core</code>处理数据：<code>__netif_receive_skb_core</code>调用内核初始化时注册的协议类型，并调用其回调函数，由相应的协议来处理该数据包</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __netif_receive_skb(<span class="keyword">struct</span> sk_buff *skb)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (sk_memalloc_socks() &amp;&amp; skb_pfmemalloc(skb)) &#123;</span><br><span class="line">		<span class="type">unsigned</span> <span class="type">long</span> pflags = current-&gt;flags;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * PFMEMALLOC skbs are special, they should</span></span><br><span class="line"><span class="comment">		 * - be delivered to SOCK_MEMALLOC sockets only</span></span><br><span class="line"><span class="comment">		 * - stay away from userspace</span></span><br><span class="line"><span class="comment">		 * - have bounded memory usage</span></span><br><span class="line"><span class="comment">		 *</span></span><br><span class="line"><span class="comment">		 * Use PF_MEMALLOC as this saves us from propagating the allocation</span></span><br><span class="line"><span class="comment">		 * context down to all allocation sites.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		current-&gt;flags |= PF_MEMALLOC;</span><br><span class="line">		ret = __netif_receive_skb_core(skb, <span class="literal">true</span>);</span><br><span class="line">		tsk_restore_flags(current, pflags, PF_MEMALLOC);</span><br><span class="line">	&#125; <span class="keyword">else</span></span><br><span class="line">		ret = __netif_receive_skb_core(skb, <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __netif_receive_skb_core(<span class="keyword">struct</span> sk_buff *skb, <span class="type">bool</span> pfmemalloc)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">packet_type</span> *<span class="title">ptype</span>, *<span class="title">pt_prev</span>;</span></span><br><span class="line">	<span class="type">rx_handler_func_t</span> *rx_handler;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">net_device</span> *<span class="title">orig_dev</span>;</span></span><br><span class="line">	<span class="type">bool</span> deliver_exact = <span class="literal">false</span>;</span><br><span class="line">	<span class="type">int</span> ret = NET_RX_DROP;</span><br><span class="line">	__be16 type;</span><br><span class="line"></span><br><span class="line">	net_timestamp_check(!netdev_tstamp_prequeue, skb);</span><br><span class="line"></span><br><span class="line">	trace_netif_receive_skb(skb);</span><br><span class="line"></span><br><span class="line">	orig_dev = skb-&gt;dev;</span><br><span class="line"></span><br><span class="line">	skb_reset_network_header(skb);</span><br><span class="line">	<span class="keyword">if</span> (!skb_transport_header_was_set(skb))</span><br><span class="line">		skb_reset_transport_header(skb);</span><br><span class="line">	skb_reset_mac_len(skb);</span><br><span class="line"></span><br><span class="line">	pt_prev = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">another_round:</span><br><span class="line">	skb-&gt;skb_iif = skb-&gt;dev-&gt;ifindex;</span><br><span class="line"></span><br><span class="line">	__this_cpu_inc(softnet_data.processed);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (skb-&gt;protocol == cpu_to_be16(ETH_P_8021Q) ||</span><br><span class="line">	    skb-&gt;protocol == cpu_to_be16(ETH_P_8021AD)) &#123;</span><br><span class="line">		skb = skb_vlan_untag(skb);</span><br><span class="line">		<span class="keyword">if</span> (unlikely(!skb))</span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">	<span class="comment">// 遍历已注册的协议，并调用其回调函数(一般是libpcap通过`AF_PACKET`传入的)</span></span><br><span class="line">	list_for_each_entry_rcu(ptype, &amp;ptype_all, <span class="built_in">list</span>) &#123;</span><br><span class="line">		<span class="keyword">if</span> (pt_prev)</span><br><span class="line">			ret = deliver_skb(skb, pt_prev, orig_dev);</span><br><span class="line">		pt_prev = ptype;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 协议栈</span></span><br><span class="line">	list_for_each_entry_rcu(ptype, &amp;skb-&gt;dev-&gt;ptype_all, <span class="built_in">list</span>) &#123;</span><br><span class="line">		<span class="keyword">if</span> (pt_prev)</span><br><span class="line">			ret = deliver_skb(skb, pt_prev, orig_dev);</span><br><span class="line">		pt_prev = ptype;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">skip_taps:</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_NET_INGRESS</span></span><br><span class="line">	<span class="keyword">if</span> (static_key_false(&amp;ingress_needed)) &#123;</span><br><span class="line">		skb = handle_ing(skb, &amp;pt_prev, &amp;ret, orig_dev);</span><br><span class="line">		<span class="keyword">if</span> (!skb)</span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (nf_ingress(skb, &amp;pt_prev, &amp;ret, orig_dev) &lt; <span class="number">0</span>)</span><br><span class="line">			<span class="keyword">goto</span> out;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"> ... </span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>回调协议包<code> struct packet_type</code>注册的回调函数，把<code>sk_buff</code>传给该协议层处理。</p>
+<p>回调协议包<code>struct packet_type</code>注册的回调函数，把<code>sk_buff</code>传给该协议层处理。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">int</span> <span class="title function_">deliver_skb</span><span class="params">(<span class="keyword">struct</span> sk_buff *skb,</span></span><br><span class="line"><span class="params">			      <span class="keyword">struct</span> packet_type *pt_prev,</span></span><br><span class="line"><span class="params">			      <span class="keyword">struct</span> net_device *orig_dev)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">if</span> (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">	<span class="type">atomic_inc</span>(&amp;skb-&gt;users);</span><br><span class="line">	<span class="keyword">return</span> pt_prev-&gt;func(skb, skb-&gt;dev, pt_prev, orig_dev);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>所有这些<code> struct packet_type</code>实际都是在内核初始化的时候通过<code>dev_add_pack</code>注册的，有兴趣的可以跟踪下对应的代码逻辑。至此, 数据包从设备物理层L1传输到了链路层L2了,传输完成了第一步.</p>
-<p>总的说来, NAPI针对高负载的数据通讯做了优化, 减少了物理中断数量, 同时又兼顾了各个物理设备在传输调度上的公平性.</p>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/30107/">Driver porting: Network drivers</a></li>
-<li><a target="_blank" rel="noopener" href="https://blog.packagecloud.io/eng/2016/06/22/monitoring-tuning-linux-networking-stack-receiving-data/#overview">https://blog.packagecloud.io/eng/2016/06/22/monitoring-tuning-linux-networking-stack-receiving-data/#overview</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/358910/">Generic Receive Offload</a></li>
+<p>所有这些<code>struct packet_type</code>实际都是在内核初始化的时候通过<code>dev_add_pack</code>注册的，有兴趣的可以跟踪下对应的代码逻辑。至此,
+数据包从设备物理层L1传输到了链路层L2了,传输完成了第一步.</p>
+<p>总的说来, NAPI针对高负载的数据通讯做了优化, 减少了物理中断数量,
+同时又兼顾了各个物理设备在传输调度上的公平性.</p>
+<h2 id="参考文献">参考文献</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/30107/">Driver porting: Network
+drivers</a></li>
+<li>https://blog.packagecloud.io/eng/2016/06/22/monitoring-tuning-linux-networking-stack-receiving-data/#overview</li>
+<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/358910/">Generic Receive
+Offload</a></li>
 <li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/362339/">RPS</a></li>
-<li><a target="_blank" rel="noopener" href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/performance_tuning_guide/network-rps">Redhat RPS</a></li>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/lucien_cc/article/details/11731463">https://blog.csdn.net/lucien_cc/article/details/11731463</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/performance_tuning_guide/network-rps">Redhat
+RPS</a></li>
+<li>https://blog.csdn.net/lucien_cc/article/details/11731463</li>
 <li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/822521/">DMA相关的文章</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/DMA-API-HOWTO.txt">内核DMA API说明</a></li>
-<li><a target="_blank" rel="noopener" href="https://elinux.org/images/3/32/Pinchart--mastering_the_dma_and_iommu_apis.pdf">https://elinux.org/images/3/32/Pinchart--mastering_the_dma_and_iommu_apis.pdf</a></li>
-<li><a target="_blank" rel="noopener" href="https://arthurchiao.art/blog/tuning-stack-rx-zh/">Linux 网络栈监控和调优：接收数据(中译版)</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/leandromoreira/linux-network-performance-parameters">Linux网络性能参数调优</a></li>
-<li><a target="_blank" rel="noopener" href="https://events.static.linuxfound.org/sites/events/files/slides/pushing-kernel-networking.pdf">Pushing Limits of Kernel Networking</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/DMA-API-HOWTO.txt">内核DMA
+API说明</a></li>
+<li>https://elinux.org/images/3/32/Pinchart–mastering_the_dma_and_iommu_apis.pdf</li>
+<li><a target="_blank" rel="noopener" href="https://arthurchiao.art/blog/tuning-stack-rx-zh/">Linux
+网络栈监控和调优：接收数据(中译版)</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://github.com/leandromoreira/linux-network-performance-parameters">Linux网络性能参数调优</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://events.static.linuxfound.org/sites/events/files/slides/pushing-kernel-networking.pdf">Pushing
+Limits of Kernel Networking</a></li>
 </ul>
 
     </article>
@@ -659,7 +697,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">May 12th 2020, 6:01:22 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">2022-10-11, 10:16:45</a>
+            <p>更新日期：<a href="https://sniffer.site/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -825,7 +863,8 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A9%B1%E5%8A%A8%E5%8A%A0%E8%BD%BD%E4%B8%8E%E8%AE%BE%E5%A4%87%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">1.</span> <span class="toc-text">驱动加载与设备初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BD%91%E5%8D%A1%E6%95%B0%E6%8D%AE%E6%8E%A5%E6%94%B6"><span class="toc-number">2.</span> <span class="toc-text">网卡数据接收</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E7%BD%91%E5%8D%A1%E4%B8%AD%E6%96%AD"><span class="toc-number">2.1.</span> <span class="toc-text">处理网卡中断</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8napi%E4%BB%BB%E5%8A%A1%EF%BC%8C%E5%8F%91%E9%80%81%E8%BD%AF%E4%B8%AD%E6%96%AD"><span class="toc-number">2.2.</span> <span class="toc-text">启动napi任务，发送软中断</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E7%BD%91%E7%BB%9C%E8%BD%AF%E4%B8%AD%E6%96%AD"><span class="toc-number">2.3.</span> <span class="toc-text">处理网络软中断</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B0%86skb-buff-%E5%8F%91%E9%80%81%E7%BB%99%E5%8D%8F%E8%AE%AE%E6%A0%88"><span class="toc-number">2.4.</span> <span class="toc-text">将skb_buff 发送给协议栈</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A9%B1%E5%8A%A8%E5%8A%A0%E8%BD%BD%E4%B8%8E%E8%AE%BE%E5%A4%87%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">1.</span> <span class="toc-text">驱动加载与设备初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BD%91%E5%8D%A1%E6%95%B0%E6%8D%AE%E6%8E%A5%E6%94%B6"><span class="toc-number">2.</span> <span class="toc-text">网卡数据接收</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E7%BD%91%E5%8D%A1%E4%B8%AD%E6%96%AD"><span class="toc-number">2.1.</span> <span class="toc-text">处理网卡中断</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8napi%E4%BB%BB%E5%8A%A1%E5%8F%91%E9%80%81%E8%BD%AF%E4%B8%AD%E6%96%AD"><span class="toc-number">2.2.</span> <span class="toc-text">启动napi任务，发送软中断</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E7%BD%91%E7%BB%9C%E8%BD%AF%E4%B8%AD%E6%96%AD"><span class="toc-number">2.3.</span> <span class="toc-text">处理网络软中断</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B0%86skb_buff-%E5%8F%91%E9%80%81%E7%BB%99%E5%8D%8F%E8%AE%AE%E6%A0%88"><span class="toc-number">2.4.</span> <span class="toc-text">将skb_buff
+发送给协议栈</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1474,7 +1513,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2925,7 +2975,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2943,6 +2993,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3801,44 +3857,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3856,14 +3887,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3876,14 +3912,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3894,11 +3930,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3916,14 +3947,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3939,6 +3965,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3971,31 +4007,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -4004,6 +4015,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -4026,19 +4042,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4054,6 +4060,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4081,14 +4122,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4101,39 +4142,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4144,16 +4175,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4181,6 +4202,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4196,9 +4242,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4216,41 +4272,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4261,14 +4282,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4296,16 +4322,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4326,9 +4342,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4346,24 +4372,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4371,24 +4397,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4401,9 +4437,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4426,9 +4467,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4451,6 +4492,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4466,14 +4517,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4484,6 +4535,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4501,41 +4572,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4549,6 +4585,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4571,11 +4622,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4591,16 +4637,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4614,6 +4650,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4636,16 +4687,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4661,24 +4702,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4689,6 +4715,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4731,6 +4772,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4746,14 +4807,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4774,21 +4830,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4856,19 +4897,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4886,6 +4917,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4901,16 +4957,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4919,6 +4965,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4941,21 +5002,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4974,16 +5020,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -5011,11 +5047,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5036,14 +5067,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5071,19 +5117,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5096,6 +5137,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5104,6 +5150,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5116,6 +5172,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5137,6 +5198,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5147,19 +5213,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5167,14 +5223,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5192,14 +5248,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5215,11 +5271,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

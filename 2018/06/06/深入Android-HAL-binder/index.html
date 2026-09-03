@@ -26,14 +26,12 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="HAL binder是Android O(8.0)专门用于HAL（Hardware Abstract Layer)层（native）进程与其clients之间的通信机制（clients可以是native进程，也可以是Java Framework进程)。 HAL binder替代了早先使用的socket通信，其kernel层实际是基于原有的binder驱动，但为了配合Client与Server之间的">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/HwBinder_architecture.png">
 <meta property="article:published_time" content="2018-06-06T14:09:47.000Z">
-<meta property="article:modified_time" content="2021-08-11T06:58:07.164Z">
+<meta property="article:modified_time" content="2026-09-03T06:08:31.187Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Binder">
 <meta property="article:tag" content="HAL">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/HwBinder_architecture.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -524,10 +522,16 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>HAL binder是Android O(8.0)专门用于HAL（Hardware Abstract Layer)层（native）进程与其clients之间的通信机制（clients可以是native进程，也可以是Java Framework进程)。 HAL binder替代了早先使用的socket通信，其kernel层实际是基于原有的binder驱动，但为了配合Client与Server之间的数据传输，需要使用特定的中间层HIDL来进行接口与数据的转换。那么，相对之前的HAL通信方式（socket），基于HIDL的HAL通信有什么优势了？从系统架构的角度，HIDL为客户端与服务端提供了清晰的接口；从效率的角度，binder IPC实际在传输数据上只有一次拷贝，而socket实际传输需要两次数据拷贝。</p>
+        <p>HAL binder是Android O(8.0)专门用于HAL（Hardware Abstract
+Layer)层（native）进程与其clients之间的通信机制（clients可以是native进程，也可以是Java
+Framework进程)。 HAL
+binder替代了早先使用的socket通信，其kernel层实际是基于原有的binder驱动，但为了配合Client与Server之间的数据传输，需要使用特定的中间层HIDL来进行接口与数据的转换。那么，相对之前的HAL通信方式（socket），基于HIDL的HAL通信有什么优势了？从系统架构的角度，HIDL为客户端与服务端提供了清晰的接口；从效率的角度，binder
+IPC实际在传输数据上只有一次拷贝，而socket实际传输需要两次数据拷贝。</p>
 <p>目前Android有两种类型的HAL：</p>
 <ul>
-<li><p><strong>binder化的HAL</strong>： 利用HIDL(HAL interface Definition Language)来描述HAL接口，Framework层与HAL层通过binder IPC的方式进行通信；如下的HAL模块都是利用binder IPC来进行通信的:</p>
+<li><strong>binder化的HAL</strong>： 利用HIDL(HAL interface Definition
+Language)来描述HAL接口，Framework层与HAL层通过binder
+IPC的方式进行通信；如下的HAL模块都是利用binder IPC来进行通信的:
 <ul>
 <li><code>android.hardware.biometrics.fingerprint@2.1</code></li>
 <li><code>android.hardware.configstore@1.0</code></li>
@@ -537,83 +541,97 @@
 <li><code>android.hardware.usb@1.0</code></li>
 <li><code>android.hardware.wifi@1.0</code></li>
 <li><code>android.hardware.wifi.supplicant@1.0</code></li>
-</ul>
-</li>
-<li><p><strong>直通式HAL</strong>： 基于HIDL或者传统HAL方式来实现，在这种模式下，Framework层与HAL层的通信可以通过IPC的方式进行，也可以使用共享内存的方式在同一个进程内进行（passthrough,直通）。目前有如下两个HAL模块使用直通式方式进行通信：</p>
+</ul></li>
+<li><strong>直通式HAL</strong>：
+基于HIDL或者传统HAL方式来实现，在这种模式下，Framework层与HAL层的通信可以通过IPC的方式进行，也可以使用共享内存的方式在同一个进程内进行（passthrough,直通）。目前有如下两个HAL模块使用直通式方式进行通信：
 <ul>
 <li><code>android.hardware.graphics.mapper@1.0</code></li>
 <li><code>android.hardware.renderscript@1.0</code></li>
-</ul>
-</li>
+</ul></li>
 </ul>
 <span id="more"></span>
-
-<h2 id="相关代码"><a href="#相关代码" class="headerlink" title="相关代码"></a><strong>相关代码</strong></h2><ul>
-<li><code>/android/system/tools/hidl/</code>： 根据HAL接口 <code>.hal</code>来产生相应的Proxy(client端接口）以及stub(server端接口）。</li>
-<li><code>/android/system/libhwbinder/</code>： 初始化binder线程，负责与binder驱动交互，读写数据；</li>
-<li><code>/android/system/libhidl</code>： HIDL状态与HAL服务管理接口；</li>
-<li><code>/android/os/HwBinder</code>： Java层Hardware binder代码，获取server端接口以及向server发起IPC调用；</li>
-<li><code> android_os_HwBinder.cpp (JNI)</code>：Java层HAL binder的JNI代码，负责将Java层的请求传递给相应的server进程；</li>
-<li><code>/android/hardware/interfaces/</code>： 各个模块HAL层接口，每个模块都包含了一个<code>Android.bp</code>的脚步来生成对应的代理(Proxy)与存根对象(stub)，如radio接口<code>IRadio.hal</code>,sensors接口<code>ISensors.hal</code>；</li>
-<li><code>/android/kernel/drivers/staging/android/</code>： binder驱动；</li>
+<h2 id="相关代码"><strong>相关代码</strong></h2>
+<ul>
+<li><code>/android/system/tools/hidl/</code>： 根据HAL接口
+<code>.hal</code>来产生相应的Proxy(client端接口）以及stub(server端接口）。</li>
+<li><code>/android/system/libhwbinder/</code>：
+初始化binder线程，负责与binder驱动交互，读写数据；</li>
+<li><code>/android/system/libhidl</code>：
+HIDL状态与HAL服务管理接口；</li>
+<li><code>/android/os/HwBinder</code>： Java层Hardware
+binder代码，获取server端接口以及向server发起IPC调用；</li>
+<li><code>android_os_HwBinder.cpp (JNI)</code>：Java层HAL
+binder的JNI代码，负责将Java层的请求传递给相应的server进程；</li>
+<li><code>/android/hardware/interfaces/</code>：
+各个模块HAL层接口，每个模块都包含了一个<code>Android.bp</code>的脚步来生成对应的代理(Proxy)与存根对象(stub)，如radio接口<code>IRadio.hal</code>,sensors接口<code>ISensors.hal</code>；</li>
+<li><code>/android/kernel/drivers/staging/android/</code>：
+binder驱动；</li>
 </ul>
-<p>下图是HAL binder的结构简图, 了解Binder的同学应该很快能看出，这个结构跟binder的C&#x2F;S IPC架构很相似，区别的地方在对于HAL binder来说，server进程是Android的native进程而已。在接下来的两篇文章里，我将以Telephony Framwork(RILJ)与native进程RILD是如何通过hardware binder来进行通信为例，从以下两个方面来说明HAL Binder的实现机制与工作原理：</p>
+<p>下图是HAL binder的结构简图,
+了解Binder的同学应该很快能看出，这个结构跟binder的C/S
+IPC架构很相似，区别的地方在对于HAL
+binder来说，server进程是Android的native进程而已。在接下来的两篇文章里，我将以Telephony
+Framwork(RILJ)与native进程RILD是如何通过hardware
+binder来进行通信为例，从以下两个方面来说明HAL
+Binder的实现机制与工作原理：</p>
 <ul>
 <li>HAL服务管家<code>HwServiceMananger</code>是如何启动以及如何注册、获取系统服务；</li>
 <li>RILJ如何通过HAL binder与RILD进行通信？</li>
 </ul>
-<p><img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/HwBinder_architecture.png" alt="HwBinder Architecture"> </p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/HwBinder_architecture.png"
+alt="HwBinder Architecture" /></p>
 <blockquote>
-<p>关于Android.bp脚本可以参考<a target="_blank" rel="noopener" href="https://android.googlesource.com/platform/build/soong/">https://android.googlesource.com/platform/build/soong/</a></p>
+<p>关于Android.bp脚本可以参考<a
+target="_blank" rel="noopener" href="https://android.googlesource.com/platform/build/soong/">https://android.googlesource.com/platform/build/soong/</a></p>
 </blockquote>
-<p>这篇文章，主要来看下第一个问题，HAL binder是如何启动以及管理所有HAL服务的。跟常规的binder通信（AMS，PMS等使用的binder）一样，HAL binder也需要有一个专门的服务管家，来统一管理系统的服务，同时为客户端提供诸如注册、获取服务等API。</p>
-<h2 id="HwServiceMananger的启动"><a href="#HwServiceMananger的启动" class="headerlink" title="HwServiceMananger的启动"></a><strong>HwServiceMananger的启动</strong></h2><p>在<code>/android/system/hwservicemanager/hwservicemanager.rc</code>目录下，有个启动脚本<code>hwservicemanager.rc</code>，init进程在启动之后会对该脚本进行解析：</p>
+<p>这篇文章，主要来看下第一个问题，HAL
+binder是如何启动以及管理所有HAL服务的。跟常规的binder通信（AMS，PMS等使用的binder）一样，HAL
+binder也需要有一个专门的服务管家，来统一管理系统的服务，同时为客户端提供诸如注册、获取服务等API。</p>
+<h2
+id="hwservicemananger的启动"><strong>HwServiceMananger的启动</strong></h2>
+<p>在<code>/android/system/hwservicemanager/hwservicemanager.rc</code>目录下，有个启动脚本<code>hwservicemanager.rc</code>，init进程在启动之后会对该脚本进行解析：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">service hwservicemanager /system/bin/hwservicemanager</span><br><span class="line">    user system</span><br><span class="line">    disabled</span><br><span class="line">    group system readproc</span><br><span class="line">    critical</span><br><span class="line">    onrestart setprop hwservicemanager.ready <span class="literal">false</span></span><br><span class="line">    onrestart class_restart hal</span><br><span class="line">    onrestart class_restart early_hal</span><br><span class="line">    writepid /dev/cpuset/system-background/tasks</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">animation</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>在<code>/android/system/core/rootdir/init.rc</code>文件中，有个控制指令，专门来启动<code>hwservicemananger</code>这个系统服务：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">on post-fs</span><br><span class="line">    # Load properties from</span><br><span class="line">    #     /system/build.prop,</span><br><span class="line">    #     /odm/build.prop,</span><br><span class="line">    #     /vendor/build.prop <span class="keyword">and</span></span><br><span class="line">    #     /factory/factory.prop</span><br><span class="line">    load_system_props</span><br><span class="line">    <span class="meta"># start essential services</span></span><br><span class="line">    start logd</span><br><span class="line">    start servicemanager</span><br><span class="line">    start hwservicemanager</span><br><span class="line">    start vndservicemanager</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>这样，系统加载<code>hwservicemanager</code>，进入main函数：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">BinderCallback</span> : <span class="keyword">public</span> LooperCallback &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">BinderCallback</span>() &#123;&#125;</span><br><span class="line">    ~<span class="built_in">BinderCallback</span>() <span class="keyword">override</span> &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">int</span> <span class="title">handleEvent</span><span class="params">(<span class="type">int</span> <span class="comment">/* fd */</span>, <span class="type">int</span> <span class="comment">/* events */</span>, <span class="type">void</span>* <span class="comment">/* data */</span>)</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">        IPCThreadState::<span class="built_in">self</span>()-&gt;<span class="built_in">handlePolledCommands</span>();</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;  <span class="comment">// Continue receiving callbacks.</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 初始化hwbinder驱动，设置线程池</span></span><br><span class="line">    <span class="built_in">configureRpcThreadpool</span>(<span class="number">1</span>, <span class="literal">true</span> <span class="comment">/* callerWillJoin */</span>);</span><br><span class="line"></span><br><span class="line">    ServiceManager *manager = <span class="keyword">new</span> <span class="built_in">ServiceManager</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!manager-&gt;<span class="built_in">add</span>(serviceName, manager)) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to register hwservicemanager with itself.&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// TokenManager有何作用？</span></span><br><span class="line">    TokenManager *tokenManager = <span class="keyword">new</span> <span class="built_in">TokenManager</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!manager-&gt;<span class="built_in">add</span>(serviceName, tokenManager)) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to register ITokenManager with hwservicemanager.&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function">sp&lt;Looper&gt; <span class="title">looper</span><span class="params">(Looper::prepare(<span class="number">0</span> <span class="comment">/* opts */</span>))</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> binder_fd = <span class="number">-1</span>;</span><br><span class="line">    <span class="comment">// 设置线程进入等待状态，准备处理IPC请求</span></span><br><span class="line">    IPCThreadState::<span class="built_in">self</span>()-&gt;<span class="built_in">setupPolling</span>(&amp;binder_fd);</span><br><span class="line">    <span class="keyword">if</span> (binder_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to aquire binder FD. Aborting...&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// Flush after setupPolling(), to make sure the binder driver</span></span><br><span class="line">    <span class="comment">// knows about this thread handling commands.</span></span><br><span class="line">    IPCThreadState::<span class="built_in">self</span>()-&gt;<span class="built_in">flushCommands</span>();</span><br><span class="line">    <span class="comment">// IPC请求回调，有数据时会调用该回调进行处理</span></span><br><span class="line">    <span class="function">sp&lt;BinderCallback&gt; <span class="title">cb</span><span class="params">(<span class="keyword">new</span> BinderCallback)</span></span>;</span><br><span class="line">    <span class="keyword">if</span> (looper-&gt;<span class="built_in">addFd</span>(binder_fd, Looper::POLL_CALLBACK, Looper::EVENT_INPUT, cb,</span><br><span class="line">            <span class="literal">nullptr</span>) != <span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Failed to add hwbinder FD to Looper. Aborting...&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Tell IPCThreadState we&#x27;re the service manager</span></span><br><span class="line">    sp&lt;BnHwServiceManager&gt; service = <span class="keyword">new</span> <span class="built_in">BnHwServiceManager</span>(manager);</span><br><span class="line">    IPCThreadState::<span class="built_in">self</span>()-&gt;<span class="built_in">setTheContextObject</span>(service);</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">ioctl</span>(binder_fd, BINDER_SET_CONTEXT_MGR, <span class="number">0</span>);</span><br><span class="line">    ...    </span><br><span class="line">    rc = <span class="built_in">property_set</span>(<span class="string">&quot;hwservicemanager.ready&quot;</span>, <span class="string">&quot;true&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        looper-&gt;<span class="built_in">pollAll</span>(<span class="number">-1</span> <span class="comment">/* timeoutMillis */</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p><code>ServiceManager</code>启动主要需要做以下几件事情：</p>
-<ul>
-<li>初始化<code>/dev/hwbinder</code>驱动，为其分配一块虚拟内存用于IPC数据交换；</li>
-<li>向<code>hwbinder</code>注册HAL服务管家(IPC上下文管理者）；</li>
-<li>监听<code>/dev/hwbinder</code>是否有数据可读，如有则调用回调执行指令；</li>
-</ul>
-<h2 id="hwbinder驱动初始化"><a href="#hwbinder驱动初始化" class="headerlink" title="hwbinder驱动初始化"></a><strong>hwbinder驱动初始化</strong></h2><p><code>HwServiceManager</code>启动的第一件事情，就是配置binder线程池，告知驱动当前需要启动多少个线程处理IPC指令：对于<code>HwServiceManager</code>而言，只需要一个binder线程，即调用者线程即可（调用者线程何时加入binder线程池下面会讲到），而无需启动新的线程。</p>
+<p><code>ServiceManager</code>启动主要需要做以下几件事情： -
+初始化<code>/dev/hwbinder</code>驱动，为其分配一块虚拟内存用于IPC数据交换；
+- 向<code>hwbinder</code>注册HAL服务管家(IPC上下文管理者）； -
+监听<code>/dev/hwbinder</code>是否有数据可读，如有则调用回调执行指令；</p>
+<h2 id="hwbinder驱动初始化"><strong>hwbinder驱动初始化</strong></h2>
+<p><code>HwServiceManager</code>启动的第一件事情，就是配置binder线程池，告知驱动当前需要启动多少个线程处理IPC指令：对于<code>HwServiceManager</code>而言，只需要一个binder线程，即调用者线程即可（调用者线程何时加入binder线程池下面会讲到），而无需启动新的线程。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// HidlBinderSupport.cpp</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">configureBinderRpcThreadpool</span><span class="params">(<span class="type">size_t</span> maxThreads, <span class="type">bool</span> callerWillJoin)</span> </span>&#123;</span><br><span class="line">    ProcessState::<span class="built_in">self</span>()-&gt;<span class="built_in">setThreadPoolConfiguration</span>(maxThreads, callerWillJoin <span class="comment">/*callerJoinsPool*/</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p><code>ProcessState</code>只有一个实例（<code>ProcessState</code>可以看成是<code>hwbinder</code>用户空间进程状态管理者），因此在调用<code>ProcessState():self</code>的时候，如果当前<code>ProcessState</code>没有创建全局实例，则会创建一个实例：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function">sp&lt;ProcessState&gt; <span class="title">ProcessState::self</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    Mutex::Autolock _l(gProcessMutex);</span><br><span class="line">    <span class="keyword">if</span> (gProcess != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> gProcess;</span><br><span class="line">    &#125;</span><br><span class="line">    gProcess = <span class="keyword">new</span> ProcessState;</span><br><span class="line">    <span class="keyword">return</span> gProcess;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>创建<code>ProcessState</code>的时候，主要做两件事：</p>
 <ul>
 <li>打开<code>/dev/hwbinder</code>驱动，验证binder版本以及协议版本，并配置最大的binder线程数量（对于hwbinder，默认的最大线程数量为0）；</li>
 <li>将<code>/dev/hwbinder</code>映射到一块大小约为1M的虚拟内存上用于交换IPC数据；</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">ProcessState::<span class="built_in">ProcessState</span>()</span><br><span class="line">    : <span class="built_in">mDriverFD</span>(<span class="built_in">open_driver</span>()) <span class="comment">// 配置最大线程数</span></span><br><span class="line">    , <span class="built_in">mVMStart</span>(MAP_FAILED)</span><br><span class="line">    , <span class="built_in">mThreadCountLock</span>(PTHREAD_MUTEX_INITIALIZER)</span><br><span class="line">    , <span class="built_in">mThreadCountDecrement</span>(PTHREAD_COND_INITIALIZER)</span><br><span class="line">    , <span class="built_in">mExecutingThreadsCount</span>(<span class="number">0</span>)</span><br><span class="line">    , <span class="built_in">mMaxThreads</span>(DEFAULT_MAX_BINDER_THREADS)</span><br><span class="line">    , <span class="built_in">mStarvationStartTimeMs</span>(<span class="number">0</span>)</span><br><span class="line">    , <span class="built_in">mManagesContexts</span>(<span class="literal">false</span>)</span><br><span class="line">    , <span class="built_in">mBinderContextCheckFunc</span>(<span class="literal">NULL</span>)</span><br><span class="line">    , <span class="built_in">mBinderContextUserData</span>(<span class="literal">NULL</span>)</span><br><span class="line">    , <span class="built_in">mThreadPoolStarted</span>(<span class="literal">false</span>)</span><br><span class="line">    , <span class="built_in">mSpawnThreadOnStart</span>(<span class="literal">true</span>)</span><br><span class="line">    , <span class="built_in">mThreadPoolSeq</span>(<span class="number">1</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (mDriverFD &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="comment">// mmap the binder, providing a chunk of virtual address space to receive transactions.</span></span><br><span class="line">        mVMStart = <span class="built_in">mmap</span>(<span class="number">0</span>, BINDER_VM_SIZE, PROT_READ, MAP_PRIVATE | MAP_NORESERVE, mDriverFD, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (mVMStart == MAP_FAILED) &#123;</span><br><span class="line">            <span class="comment">// *sigh*</span></span><br><span class="line">            <span class="built_in">ALOGE</span>(<span class="string">&quot;Using /dev/hwbinder failed: unable to mmap transaction memory.\n&quot;</span>);</span><br><span class="line">            <span class="built_in">close</span>(mDriverFD);</span><br><span class="line">            mDriverFD = <span class="number">-1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Binder driver could not be opened.  Terminating.&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p><code>ProcessState</code>初始化完成后，获取到相应实例，配置线程池(对于每个HAL服务来是，一般线程池只有一个线程，就是服务进行注册时所在的<br>主线程），告知线程当前所需的最大线程数目：</p>
+<p><code>ProcessState</code>初始化完成后，获取到相应实例，配置线程池(对于每个HAL服务来是，一般线程池只有一个线程，就是服务进行注册时所在的
+主线程），告知线程当前所需的最大线程数目：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">status_t</span> <span class="title">ProcessState::setThreadPoolMaxThreadCount</span><span class="params">(<span class="type">size_t</span> maxThreads)</span> </span>&#123;</span><br><span class="line">    <span class="type">status_t</span> result = NO_ERROR;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">ioctl</span>(mDriverFD, BINDER_SET_MAX_THREADS, &amp;maxThreads) != <span class="number">-1</span>) &#123;</span><br><span class="line">        mMaxThreads = maxThreads;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        result = -errno;</span><br><span class="line">        <span class="built_in">ALOGE</span>(<span class="string">&quot;Binder ioctl to set max threads failed: %s&quot;</span>, <span class="built_in">strerror</span>(-result));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="注册HAL服务管家"><a href="#注册HAL服务管家" class="headerlink" title="注册HAL服务管家"></a><strong>注册HAL服务管家</strong></h2><p>线程池配置完成后，获取当前线程的Looper（对的，就是Framework层常用的Handler消息循环在native的对应），并告知HwBinder驱动由当前线程来处理HAL服务上下文相关的指令， 设置Looper消息回调。接着，就是注册HAL服务的管家<code>ServiceManager</code>了。</p>
+<h2 id="注册hal服务管家"><strong>注册HAL服务管家</strong></h2>
+<p>线程池配置完成后，获取当前线程的Looper（对的，就是Framework层常用的Handler消息循环在native的对应），并告知HwBinder驱动由当前线程来处理HAL服务上下文相关的指令，
+设置Looper消息回调。接着，就是注册HAL服务的管家<code>ServiceManager</code>了。</p>
 <p><code>ServiceManager</code>继承了<code>IServiceManager</code>接口，负责管理系统中所有的HAL服务，为其他进程提供服务注册、查找等功能：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Manages all the hidl hals on a device.</span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * Terminology:</span></span><br><span class="line"><span class="comment"> *   Package: &quot;android.hidl.manager&quot;</span></span><br><span class="line"><span class="comment"> *   Major version: &quot;1&quot;</span></span><br><span class="line"><span class="comment"> *   Minor version: &quot;0&quot;</span></span><br><span class="line"><span class="comment"> *   Version: &quot;1.0&quot;</span></span><br><span class="line"><span class="comment"> *   Interface name: &quot;IServiceManager&quot;</span></span><br><span class="line"><span class="comment"> *   Fully-qualified interface name: &quot;android.hidl.manager@1.0::IServiceManager&quot;</span></span><br><span class="line"><span class="comment"> *   Instance name: &quot;manager&quot;</span></span><br><span class="line"><span class="comment"> *   Fully-qualified instance name: &quot;android.hidl.manager@1.0::IServiceManager/manager&quot;</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">interface IServiceManager &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Retrieve an existing service that supports the requested version.</span></span><br><span class="line">    <span class="built_in">get</span>(string fqName, string name) <span class="built_in">generates</span> (interface service);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Register a service. The service manager must retrieve the (inherited)</span></span><br><span class="line"><span class="comment">     * interfaces that this service implements, and register them along with</span></span><br><span class="line"><span class="comment">     * the service.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">add</span>(string name, interface service) <span class="built_in">generates</span> (<span class="type">bool</span> success);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">enum</span> <span class="title class_">Transport</span> : <span class="type">uint8_t</span> &#123;</span><br><span class="line">        EMPTY,</span><br><span class="line">        HWBINDER,</span><br><span class="line">        PASSTHROUGH,</span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Get the transport of a service.</span></span><br><span class="line">    <span class="built_in">getTransport</span>(string fqName, string name) <span class="built_in">generates</span> (Transport transport);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// List all registered services. Must be sorted.</span></span><br><span class="line">    <span class="built_in">list</span>() <span class="built_in">generates</span> (vec&lt;string&gt; fqInstanceNames);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// List all instances of a particular service. Must be sorted.</span></span><br><span class="line">    <span class="built_in">listByInterface</span>(string fqName) <span class="built_in">generates</span> (vec&lt;string&gt; instanceNames);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Register for service notifications for a particular service. Must support</span></span><br><span class="line"><span class="comment">     * multiple registrations.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">registerForNotifications</span>(string fqName,</span><br><span class="line">                             string name,</span><br><span class="line">                             IServiceNotification callback)</span><br><span class="line">        <span class="built_in">generates</span> (<span class="type">bool</span> success);</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * When the passthrough service manager returns a service via</span></span><br><span class="line"><span class="comment">     * get(string, string), it must dispatch a registerPassthroughClient call</span></span><br><span class="line"><span class="comment">     * to the binderized service manager to indicate the current process has</span></span><br><span class="line"><span class="comment">     * called get(). Binderized service manager must record this PID, which can</span></span><br><span class="line"><span class="comment">     * be retrieved via debugDump.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="comment">// 注册直通式客户端</span></span><br><span class="line">    <span class="built_in">registerPassthroughClient</span>(string fqName, string name);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>接着， 让<code>BnHwServiceManager</code>成为HAL服务的上下文管家，需要做两件事：一是告知<code>IPCThreadState</code>负责上下文管理的对象，用于接收来自其他进程的IPC请求；一是告知kernel上下文管理者的是一个handle为0的<code>IBinder</code>对象，kernel会为其保存一个节点，以便IPC时使用。</p>
+<p>接着，
+让<code>BnHwServiceManager</code>成为HAL服务的上下文管家，需要做两件事：一是告知<code>IPCThreadState</code>负责上下文管理的对象，用于接收来自其他进程的IPC请求；一是告知kernel上下文管理者的是一个handle为0的<code>IBinder</code>对象，kernel会为其保存一个节点，以便IPC时使用。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// Tell IPCThreadState we&#x27;re the service manager</span></span><br><span class="line">sp&lt;BnHwServiceManager&gt; service = <span class="keyword">new</span> <span class="built_in">BnHwServiceManager</span>(manager);</span><br><span class="line">IPCThreadState::<span class="built_in">self</span>()-&gt;<span class="built_in">setTheContextObject</span>(service);</span><br><span class="line"><span class="comment">// Then tell binder kernel</span></span><br><span class="line"><span class="built_in">ioctl</span>(binder_fd, BINDER_SET_CONTEXT_MGR, <span class="number">0</span>);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <blockquote>
-<p> <code>BnHwServiceManager</code>是<code>ServiceManager</code>服务端的stub对象，与客户端代理Proxy<code>BpHwServiceManager</code>相对应，具体怎么来的，在下一篇文章中再详细讲述</p>
+<p><code>BnHwServiceManager</code>是<code>ServiceManager</code>服务端的stub对象，与客户端代理Proxy<code>BpHwServiceManager</code>相对应，具体怎么来的，在下一篇文章中再详细讲述</p>
 </blockquote>
 <p>最后，设置<code>hwservicemanager.ready</code>，表面当前<code>hwservicemanager</code>已经处于可用状态；<code>pollAll</code>则表示<code>hwservicemanager</code>进入消息循环等待的过程，一旦<code>/dev/hwbinder</code>有数据可读，就会调用之前注册的<code>BinderCallback</code>进行处理。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">rc = <span class="built_in">property_set</span>(<span class="string">&quot;hwservicemanager.ready&quot;</span>, <span class="string">&quot;true&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">    looper-&gt;<span class="built_in">pollAll</span>(<span class="number">-1</span> <span class="comment">/* timeoutMillis */</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>在接下来的一篇文章，基于<code>Telephony</code>与<code>RILD</code>的通信来讲述HAL服务的具体工作流程。</p>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
-<li><a target="_blank" rel="noopener" href="https://source.android.com/devices/architecture/hal">https://source.android.com/devices/architecture/hal</a></li>
+<h2 id="参考文献">参考文献</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://source.android.com/devices/architecture/hal">https://source.android.com/devices/architecture/hal</a></li>
 </ul>
 
     </article>
@@ -623,7 +641,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">https://sniffer.site/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">June 6th 2018, 10:09:47 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">2021-08-11, 14:58:07</a>
+            <p>更新日期：<a href="https://sniffer.site/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">2026-09-03, 14:08:31</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -789,7 +807,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%B8%E5%85%B3%E4%BB%A3%E7%A0%81"><span class="toc-number">1.</span> <span class="toc-text">相关代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#HwServiceMananger%E7%9A%84%E5%90%AF%E5%8A%A8"><span class="toc-number">2.</span> <span class="toc-text">HwServiceMananger的启动</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#hwbinder%E9%A9%B1%E5%8A%A8%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">3.</span> <span class="toc-text">hwbinder驱动初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E5%86%8CHAL%E6%9C%8D%E5%8A%A1%E7%AE%A1%E5%AE%B6"><span class="toc-number">4.</span> <span class="toc-text">注册HAL服务管家</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">5.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%B8%E5%85%B3%E4%BB%A3%E7%A0%81"><span class="toc-number">1.</span> <span class="toc-text">相关代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#hwservicemananger%E7%9A%84%E5%90%AF%E5%8A%A8"><span class="toc-number">2.</span> <span class="toc-text">HwServiceMananger的启动</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#hwbinder%E9%A9%B1%E5%8A%A8%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">3.</span> <span class="toc-text">hwbinder驱动初始化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E5%86%8Chal%E6%9C%8D%E5%8A%A1%E7%AE%A1%E5%AE%B6"><span class="toc-number">4.</span> <span class="toc-text">注册HAL服务管家</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">5.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1438,7 +1456,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2889,7 +2918,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2907,6 +2936,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3765,44 +3800,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3820,14 +3830,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3840,14 +3855,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3858,11 +3873,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3880,14 +3890,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3903,6 +3908,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3935,31 +3950,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3968,6 +3958,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3990,19 +3985,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4018,6 +4003,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4045,14 +4065,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4065,39 +4085,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4108,16 +4118,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4145,6 +4145,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4160,9 +4185,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4180,41 +4215,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4225,14 +4225,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4260,16 +4265,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4290,9 +4285,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4310,24 +4315,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4335,24 +4340,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4365,9 +4380,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4390,9 +4410,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4415,6 +4435,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4430,14 +4460,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4448,6 +4478,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4465,41 +4515,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4513,6 +4528,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4535,11 +4565,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4555,16 +4580,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4578,6 +4593,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4600,16 +4630,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4625,24 +4645,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4653,6 +4658,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4695,6 +4715,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4710,14 +4750,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4738,21 +4773,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4820,19 +4840,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4850,6 +4860,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4865,16 +4900,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4883,6 +4908,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4905,21 +4945,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4938,16 +4963,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4975,11 +4990,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5000,14 +5010,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5035,19 +5060,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5060,6 +5080,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5068,6 +5093,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5080,6 +5115,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5101,6 +5141,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5111,19 +5156,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5131,14 +5166,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5156,14 +5191,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5179,11 +5214,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

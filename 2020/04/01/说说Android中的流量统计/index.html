@@ -19,22 +19,19 @@
         <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
     
     <meta name="description" content="关于编程,生活,工作">
-    <meta name="description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计:  统计每个网口当前发送&#x2F;">
+    <meta name="description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计: - 统计每个网口当前发送&#x2F;接收的流">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Android是如何实现流量统计的?">
 <meta property="og:url" content="https://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计:  统计每个网口当前发送&#x2F;">
+<meta property="og:description" content="使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理. 大致说来, Android从如何几个方面进行流量统计: - 统计每个网口当前发送&#x2F;接收的流">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%8E%9F%E7%90%86%E5%9B%BE.png">
-<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/%E6%B5%81%E9%87%8F%E6%95%B0%E6%8D%AE%E7%9A%84%E8%AF%BB%E5%86%99.png">
 <meta property="article:published_time" content="2020-04-01T07:56:35.000Z">
-<meta property="article:modified_time" content="2022-03-16T04:33:48.046Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.688Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="网络管理">
 <meta property="article:tag" content="流量统计">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%8E%9F%E7%90%86%E5%9B%BE.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -525,56 +522,104 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>使用Android手机时, 我们不仅可以看到当前系统的流量使用情况, 还可以查看每个应用消耗了多少流量, 借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么, Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控? 这篇文章我们就来看看Android流量统计的具体实现原理.</p>
-<p>大致说来, Android从如何几个方面进行流量统计:</p>
-<ul>
-<li>统计每个网口当前发送&#x2F;接收的流量数据</li>
-<li>监控每个应用(对应唯一的UID)所消耗的流量</li>
-<li>支持对总的流量配额进行限制, 如达到一定的流量阈值后, 会对网络进行限制</li>
-</ul>
-<p>而具体到每个应用(比如system应用, UID&#x3D;1000), Android还支持对应用内的每个socket进行标记(tag), 用于区分每个应用(UID)内部具体使用了那些流量.后面, 我们会讲到如何通过标签来区分UID内部的流量.</p>
+        <p>使用Android手机时, 我们不仅可以看到当前系统的流量使用情况,
+还可以查看每个应用消耗了多少流量,
+借此我们可以发现有那些流氓APP在偷偷在背后消耗流量.那么,
+Android是具体如何实现流量统计的? 又是如何对每个应用的流量使用进行监控?
+这篇文章我们就来看看Android流量统计的具体实现原理.</p>
+<p>大致说来, Android从如何几个方面进行流量统计: -
+统计每个网口当前发送/接收的流量数据 -
+监控每个应用(对应唯一的UID)所消耗的流量 - 支持对总的流量配额进行限制,
+如达到一定的流量阈值后, 会对网络进行限制</p>
+<p>而具体到每个应用(比如system应用, UID=1000),
+Android还支持对应用内的每个socket进行标记(tag),
+用于区分每个应用(UID)内部具体使用了那些流量.后面,
+我们会讲到如何通过标签来区分UID内部的流量.</p>
 <span id="more"></span>
-
-<p>下图是Android流量统计的原理框图: 为了实现流量统计, Android在Linux内核增加了一个netfilter模块: <code>xt_qtaguid</code>(源码可以在<code>kernel/net/netfilter</code>中找到), 用于统计当前系统所有流量, 该模块初始化时, 会初始化一个<code>/proc/net/xt_qtaguid</code>目录供用户空间的进程使用;<code>NetworkStatsService</code>系统服务就是周期性的读取该目录的数据来获取当前系统消耗的实时流量的;而如果要对某个特定的<code>socket</code>打上标签, 则需要通过JNI接口调用,然后发请求给<code>netd</code>将该<code>socket</code>标签信息通过接口<code>/proc/net/xt_qtaguid/ctrl</code>写入内核.</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%8E%9F%E7%90%86%E5%9B%BE.png" alt="Android流量统计原理图"></p>
+<p>下图是Android流量统计的原理框图: 为了实现流量统计,
+Android在Linux内核增加了一个netfilter模块:
+<code>xt_qtaguid</code>(源码可以在<code>kernel/net/netfilter</code>中找到),
+用于统计当前系统所有流量, 该模块初始化时,
+会初始化一个<code>/proc/net/xt_qtaguid</code>目录供用户空间的进程使用;<code>NetworkStatsService</code>系统服务就是周期性的读取该目录的数据来获取当前系统消耗的实时流量的;而如果要对某个特定的<code>socket</code>打上标签,
+则需要通过JNI接口调用,然后发请求给<code>netd</code>将该<code>socket</code>标签信息通过接口<code>/proc/net/xt_qtaguid/ctrl</code>写入内核.</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%8E%9F%E7%90%86%E5%9B%BE.png"
+alt="Android流量统计原理图" /></p>
 <p>接下来就一起看下Android具体是如何进行流量统计的.</p>
-<h2 id="Android流量统计实现"><a href="#Android流量统计实现" class="headerlink" title="Android流量统计实现"></a><strong>Android流量统计实现</strong></h2><p>Android有一个系统服务<code>NetworkStatsService</code>来负责流量统计管理. 在系统启动的时候会创建该服务, 对其进行初始化: 创建一个<code>NetworkStatsService</code>, 并返回给<code>SystemServer</code>, 服务内有一个线程用于数据统计业务的处理.</p>
+<h2 id="android流量统计实现"><strong>Android流量统计实现</strong></h2>
+<p>Android有一个系统服务<code>NetworkStatsService</code>来负责流量统计管理.
+在系统启动的时候会创建该服务, 对其进行初始化:
+创建一个<code>NetworkStatsService</code>,
+并返回给<code>SystemServer</code>,
+服务内有一个线程用于数据统计业务的处理.</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> NetworkStatsService <span class="title function_">create</span><span class="params">(Context context,</span></span><br><span class="line"><span class="params">            INetworkManagementService networkManager)</span> &#123;</span><br><span class="line">    <span class="type">AlarmManager</span> <span class="variable">alarmManager</span> <span class="operator">=</span> (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);</span><br><span class="line">    <span class="type">PowerManager</span> <span class="variable">powerManager</span> <span class="operator">=</span> (PowerManager) context.getSystemService(Context.POWER_SERVICE);</span><br><span class="line">    PowerManager.<span class="type">WakeLock</span> <span class="variable">wakeLock</span> <span class="operator">=</span></span><br><span class="line">            powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);</span><br><span class="line"></span><br><span class="line">    <span class="type">NetworkStatsService</span> <span class="variable">service</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">NetworkStatsService</span>(context, networkManager, alarmManager,</span><br><span class="line">            wakeLock, getDefaultClock(), TelephonyManager.getDefault(),</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">DefaultNetworkStatsSettings</span>(context), <span class="keyword">new</span> <span class="title class_">NetworkStatsObservers</span>(),</span><br><span class="line">            getDefaultSystemDir(), getDefaultBaseDir());</span><br><span class="line"></span><br><span class="line">    <span class="type">HandlerThread</span> <span class="variable">handlerThread</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HandlerThread</span>(TAG);</span><br><span class="line">    Handler.<span class="type">Callback</span> <span class="variable">callback</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HandlerCallback</span>(service);</span><br><span class="line">    handlerThread.start();</span><br><span class="line">    <span class="type">Handler</span> <span class="variable">handler</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Handler</span>(handlerThread.getLooper(), callback);</span><br><span class="line">    service.setHandler(handler, callback);</span><br><span class="line">    <span class="keyword">return</span> service;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>等到<code>SystemServer</code>完成对系统服务的初始化后, 会调用<code>NetworkStatsService.systemReady()</code>, 告诉服务可以正常启动了, 启动时<code>NetworkStatsService</code>需要做如下几件事情:</p>
+<p>等到<code>SystemServer</code>完成对系统服务的初始化后,
+会调用<code>NetworkStatsService.systemReady()</code>,
+告诉服务可以正常启动了,
+启动时<code>NetworkStatsService</code>需要做如下几件事情:</p>
 <ul>
-<li>创建四个流量统计的类型, 实际对应放在<code>/data/system/netstats</code>目录的四个类型的文件而已, 分别用于统计每个网口的消耗的流量(<code>PREFIX_DEV</code>), 视频通话以及热点分享所消耗的流量(<code>PREFIX_XT</code>), 每个用户所消耗的流量(<code>PREFXI_UID</code>)以及每个用户对应的每个标签所消耗的流量(<code>PREFIX_UID_TAG</code>)</li>
-<li>更新每个流量统计数据写入的阈值: 即流量消耗达到某个阈值后, 需要将当前统计数据写入磁盘, 目前默认统一使用的是<code>2MB</code>；接着还要看下是否需要从早前版本中把老的流量统计数据迁移过来</li>
-<li>注册并监听系统广播, 比如定时从系统拉取流量统计数据(<code>ACTION_NETWORK_STATS_POLL</code>), Android默认30分钟拉取一次; 系统用户增加与删除的广播;关机的广播等</li>
+<li>创建四个流量统计的类型,
+实际对应放在<code>/data/system/netstats</code>目录的四个类型的文件而已,
+分别用于统计每个网口的消耗的流量(<code>PREFIX_DEV</code>),
+视频通话以及热点分享所消耗的流量(<code>PREFIX_XT</code>),
+每个用户所消耗的流量(<code>PREFXI_UID</code>)以及每个用户对应的每个标签所消耗的流量(<code>PREFIX_UID_TAG</code>)</li>
+<li>更新每个流量统计数据写入的阈值: 即流量消耗达到某个阈值后,
+需要将当前统计数据写入磁盘,
+目前默认统一使用的是<code>2MB</code>；接着还要看下是否需要从早前版本中把老的流量统计数据迁移过来</li>
+<li>注册并监听系统广播,
+比如定时从系统拉取流量统计数据(<code>ACTION_NETWORK_STATS_POLL</code>),
+Android默认30分钟拉取一次; 系统用户增加与删除的广播;关机的广播等</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">systemReady</span><span class="params">()</span> &#123;</span><br><span class="line">    mSystemReady = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">synchronized</span> (mStatsLock) &#123;</span><br><span class="line">        <span class="comment">// create data recorders along with historical rotators</span></span><br><span class="line">        mDevRecorder = buildRecorder(PREFIX_DEV, mSettings.getDevConfig(), <span class="literal">false</span>);</span><br><span class="line">        mXtRecorder = buildRecorder(PREFIX_XT, mSettings.getXtConfig(), <span class="literal">false</span>);</span><br><span class="line">        mUidRecorder = buildRecorder(PREFIX_UID, mSettings.getUidConfig(), <span class="literal">false</span>);</span><br><span class="line">        mUidTagRecorder = buildRecorder(PREFIX_UID_TAG, mSettings.getUidTagConfig(), <span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">        updatePersistThresholdsLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// upgrade any legacy stats, migrating them to rotated files</span></span><br><span class="line">        maybeUpgradeLegacyStatsLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// read historical network stats from disk, since policy service</span></span><br><span class="line">        <span class="comment">// might need them right away.</span></span><br><span class="line">        mXtStatsCached = mXtRecorder.getOrLoadCompleteLocked();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// bootstrap initial stats to prevent double-counting later</span></span><br><span class="line">        bootstrapStatsLocked();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// watch for tethering changes</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">IntentFilter</span> <span class="variable">tetherFilter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IntentFilter</span>(ACTION_TETHER_STATE_CHANGED);</span><br><span class="line">    mContext.registerReceiver(mTetherReceiver, tetherFilter, <span class="literal">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for periodic polling events</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">IntentFilter</span> <span class="variable">pollFilter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IntentFilter</span>(ACTION_NETWORK_STATS_POLL);</span><br><span class="line">    mContext.registerReceiver(mPollReceiver, pollFilter, READ_NETWORK_USAGE_HISTORY, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for uid removal to clean stats</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">IntentFilter</span> <span class="variable">removedFilter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IntentFilter</span>(ACTION_UID_REMOVED);</span><br><span class="line">    mContext.registerReceiver(mRemovedReceiver, removedFilter, <span class="literal">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// listen for user changes to clean stats</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">IntentFilter</span> <span class="variable">userFilter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IntentFilter</span>(ACTION_USER_REMOVED);</span><br><span class="line">    mContext.registerReceiver(mUserReceiver, userFilter, <span class="literal">null</span>, mHandler);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// persist stats during clean shutdown</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">IntentFilter</span> <span class="variable">shutdownFilter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IntentFilter</span>(ACTION_SHUTDOWN);</span><br><span class="line">    mContext.registerReceiver(mShutdownReceiver, shutdownFilter);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        mNetworkManager.registerObserver(mAlertObserver);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">        <span class="comment">// ignored; service lives in system_server</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    registerPollAlarmLocked();</span><br><span class="line">    registerGlobalAlert();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p><code>NetworkStatsService</code>启动后, 注册了一个定时广播<code>com.android.server.action.NETWORK_STATS_POLL</code>, 每隔一段时间就会定时拉取当前系统消耗的流量统计数据, 收到该广播后, 系统会尝试将统计数据写入到磁盘永久保存下来:</p>
+<p><code>NetworkStatsService</code>启动后,
+注册了一个定时广播<code>com.android.server.action.NETWORK_STATS_POLL</code>,
+每隔一段时间就会定时拉取当前系统消耗的流量统计数据, 收到该广播后,
+系统会尝试将统计数据写入到磁盘永久保存下来:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="type">BroadcastReceiver</span> <span class="variable">mPollReceiver</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">BroadcastReceiver</span>() &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onReceive</span><span class="params">(Context context, Intent intent)</span> &#123;</span><br><span class="line">        <span class="comment">// on background handler thread, and verified UPDATE_DEVICE_STATS</span></span><br><span class="line">        <span class="comment">// permission above.</span></span><br><span class="line">        performPoll(FLAG_PERSIST_ALL);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// verify that we&#x27;re watching global alert</span></span><br><span class="line">        registerGlobalAlert();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 拉取当前流量数据</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">performPoll</span><span class="params">(<span class="type">int</span> flags)</span> &#123;</span><br><span class="line">    <span class="keyword">synchronized</span> (mStatsLock) &#123;</span><br><span class="line">        mWakeLock.acquire();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            performPollLocked(flags);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            mWakeLock.release();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>方法<code>performPollLocked</code>首先会获取当前的统计数据快照, 然后将其自动写入到磁盘<code>/data/system/netstats</code>目录:</p>
+<p>方法<code>performPollLocked</code>首先会获取当前的统计数据快照,
+然后将其自动写入到磁盘<code>/data/system/netstats</code>目录:</p>
 <ul>
-<li><code>recordSnapShotLocked()</code>实际通过<code>NetworkManagementService</code>提供的接口从<code>/proc/net/xt_qtaguid</code>这个目录读取当前的历史统计数据并将其保存到<code>mDevRecorder</code>&#x2F;<code>mXtRecorder</code>&#x2F;<code>mUidRecorder</code>中</li>
-<li>根据传入的标志位, 来确定各个<code>NetworkStatsRecorder</code>是否将数据写入磁盘: 可以强制写入(<code>forcePersistLocked</code>), 也可以等到消耗流量达到阈值(就是之前说的<code>2MB</code>)之后再写入(<code>maybePersistLocked</code>)</li>
+<li><code>recordSnapShotLocked()</code>实际通过<code>NetworkManagementService</code>提供的接口从<code>/proc/net/xt_qtaguid</code>这个目录读取当前的历史统计数据并将其保存到<code>mDevRecorder</code>/<code>mXtRecorder</code>/<code>mUidRecorder</code>中</li>
+<li>根据传入的标志位,
+来确定各个<code>NetworkStatsRecorder</code>是否将数据写入磁盘:
+可以强制写入(<code>forcePersistLocked</code>),
+也可以等到消耗流量达到阈值(就是之前说的<code>2MB</code>)之后再写入(<code>maybePersistLocked</code>)</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">performPollLocked</span><span class="params">(<span class="type">int</span> flags)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (!mSystemReady) <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">final</span> <span class="type">boolean</span> <span class="variable">persistNetwork</span> <span class="operator">=</span> (flags &amp; FLAG_PERSIST_NETWORK) != <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="type">boolean</span> <span class="variable">persistUid</span> <span class="operator">=</span> (flags &amp; FLAG_PERSIST_UID) != <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">final</span> <span class="type">boolean</span> <span class="variable">persistForce</span> <span class="operator">=</span> (flags &amp; FLAG_PERSIST_FORCE) != <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// <span class="doctag">TODO:</span> consider marking &quot;untrusted&quot; times in historical stats</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">long</span> <span class="variable">currentTime</span> <span class="operator">=</span> mClock.millis();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        recordSnapshotLocked(currentTime);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IllegalStateException e) &#123;</span><br><span class="line">        Log.wtf(TAG, <span class="string">&quot;problem reading network stats&quot;</span>, e);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">        <span class="comment">// ignored; service lives in system_server</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// persist any pending data depending on requested flags</span></span><br><span class="line">    <span class="keyword">if</span> (persistForce) &#123;</span><br><span class="line">        mDevRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mXtRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mUidRecorder.forcePersistLocked(currentTime);</span><br><span class="line">        mUidTagRecorder.forcePersistLocked(currentTime);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (persistNetwork) &#123;</span><br><span class="line">            mDevRecorder.maybePersistLocked(currentTime);</span><br><span class="line">            mXtRecorder.maybePersistLocked(currentTime);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (persistUid) &#123;</span><br><span class="line">            mUidRecorder.maybePersistLocked(currentTime);</span><br><span class="line">            mUidTagRecorder.maybePersistLocked(currentTime);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>最后, 我们来看看流量统计的数据是如何写入磁盘, 又如何从磁盘读取的. Android将系统消耗的流量按照时间切割成一段段固定时间长度的统计值(<code>NetworkStatsHistory</code>), 并将其与<code>NetworkIdentitySet</code>(表示一个网口集合)组成一个统计的哈希列表(<code>NetworkStatsCollection</code>), 然后每次更新当前消耗的流量时, <code>NetworkStatsRecorder</code>都会不断的将数据写入到磁盘:</p>
+<p>最后, 我们来看看流量统计的数据是如何写入磁盘, 又如何从磁盘读取的.
+Android将系统消耗的流量按照时间切割成一段段固定时间长度的统计值(<code>NetworkStatsHistory</code>),
+并将其与<code>NetworkIdentitySet</code>(表示一个网口集合)组成一个统计的哈希列表(<code>NetworkStatsCollection</code>),
+然后每次更新当前消耗的流量时,
+<code>NetworkStatsRecorder</code>都会不断的将数据写入到磁盘:</p>
 <ul>
-<li><code>NetworkStatsRecorder</code>中包含了两个流量统计数据: 当前未写入磁盘的数据(<code>pending</code>)以及开机以来的统计数据(<code>mSinceBoot</code>)</li>
-<li><code>FileRotator</code>负责将<code>NetworkStatsRecorder</code>中的数据定时写入到磁盘, 并按照一定的老化时间来创建新的统计文件, 而且每个统计文件在达到一定的生命周期后, 会自动被删除</li>
+<li><code>NetworkStatsRecorder</code>中包含了两个流量统计数据:
+当前未写入磁盘的数据(<code>pending</code>)以及开机以来的统计数据(<code>mSinceBoot</code>)</li>
+<li><code>FileRotator</code>负责将<code>NetworkStatsRecorder</code>中的数据定时写入到磁盘,
+并按照一定的老化时间来创建新的统计文件,
+而且每个统计文件在达到一定的生命周期后, 会自动被删除</li>
 </ul>
-<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/%E6%B5%81%E9%87%8F%E6%95%B0%E6%8D%AE%E7%9A%84%E8%AF%BB%E5%86%99.png" alt="流量统计数据的读写"></p>
-<h2 id="利用标签来统计特定Socket流量"><a href="#利用标签来统计特定Socket流量" class="headerlink" title="利用标签来统计特定Socket流量"></a><strong>利用标签来统计特定Socket流量</strong></h2><p><code>TrafficStats</code>中提供了接口, 可以在特定的socket(也可以使用socket对应的文件描述符)上打上标签,从而实现对每个应用你内部的流量消耗进行细分.Android系统已经定义了部分的TAG值, 比如用户DHCP协议的数据(<code>TAG_SYSTEM_DHCP</code>), 用于获取NTP网络时间的流量(<code>TAG_SYSTEM_NTP</code>), 用于探测网络的流量(<code>TAG_SYSTEM_PROBE</code>).</p>
+<p><img
+src="https://md-files.oss-cn-shenzhen.aliyuncs.com/%E6%B5%81%E9%87%8F%E6%95%B0%E6%8D%AE%E7%9A%84%E8%AF%BB%E5%86%99.png"
+alt="流量统计数据的读写" /></p>
+<h2
+id="利用标签来统计特定socket流量"><strong>利用标签来统计特定Socket流量</strong></h2>
+<p><code>TrafficStats</code>中提供了接口,
+可以在特定的socket(也可以使用socket对应的文件描述符)上打上标签,从而实现对每个应用你内部的流量消耗进行细分.Android系统已经定义了部分的TAG值,
+比如用户DHCP协议的数据(<code>TAG_SYSTEM_DHCP</code>),
+用于获取NTP网络时间的流量(<code>TAG_SYSTEM_NTP</code>),
+用于探测网络的流量(<code>TAG_SYSTEM_PROBE</code>).</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TrafficStats</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> DownloadManager&#125; traffic.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_DOWNLOAD</span> <span class="operator">=</span> <span class="number">0xFFFFFF01</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> MediaPlayer&#125; traffic.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_MEDIA</span> <span class="operator">=</span> <span class="number">0xFFFFFF02</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> BackupManager&#125; backup traffic; that is,</span></span><br><span class="line"><span class="comment">    * traffic from the device to the storage backend.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_BACKUP</span> <span class="operator">=</span> <span class="number">0xFFFFFF03</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for &#123;<span class="doctag">@link</span> BackupManager&#125; restore traffic; that is,</span></span><br><span class="line"><span class="comment">    * app data retrieved from the storage backend at install time.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_RESTORE</span> <span class="operator">=</span> <span class="number">0xFFFFFF04</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Default tag value for code (typically APKs) downloaded by an app store on</span></span><br><span class="line"><span class="comment">    * behalf of the app, such as updates.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@hide</span></span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_APP</span> <span class="operator">=</span> <span class="number">0xFFFFFF05</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_DHCP</span> <span class="operator">=</span> <span class="number">0xFFFFFF40</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_NTP</span> <span class="operator">=</span> <span class="number">0xFFFFFF41</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_PROBE</span> <span class="operator">=</span> <span class="number">0xFFFFFF42</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_NEIGHBOR</span> <span class="operator">=</span> <span class="number">0xFFFFFF43</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_GPS</span> <span class="operator">=</span> <span class="number">0xFFFFFF44</span>;</span><br><span class="line">    <span class="comment">/** <span class="doctag">@hide</span> */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">TAG_SYSTEM_PAC</span> <span class="operator">=</span> <span class="number">0xFFFFFF45</span>;</span><br><span class="line"></span><br><span class="line">    ....</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Set active tag to use when accounting &#123;<span class="doctag">@link</span> Socket&#125; traffic originating</span></span><br><span class="line"><span class="comment">    * from the current thread. Only one active tag per thread is supported.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Changes only take effect during subsequent calls to</span></span><br><span class="line"><span class="comment">    * &#123;<span class="doctag">@link</span> #tagSocket(Socket)&#125;.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Tags between &#123;<span class="doctag">@code</span> 0xFFFFFF00&#125; and &#123;<span class="doctag">@code</span> 0xFFFFFFFF&#125; are reserved and</span></span><br><span class="line"><span class="comment">    * used internally by system services like &#123;<span class="doctag">@link</span> DownloadManager&#125; when</span></span><br><span class="line"><span class="comment">    * performing traffic on behalf of an application.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@see</span> #clearThreadStatsTag()</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">setThreadStatsTag</span><span class="params">(<span class="type">int</span> tag)</span> &#123;</span><br><span class="line">        NetworkManagementSocketTagger.setThreadSocketStatsTag(tag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">    * Set active tag to use when accounting &#123;<span class="doctag">@link</span> Socket&#125; traffic originating</span></span><br><span class="line"><span class="comment">    * from the current thread. Only one active tag per thread is supported.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Changes only take effect during subsequent calls to</span></span><br><span class="line"><span class="comment">    * &#123;<span class="doctag">@link</span> #tagSocket(Socket)&#125;.</span></span><br><span class="line"><span class="comment">    * &lt;p&gt;</span></span><br><span class="line"><span class="comment">    * Tags between &#123;<span class="doctag">@code</span> 0xFFFFFF00&#125; and &#123;<span class="doctag">@code</span> 0xFFFFFFFF&#125; are reserved and</span></span><br><span class="line"><span class="comment">    * used internally by system services like &#123;<span class="doctag">@link</span> DownloadManager&#125; when</span></span><br><span class="line"><span class="comment">    * performing traffic on behalf of an application.</span></span><br><span class="line"><span class="comment">    *</span></span><br><span class="line"><span class="comment">    * <span class="doctag">@return</span> the current tag for the calling thread, which can be used to</span></span><br><span class="line"><span class="comment">    *         restore any existing values after a nested operation is finished</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">int</span> <span class="title function_">getAndSetThreadStatsTag</span><span class="params">(<span class="type">int</span> tag)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> NetworkManagementSocketTagger.setThreadSocketStatsTag(tag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * Tag the given &#123;<span class="doctag">@link</span> Socket&#125; with any statistics parameters active for</span></span><br><span class="line"><span class="comment">   * the current thread. Subsequent calls always replace any existing</span></span><br><span class="line"><span class="comment">   * parameters. When finished, call &#123;<span class="doctag">@link</span> #untagSocket(Socket)&#125; to remove</span></span><br><span class="line"><span class="comment">   * statistics parameters.</span></span><br><span class="line"><span class="comment">   *</span></span><br><span class="line"><span class="comment">   * <span class="doctag">@see</span> #setThreadStatsTag(int)</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">tagSocket</span><span class="params">(Socket socket)</span> <span class="keyword">throws</span> SocketException &#123;</span><br><span class="line">      SocketTagger.get().tag(socket);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/**</span></span><br><span class="line"><span class="comment">   * Remove any statistics parameters from the given &#123;<span class="doctag">@link</span> Socket&#125;.</span></span><br><span class="line"><span class="comment">   * &lt;p&gt;</span></span><br><span class="line"><span class="comment">   * In Android 8.1 (API level 27) and lower, a socket is automatically</span></span><br><span class="line"><span class="comment">   * untagged when it&#x27;s sent to another process using binder IPC with a</span></span><br><span class="line"><span class="comment">   * &#123;<span class="doctag">@code</span> ParcelFileDescriptor&#125; container. In Android 9.0 (API level 28)</span></span><br><span class="line"><span class="comment">   * and higher, the socket tag is kept when the socket is sent to another</span></span><br><span class="line"><span class="comment">   * process using binder IPC. You can mimic the previous behavior by</span></span><br><span class="line"><span class="comment">   * calling &#123;<span class="doctag">@code</span> untagSocket()&#125; before sending the socket to another</span></span><br><span class="line"><span class="comment">   * process.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">untagSocket</span><span class="params">(Socket socket)</span> <span class="keyword">throws</span> SocketException &#123;</span><br><span class="line">      SocketTagger.get().untag(socket);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>要使用一个socket的标签其实很简单, 只要在创建通讯的socket的连接后, 主动调用<code>setThreadStatsTag</code>就可以了, 来看一个示例:</p>
+<p>要使用一个socket的标签其实很简单, 只要在创建通讯的socket的连接后,
+主动调用<code>setThreadStatsTag</code>就可以了, 来看一个示例:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">setupSocket</span><span class="params">(<span class="type">int</span> sockType, <span class="type">int</span> prot, </span></span><br><span class="line"><span class="params">        <span class="type">long</span> writeTimeout, <span class="type">long</span> readTimeout, <span class="type">int</span> destPort)</span> <span class="keyword">throws</span> ErrnoException, IOException &#123;</span><br><span class="line">    <span class="comment">// 将当前socket打上PROBE标签</span></span><br><span class="line">    <span class="type">int</span> <span class="variable">oldTag</span> <span class="operator">=</span> TrafficStats.getAndSetThreadStatsTag(TrafficStats.TAG_SYSTEM_PROBE);</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        mFd = Os.socket(mAddrFamily, sockType, prot);</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        TrafficStats.setThreadStatsTag(oldTag);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    Os.setsockoptTimeval(mFd, SOL_SOCKET, SO_SNDTIMEO, StructTimeval.fromMillis(writeTimeout));</span><br><span class="line">    Os.setsockoptTimeval(mFd, SOL_SOCKET, SO_RCVTIMEO, StructTimeval.fromMillis(readTimeout));</span><br><span class="line">    <span class="keyword">if</span> (!TextUtils.isEmpty(mIface)) &#123;</span><br><span class="line">        Os.setsockoptIfreq(mFd, SOL_SOCKET, SO_BINDTODEVICE, mIface);</span><br><span class="line">    &#125;</span><br><span class="line">    Os.connect(mFd, mTarget, destPort);</span><br><span class="line"></span><br><span class="line">    mSockAddr = Os.getsockname(mFd);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>如果要获取某个UID对应的标签数据, 只要调用<code>NetworkStatsManager.java</code>的<code>queryDetailsForUid</code>接口, 传入对应的开始&#x2F;结束时间就可以了:</p>
+<p>如果要获取某个UID对应的标签数据,
+只要调用<code>NetworkStatsManager.java</code>的<code>queryDetailsForUid</code>接口,
+传入对应的开始/结束时间就可以了:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Query network usage statistics details for a given uid.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * #see queryDetailsForUidTagState(int, String, long, long, int, int, int)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> NetworkStats <span class="title function_">queryDetailsForUid</span><span class="params">(<span class="type">int</span> networkType, String subscriberId,</span></span><br><span class="line"><span class="params">        <span class="type">long</span> startTime, <span class="type">long</span> endTime, <span class="type">int</span> uid)</span> <span class="keyword">throws</span> SecurityException &#123;</span><br><span class="line">    <span class="keyword">return</span> queryDetailsForUidTagState(networkType, subscriberId, startTime, endTime, uid,</span><br><span class="line">        NetworkStats.Bucket.TAG_NONE, NetworkStats.Bucket.STATE_ALL);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Query network usage statistics details for a given uid and tag.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * #see queryDetailsForUidTagState(int, String, long, long, int, int, int)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> NetworkStats <span class="title function_">queryDetailsForUidTag</span><span class="params">(<span class="type">int</span> networkType, String subscriberId,</span></span><br><span class="line"><span class="params">        <span class="type">long</span> startTime, <span class="type">long</span> endTime, <span class="type">int</span> uid, <span class="type">int</span> tag)</span> <span class="keyword">throws</span> SecurityException &#123;</span><br><span class="line">    <span class="keyword">return</span> queryDetailsForUidTagState(networkType, subscriberId, startTime, endTime, uid,</span><br><span class="line">        tag, NetworkStats.Bucket.STATE_ALL);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>Android流量统计在9.0还是基于<code>xt_qtaguid</code>来实现的, 后面的版本都会通过<code>BPF</code>来做(参考文章<a href="http://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/">BPF与eBPF</a>).</p>
+<h2 id="总结"><strong>总结</strong></h2>
+<p>Android流量统计在9.0还是基于<code>xt_qtaguid</code>来实现的,
+后面的版本都会通过<code>BPF</code>来做(参考文章<a
+href="http://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/">BPF与eBPF</a>).</p>
 
     </article>
     <!-- license -->
@@ -583,7 +628,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">https://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">April 1st 2020, 3:56:35 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">2022-03-16, 12:33:48</a>
+            <p>更新日期：<a href="https://sniffer.site/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -749,7 +794,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.</span> <span class="toc-text">Android流量统计实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%A0%87%E7%AD%BE%E6%9D%A5%E7%BB%9F%E8%AE%A1%E7%89%B9%E5%AE%9ASocket%E6%B5%81%E9%87%8F"><span class="toc-number">2.</span> <span class="toc-text">利用标签来统计特定Socket流量</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#android%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.</span> <span class="toc-text">Android流量统计实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A9%E7%94%A8%E6%A0%87%E7%AD%BE%E6%9D%A5%E7%BB%9F%E8%AE%A1%E7%89%B9%E5%AE%9Asocket%E6%B5%81%E9%87%8F"><span class="toc-number">2.</span> <span class="toc-text">利用标签来统计特定Socket流量</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1398,7 +1443,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2849,7 +2905,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2867,6 +2923,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3725,44 +3787,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3780,14 +3817,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3800,14 +3842,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3818,11 +3860,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3840,14 +3877,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3863,6 +3895,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3895,31 +3937,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3928,6 +3945,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3950,19 +3972,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3978,6 +3990,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4005,14 +4052,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4025,39 +4072,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4068,16 +4105,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4105,6 +4132,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4120,9 +4172,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4140,41 +4202,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4185,14 +4212,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4220,16 +4252,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4250,9 +4272,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4270,24 +4302,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4295,24 +4327,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4325,9 +4367,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4350,9 +4397,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4375,6 +4422,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4390,14 +4447,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4408,6 +4465,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4425,41 +4502,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4473,6 +4515,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4495,11 +4552,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4515,16 +4567,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4538,6 +4580,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4560,16 +4617,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4585,24 +4632,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4613,6 +4645,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4655,6 +4702,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4670,14 +4737,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4698,21 +4760,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4780,19 +4827,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4810,6 +4847,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4825,16 +4887,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4843,6 +4895,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4865,21 +4932,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4898,16 +4950,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4935,11 +4977,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4960,14 +4997,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -4995,19 +5047,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5020,6 +5067,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5028,6 +5080,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5040,6 +5102,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5061,6 +5128,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5071,19 +5143,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5091,14 +5153,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5116,14 +5178,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5139,11 +5201,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

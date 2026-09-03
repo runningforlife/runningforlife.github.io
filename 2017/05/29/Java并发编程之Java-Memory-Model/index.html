@@ -26,15 +26,15 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="在之前一篇文章里，讲到了利用synchronized关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png">
+<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png">
 <meta property="article:published_time" content="2017-05-29T03:16:00.000Z">
-<meta property="article:modified_time" content="2022-12-21T10:11:38.651Z">
+<meta property="article:modified_time" content="2026-09-03T06:08:31.172Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="Java Memory Model">
 <meta property="article:tag" content="并发编程">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png">
+<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -527,71 +527,115 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>在之前一篇文章里，讲到了利用<code>synchronized</code>关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory Model(Java Specification Request 133, JSR133)，在多线程情况下，为Java程序提供了一个最少程度的保证：正确同步的情况下，一个线程写共享变量对于其他线程是可见的。Java Memory Model(JMM)抽象了不同计算机平台底层内存读写细节（Register; Cache; Main Memory)，为程序员提供了一个访问内存的统一的模型与视角，从而确保在不同平台上程序能有同样的结果，实现Java“编写一次，可以在任何平台上执行”的目标。</p>
+        <p>在之前一篇文章里，讲到了利用<code>synchronized</code>关键字来进行同步，从而避免多线程并发执行时可能出现的竞争条件，那么JVM又是如何实现线程之间的通信的？换句话说，线程A写共享数据的结果怎么确保被其他线程可见，使得线程之间共享的数据对每个线程而言都是一致的？Java从5.0开始定义了一个新的Memory
+Model(Java Specification Request 133,
+JSR133)，在多线程情况下，为Java程序提供了一个最少程度的保证：正确同步的情况下，一个线程写共享变量对于其他线程是可见的。Java
+Memory Model(JMM)抽象了不同计算机平台底层内存读写细节（Register; Cache;
+Main
+Memory)，为程序员提供了一个访问内存的统一的模型与视角，从而确保在不同平台上程序能有同样的结果，实现Java“编写一次，可以在任何平台上执行”的目标。</p>
 <span id="more"></span>
-
-<h2 id="为什么需要JMM"><a href="#为什么需要JMM" class="headerlink" title="为什么需要JMM"></a><strong>为什么需要JMM</strong></h2><p>现代计算机的内存是一个层级的结构(memory hierarchy),最上层是寄存器(register),接下来是缓存(cache),最后才是主内存(main memory),因此一个变量的读总是需要经过cache，如果cache数据无效，才会从main meory中获取;写变量同样如此，先将数据写入对应cache,等到某个时间才将cache中的数据与main memory进行同步(见下图）。这样，在硬件层面就存在一个如何确保各个CPU之间数据可见性的问题。不同的硬件平台可能有不同的memory model来处理CPU之间的数据可见性。最简单的memory model就是一个CPU对内存中某个变量的写操作立即对其他CPU可见，这种强内存模型要求数据之间存在严格的顺序一致性,也被称为sequential consistency。虽然sequential consistency为线程之间的数据同步提供了强有力的保证，但是（1）顺序一致性要求所有的内存操作对所有线程可见；（2）禁止了编译器与CPU对于代码的优化，这无疑会降低系统运行的性能。因此，为在性能与数据可见性之间取得平衡，大部分平台都提供了一个更弱的meomory model,在需要进行数据同步时，通过一个内存屏障(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Memory_barrier">Memory  Barrier</a> )来同步CPU缓存与主内存之间的数据。</p>
-<img src="http://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png" class="[full-image]" title="Memory Hierarchy">
-
+<h2 id="为什么需要jmm"><strong>为什么需要JMM</strong></h2>
+<p>现代计算机的内存是一个层级的结构(memory
+hierarchy),最上层是寄存器(register),接下来是缓存(cache),最后才是主内存(main
+memory),因此一个变量的读总是需要经过cache，如果cache数据无效，才会从main
+meory中获取;写变量同样如此，先将数据写入对应cache,等到某个时间才将cache中的数据与main
+memory进行同步(见下图）。这样，在硬件层面就存在一个如何确保各个CPU之间数据可见性的问题。不同的硬件平台可能有不同的memory
+model来处理CPU之间的数据可见性。最简单的memory
+model就是一个CPU对内存中某个变量的写操作立即对其他CPU可见，这种强内存模型要求数据之间存在严格的顺序一致性,也被称为sequential
+consistency。虽然sequential
+consistency为线程之间的数据同步提供了强有力的保证，但是（1）顺序一致性要求所有的内存操作对所有线程可见；（2）禁止了编译器与CPU对于代码的优化，这无疑会降低系统运行的性能。因此，为在性能与数据可见性之间取得平衡，大部分平台都提供了一个更弱的meomory
+model,在需要进行数据同步时，通过一个内存屏障(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Memory_barrier">Memory Barrier</a>
+)来同步CPU缓存与主内存之间的数据。</p>
+<img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/MemoryHierarchy.png" class="[full-image]" title="Memory Hierarchy">
 <blockquote>
-<p>每个CPU有自己独立的Register,Cache,但是共享Main Memory,各个不同的CPU之间通过总线（bus)来访问内存</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://csapp.cs.cmu.edu/2e/ch6-preview.pdf">Memory Hierarchy</a> </li>
-<li><a target="_blank" rel="noopener" href="https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html">https://www.cs.auckland.ac.nz/~jmor159&#x2F;363&#x2F;html&#x2F;mem_hierarchy.html</a></li>
-</ul>
+<p>每个CPU有自己独立的Register,Cache,但是共享Main
+Memory,各个不同的CPU之间通过总线（bus)来访问内存 - <a
+target="_blank" rel="noopener" href="https://csapp.cs.cmu.edu/2e/ch6-preview.pdf">Memory Hierarchy</a>
+- <a
+target="_blank" rel="noopener" href="https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html">https://www.cs.auckland.ac.nz/~jmor159/363/html/mem_hierarchy.html</a></p>
 </blockquote>
-<p>除了上述硬件平台memory model之间的差异，JMM还需要考虑编译器以及CPU执行指令时对代码执行顺序进行重排(reordering)导致的共享数据不一致问题。</p>
-<h3 id="Reordering"><a href="#Reordering" class="headerlink" title="Reordering"></a><strong>Reordering</strong></h3><p>在单线程情况下，Java语言本身要求JVM满足<code>as-if-serial</code>语义（只要在单线程情况下程序的执行结果不被改变，任何其他的重排都是允许的)。但对于多线程问题就复杂起来了。考虑如下两个线程,两个线程共享变量<code>a，b</code>，各自有一个局部变量<code>r1</code>，<code>r2</code>,假定初始状态时<code>a = 0, b = 0</code>：</p>
+<p>除了上述硬件平台memory
+model之间的差异，JMM还需要考虑编译器以及CPU执行指令时对代码执行顺序进行重排(reordering)导致的共享数据不一致问题。</p>
+<h3 id="reordering"><strong>Reordering</strong></h3>
+<p>在单线程情况下，Java语言本身要求JVM满足<code>as-if-serial</code>语义（只要在单线程情况下程序的执行结果不被改变，任何其他的重排都是允许的)。但对于多线程问题就复杂起来了。考虑如下两个线程,两个线程共享变量<code>a，b</code>，各自有一个局部变量<code>r1</code>，<code>r2</code>,假定初始状态时<code>a = 0, b = 0</code>：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// Thread A</span></span><br><span class="line"><span class="number">1</span>: r2 = a;</span><br><span class="line"><span class="number">2</span>: b = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Thread B</span></span><br><span class="line"><span class="number">3</span>: r1 = b;</span><br><span class="line"><span class="number">4</span>: a = <span class="number">2</span>;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>直觉上来看，<code>r1 = 1</code>,<code>r2 = 2</code>似乎不可能。对线程A或者B来说，执行动作1与3都执行在前，如果1在前，则<code>r2 = a</code>不应该看到动作4执行的结果；如果3在前，同样<code>r1 = b</code>不应该看到2执行的结果。但是，分开来看，只要不影响当前线程的执行结果，编译器是可以对两个线程的指令进行重排的，因此，实际上代码可能按照如下顺序执行：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// Thread A</span></span><br><span class="line">b = <span class="number">1</span>;</span><br><span class="line">r2 = a;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Thread B</span></span><br><span class="line">r1 = b;</span><br><span class="line">a = <span class="number">2</span>;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>不难看出，这样就有可能出现<code>r1 = 1</code>,<code>r2 = 2</code>难以预料的结果了。为了解决上述问题（编译器或者CPU优化时导致的指令重排)，Java定义了自己的一个memory model，由JVM来负责处理数据同步的底层实现细节（通过在适当的位置插入内存屏障来实现共享内存的可见性；通过CAS操作来实现原子操作)，开发者只要通过正确的调用<code>synchronized</code>,<code>final</code>,<code>volatile</code>等语言本身提供的同步语义即可实现共享数据的一致性与可见性。</p>
-<h2 id="什么是JMM"><a href="#什么是JMM" class="headerlink" title="什么是JMM"></a><strong>什么是JMM</strong></h2><p>总的说来，JMM定义了线程与主内存之间的一种抽象关系，其定义的规则在于解决多线程情况下可能出现的三个问题：</p>
+<p>不难看出，这样就有可能出现<code>r1 = 1</code>,<code>r2 = 2</code>难以预料的结果了。为了解决上述问题（编译器或者CPU优化时导致的指令重排)，Java定义了自己的一个memory
+model，由JVM来负责处理数据同步的底层实现细节（通过在适当的位置插入内存屏障来实现共享内存的可见性；通过CAS操作来实现原子操作)，开发者只要通过正确的调用<code>synchronized</code>,<code>final</code>,<code>volatile</code>等语言本身提供的同步语义即可实现共享数据的一致性与可见性。</p>
+<h2 id="什么是jmm"><strong>什么是JMM</strong></h2>
+<p>总的说来，JMM定义了线程与主内存之间的一种抽象关系，其定义的规则在于解决多线程情况下可能出现的三个问题：</p>
 <ul>
 <li>Atomicity(原子性）: 那些指令必须是不可分割的(原子操作）；</li>
-<li>Visibility（可见性）： 在什么情况下，一个线程的写操作结果对另一个线程可见；</li>
-<li>Ordering（重排）: 在什么情况下，对任何线程而言，执行操作是可重排的</li>
+<li>Visibility（可见性）：
+在什么情况下，一个线程的写操作结果对另一个线程可见；</li>
+<li>Ordering（重排）:
+在什么情况下，对任何线程而言，执行操作是可重排的</li>
 </ul>
 <blockquote>
-<p>JMM确保读写内存区域（除了long&#x2F;double之外）是原子的；volatile long&#x2F;double读写是原子的;</p>
+<p>JMM确保读写内存区域（除了long/double之外）是原子的；volatile
+long/double读写是原子的;</p>
 </blockquote>
-<p>一个线程执行的动作可被另一个线程检测到或者被直接影响到，则将该动作称为线程之间的动作(inter-thread action)，主要有以下几种：</p>
+<p>一个线程执行的动作可被另一个线程检测到或者被直接影响到，则将该动作称为线程之间的动作(inter-thread
+action)，主要有以下几种：</p>
 <ul>
 <li>Read(non-volatile): 读一个变量；</li>
 <li>Write(non-volatile): 写一个变量；</li>
-<li>同步动作：<ul>
+<li>同步动作：
+<ul>
 <li>读取一个volatile变量；</li>
 <li>写一个volatile变量；</li>
-<li>Lock&#x2F;unlock</li>
+<li>Lock/unlock</li>
 <li>线程的启动与终止</li>
+</ul></li>
 </ul>
-</li>
-</ul>
-<p>这样，一个线程间的执行动作可由一个由线程(t),执行的动作(k),变量或者monitor(v)以及任意的动作标识符（u）这样一个<code>&lt;t,k,v,u&gt;</code>四元组来确定了。在多线程情况下，最简单的内存模型就是所有动作总的顺序（由单个执行动作组成）跟程序的执行顺序（Program Order)保持一致，且所有的单个动作都具有原子性，操作的结果能够立刻对所有其他线程可见(Sequential Consistency)。这种强一致性虽然能够保证动作的可见性与执行顺序的可预测性，但是由于其禁止了编译器以及CPU指令优化，因此会降低系统的性能。</p>
+<p>这样，一个线程间的执行动作可由一个由线程(t),执行的动作(k),变量或者monitor(v)以及任意的动作标识符（u）这样一个<code>&lt;t,k,v,u&gt;</code>四元组来确定了。在多线程情况下，最简单的内存模型就是所有动作总的顺序（由单个执行动作组成）跟程序的执行顺序（Program
+Order)保持一致，且所有的单个动作都具有原子性，操作的结果能够立刻对所有其他线程可见(Sequential
+Consistency)。这种强一致性虽然能够保证动作的可见性与执行顺序的可预测性，但是由于其禁止了编译器以及CPU指令优化，因此会降低系统的性能。</p>
 <blockquote>
-<p>Sequential Consistency: </p>
+<p>Sequential Consistency:</p>
 <ul>
-<li><a target="_blank" rel="noopener" href="http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf">http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf</a></li>
-<li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Sequential_consistency">https://en.wikipedia.org/wiki/Sequential_consistency</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf">http://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Sequential_consistency">https://en.wikipedia.org/wiki/Sequential_consistency</a></li>
 </ul>
 </blockquote>
-<p>JMM提供了另一种选择，在不同平台上的执行性能与程序可预测性之间取得了平衡：JMM保证，在正确同步的情况下，JVM必须确保写变量对其他各个线程是可见的。通过对Java中的各种执行动作定义一种偏序关系(partial ordering),JMM确保程序执行结果的一致性。这种偏序关系通常被称为<strong>happens-before</strong>。JMM中主要有如下<strong>happens-before</strong>规则：</p>
+<p>JMM提供了另一种选择，在不同平台上的执行性能与程序可预测性之间取得了平衡：JMM保证，在正确同步的情况下，JVM必须确保写变量对其他各个线程是可见的。通过对Java中的各种执行动作定义一种偏序关系(partial
+ordering),JMM确保程序执行结果的一致性。这种偏序关系通常被称为<strong>happens-before</strong>。JMM中主要有如下<strong>happens-before</strong>规则：</p>
 <ul>
-<li>Lock Rule: 在一个monitor上释放锁<strong>happens-before</strong>每一个在该monitor上的锁获取；</li>
-<li>Volatile Rule: 写一个volatile变量<strong>happens-before</strong>每一个volatile变量的读操作；</li>
-<li>Thread Start Rule: 线程的启动<code>start()</code><strong>happens-before</strong>每一个其他该线程的动作；</li>
-<li>Thread Termination Rule: 任何在一个线程上的动作 <strong>happens-before</strong>其他线程得知该线程终止之前的动作 （从<code>Thread.join</code> 成功返回或者  <code>Thread.isAlive</code>返回false);</li>
-<li>All actions in a thread <strong>happens-before</strong> any other thread successfully returns from a <code>join</code> on that thread(与上条类似）；</li>
-<li>Interruption Rule: 一个线程中断另一个线程<strong>happens-before</strong> 被中断线程检测到该中断(either by having InterruptedException thrown or invoking <code>Thread.isInterrupted</code> or <code>Thread.interrupted</code>);</li>
-<li>Initialization Rule: 对象的默认初始化<strong>happens-before</strong>其他任何执行动作（除默认的写动作之外)（the defaul initialization of any object <strong>happens-before</strong> any other actions(other than default-writes) of a program);</li>
+<li>Lock Rule:
+在一个monitor上释放锁<strong>happens-before</strong>每一个在该monitor上的锁获取；</li>
+<li>Volatile Rule:
+写一个volatile变量<strong>happens-before</strong>每一个volatile变量的读操作；</li>
+<li>Thread Start Rule:
+线程的启动<code>start()</code><strong>happens-before</strong>每一个其他该线程的动作；</li>
+<li>Thread Termination Rule: 任何在一个线程上的动作
+<strong>happens-before</strong>其他线程得知该线程终止之前的动作
+（从<code>Thread.join</code> 成功返回或者
+<code>Thread.isAlive</code>返回false);</li>
+<li>All actions in a thread <strong>happens-before</strong> any other
+thread successfully returns from a <code>join</code> on that
+thread(与上条类似）；</li>
+<li>Interruption Rule:
+一个线程中断另一个线程<strong>happens-before</strong>
+被中断线程检测到该中断(either by having InterruptedException thrown or
+invoking <code>Thread.isInterrupted</code> or
+<code>Thread.interrupted</code>);</li>
+<li>Initialization Rule:
+对象的默认初始化<strong>happens-before</strong>其他任何执行动作（除默认的写动作之外)（the
+defaul initialization of any object <strong>happens-before</strong> any
+other actions(other than default-writes) of a program);</li>
 </ul>
 <blockquote>
-<p>什么是Partial Ordering <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Partially_ordered_set">Partially_ordered_set</a></p>
+<p>什么是Partial Ordering <a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Partially_ordered_set">Partially_ordered_set</a></p>
 </blockquote>
 <p>下面就来看下，<code>volatile</code>以及<code>final</code>在<strong>happens-before</strong>规则下的语义。</p>
-<h2 id="volatile"><a href="#volatile" class="headerlink" title="volatile"></a><strong>volatile</strong></h2><p>关键词<code>volatile</code>在不用同步的情况下，通过内存屏障的方式来禁止变量读写操作的重排序，从而确保一个线程的写操作对其他线程是可见的（volatile变量不会缓存到对其他处理器比可见的register或者cache，因此其他线程的读操作得到的总是其他任何线程最新写的结果）。在JSR133之前，只是不允许volatile变量之间的重排序，但不会禁止volatile变量与普通变量之间的重排序，而新的JSR133模型则严格限制了volatile变量读写与普通变量读写之间的重排序：写一个volatile变量在内存效果上等同于释放monitor锁; 读volatile变量则等同于获取monitor锁。</p>
+<h2 id="volatile"><strong>volatile</strong></h2>
+<p>关键词<code>volatile</code>在不用同步的情况下，通过内存屏障的方式来禁止变量读写操作的重排序，从而确保一个线程的写操作对其他线程是可见的（volatile变量不会缓存到对其他处理器比可见的register或者cache，因此其他线程的读操作得到的总是其他任何线程最新写的结果）。在JSR133之前，只是不允许volatile变量之间的重排序，但不会禁止volatile变量与普通变量之间的重排序，而新的JSR133模型则严格限制了volatile变量读写与普通变量读写之间的重排序：写一个volatile变量在内存效果上等同于释放monitor锁;
+读volatile变量则等同于获取monitor锁。</p>
 <p>volatile只是保证了变量读写的可见性，但并没有确保互斥性。因此，使用volatile变量需要慎重。以下两点可以作为volatile使用的参考：</p>
 <ul>
 <li>将一个类的引用声明为volatile并不能保证该类中非volatile的成员的可见性；</li>
@@ -599,23 +643,43 @@
 </ul>
 <p>示例:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">VolatileExample</span>&#123;</span><br><span class="line">	<span class="type">int</span> <span class="variable">x</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">volatile</span> <span class="type">boolean</span> <span class="variable">v</span> <span class="operator">=</span> <span class="literal">false</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">writer</span><span class="params">()</span>&#123;</span><br><span class="line">		x = <span class="number">30</span>;</span><br><span class="line">		v = <span class="literal">true</span>; <span class="comment">// JMM确保上述普通变量与volatile变量之间的操作不被重排序</span></span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">reader</span><span class="params">()</span>&#123;</span><br><span class="line">		<span class="keyword">if</span>(v == <span class="literal">true</span>)&#123;</span><br><span class="line">			<span class="type">int</span> <span class="variable">y</span> <span class="operator">=</span> <span class="number">2</span>*x; <span class="comment">//  x = 30对其他任何读线程都是可见的</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>| 有关更多volatile变量的使用方法，请参考<a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/java/library/j-jtp06197/index.html">Managing Volatility</a></p>
-<h2 id="final"><a href="#final" class="headerlink" title="final"></a><strong>final</strong></h2><p>关键词<code>final</code>确保变量是不可变的（尽管该变量所引用的对象可变），一旦一个变量声明为final,并被初始化一次，之后就不会被更改。因此，final变量无需做同步即可在多线程情况下使用：一个在对象构造完成之后，可见该对象的引用的线程保证可以看到该对象的<code>final</code>变量。 </p>
-<p>示例：一个线程调用<code>write()</code>,另一个调用<code>read()</code>,根据Happens-before Rule,由于变量f的写动作总是在对象构造完成之后，因此读线程总是可以看到<code>f.x = 3</code>,而由于<code>f.y</code>并非final变量，因此JMM并不保证读线程可以看到<code>f.y = 4</code>。</p>
+<div class="line-block">有关更多volatile变量的使用方法，请参考<a
+target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/java/library/j-jtp06197/index.html">Managing
+Volatility</a></div>
+<h2 id="final"><strong>final</strong></h2>
+<p>关键词<code>final</code>确保变量是不可变的（尽管该变量所引用的对象可变），一旦一个变量声明为final,并被初始化一次，之后就不会被更改。因此，final变量无需做同步即可在多线程情况下使用：一个在对象构造完成之后，可见该对象的引用的线程保证可以看到该对象的<code>final</code>变量。</p>
+<p>示例：一个线程调用<code>write()</code>,另一个调用<code>read()</code>,根据Happens-before
+Rule,由于变量f的写动作总是在对象构造完成之后，因此读线程总是可以看到<code>f.x = 3</code>,而由于<code>f.y</code>并非final变量，因此JMM并不保证读线程可以看到<code>f.y = 4</code>。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">FinalFieldExample</span>&#123;</span><br><span class="line">    <span class="keyword">final</span> <span class="type">int</span> x;</span><br><span class="line">    <span class="type">int</span> y;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> FinalFiledExample f;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">FinalFieldExample</span><span class="params">()</span>&#123;</span><br><span class="line">        x = <span class="number">3</span>;</span><br><span class="line">        y = <span class="number">2</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">write</span><span class="params">()</span>&#123;</span><br><span class="line">        f = <span class="keyword">new</span> <span class="title class_">FinalFieldExample</span>();</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">read</span><span class="params">()</span>&#123;</span><br><span class="line">        <span class="keyword">if</span>(f != <span class="literal">null</span>)&#123;</span><br><span class="line">            <span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> f.x; <span class="comment">// guaranteed to see 3</span></span><br><span class="line">            <span class="type">int</span> <span class="variable">j</span> <span class="operator">=</span> f.y; <span class="comment">// could see 0</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
-<li><a target="_blank" rel="noopener" href="http://www.cs.umd.edu/~pugh/java/memoryModel/">[JMM refers] http://www.cs.umd.edu/~pugh&#x2F;java&#x2F;memoryModel&#x2F;</a></li>
-<li><a target="_blank" rel="noopener" href="https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/">[Reordering] https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/library/j-jtp02244/index.html">[Fixing JMM] https://www.ibm.com/developerworks/library/j-jtp02244/index.html</a></li>
-<li><a target="_blank" rel="noopener" href="http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&cm_mc_sid_50200000=1494921172">[Doug Lee] http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid&#x3D;64655373050114725223524&amp;cm_mc_sid_50200000&#x3D;1494921172</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/library/j-jtp03304/">https://www.ibm.com/developerworks/library/j-jtp03304/</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html">https://www.cs.umd.edu/~pugh&#x2F;java&#x2F;memoryModel&#x2F;jsr-133-faq.html</a> </li>
-<li><a target="_blank" rel="noopener" href="http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/">http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec&#x2F;</a></li>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/pongba/article/details/1659952">C++多线程内存模型</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf">Shared Memory Consistency Models: A Tutorial</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/GHScan/TechNotes/blob/master/2017/Memory_Model.md">Memory Model: 从多处理器到高级语言</a></li>
+<h2 id="参考文献">参考文献</h2>
+<ul>
+<li><a target="_blank" rel="noopener" href="http://www.cs.umd.edu/~pugh/java/memoryModel/">[JMM refers]
+http://www.cs.umd.edu/~pugh/java/memoryModel/</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/">[Reordering]
+https://mortoray.com/2010/11/18/cpu-reordering-what-is-actually-being-reordered/</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/library/j-jtp02244/index.html">[Fixing
+JMM]
+https://www.ibm.com/developerworks/library/j-jtp02244/index.html</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&amp;cm_mc_sid_50200000=1494921172">[Doug
+Lee]
+http://gee.cs.oswego.edu/dl/cpj/jmm.html?cm_mc_uid=64655373050114725223524&amp;cm_mc_sid_50200000=1494921172</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/library/j-jtp03304/">https://www.ibm.com/developerworks/library/j-jtp03304/</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html">https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/">http://download.oracle.com/otndocs/jcp/memory_model-1.0-pfd-spec-oth-JSpec/</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/pongba/article/details/1659952">C++多线程内存模型</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf">Shared
+Memory Consistency Models: A Tutorial</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://github.com/GHScan/TechNotes/blob/master/2017/Memory_Model.md">Memory
+Model: 从多处理器到高级语言</a></li>
 </ul>
 
     </article>
@@ -625,7 +689,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">https://sniffer.site/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">May 29th 2017, 11:16:00 am</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">2022-12-21, 18:11:38</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">2026-09-03, 14:08:31</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -791,7 +855,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81JMM"><span class="toc-number">1.</span> <span class="toc-text">为什么需要JMM</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Reordering"><span class="toc-number">1.1.</span> <span class="toc-text">Reordering</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFJMM"><span class="toc-number">2.</span> <span class="toc-text">什么是JMM</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#volatile"><span class="toc-number">3.</span> <span class="toc-text">volatile</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#final"><span class="toc-number">4.</span> <span class="toc-text">final</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">5.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81jmm"><span class="toc-number">1.</span> <span class="toc-text">为什么需要JMM</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#reordering"><span class="toc-number">1.1.</span> <span class="toc-text">Reordering</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFjmm"><span class="toc-number">2.</span> <span class="toc-text">什么是JMM</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#volatile"><span class="toc-number">3.</span> <span class="toc-text">volatile</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#final"><span class="toc-number">4.</span> <span class="toc-text">final</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">5.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1440,7 +1504,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2891,7 +2966,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2909,6 +2984,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3767,44 +3848,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3822,14 +3878,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3842,14 +3903,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3860,11 +3921,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3882,14 +3938,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3905,6 +3956,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3937,31 +3998,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3970,6 +4006,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3992,19 +4033,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4020,6 +4051,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4047,14 +4113,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4067,39 +4133,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4110,16 +4166,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4147,6 +4193,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4162,9 +4233,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4182,41 +4263,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4227,14 +4273,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4262,16 +4313,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4292,9 +4333,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4312,24 +4363,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4337,24 +4388,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4367,9 +4428,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4392,9 +4458,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4417,6 +4483,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4432,14 +4508,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4450,6 +4526,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4467,41 +4563,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4515,6 +4576,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4537,11 +4613,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4557,16 +4628,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4580,6 +4641,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4602,16 +4678,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4627,24 +4693,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4655,6 +4706,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4697,6 +4763,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4712,14 +4798,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4740,21 +4821,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4822,19 +4888,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4852,6 +4908,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4867,16 +4948,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4885,6 +4956,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4907,21 +4993,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4940,16 +5011,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4977,11 +5038,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5002,14 +5058,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5037,19 +5108,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5062,6 +5128,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5070,6 +5141,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5082,6 +5163,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5103,6 +5189,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5113,19 +5204,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5133,14 +5214,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5158,14 +5239,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5181,11 +5262,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

@@ -27,7 +27,7 @@
 <meta property="og:description" content="Android从5.0开始添加了一个任何调度服务JobSchedulerService,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于JobScheduler通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析JobScheduler。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2017-12-23T07:24:07.000Z">
-<meta property="article:modified_time" content="2021-08-11T06:59:38.482Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.677Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="JobScheduler">
 <meta property="article:tag" content="AlarmManager">
@@ -525,36 +525,48 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>Android从5.0开始添加了一个任何调度服务<code>JobSchedulerService</code>,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于<code>JobScheduler</code>通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间， 从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析<code>JobScheduler</code>。</p>
+        <p>Android从5.0开始添加了一个任何调度服务<code>JobSchedulerService</code>,APP可以通过该服务进行各种任务的调度，如定时任务，与服务器同步资源，下载特定信息等。由于<code>JobScheduler</code>通过收集各个应用的调度任务，采用批处理的方式，允许多个任务同时运行，可以让设备具有更长的睡眠时间，
+从而延长了电池使用。这篇文章，主要从应用与原理两个方面讲述分析<code>JobScheduler</code>。</p>
 <span id="more"></span>
-
-<h2 id="如何使用JobScheduler"><a href="#如何使用JobScheduler" class="headerlink" title="如何使用JobScheduler"></a><strong>如何使用JobScheduler</strong></h2><p>这里假定我们有一个定时任务，需要每隔一段时间就同步本地与服务器的数据。通过<code>JobScheduelr</code>发起任务调度，第一步是要创建一个<code>JobService</code>用于处理定时同步服务器的任务请求：</p>
+<h2 id="如何使用jobscheduler"><strong>如何使用JobScheduler</strong></h2>
+<p>这里假定我们有一个定时任务，需要每隔一段时间就同步本地与服务器的数据。通过<code>JobScheduelr</code>发起任务调度，第一步是要创建一个<code>JobService</code>用于处理定时同步服务器的任务请求：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * data sync job service</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DataSyncJobService</span> <span class="keyword">extends</span> <span class="title class_">JobService</span>  &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">TAG</span> <span class="operator">=</span> <span class="string">&quot;DataSyncJobService&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">onStartJob</span><span class="params">(JobParameters jobParameters)</span> &#123;</span><br><span class="line">	Log.v(TAG,<span class="string">&quot;onStartJob()&quot;</span>);</span><br><span class="line">	startSyncData();</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">onStopJob</span><span class="params">(JobParameters jobParameters)</span> &#123;</span><br><span class="line">	Log.v(TAG,<span class="string">&quot;onStopJob()&quot;</span>);</span><br><span class="line">	showMessage(getString(R.string.stop_job_scheduler));</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">startSyncData</span><span class="params">()</span> &#123;</span><br><span class="line">	<span class="keyword">new</span> <span class="title class_">Thread</span>(<span class="keyword">new</span> <span class="title class_">Runnable</span>() &#123;</span><br><span class="line">	    <span class="meta">@Override</span></span><br><span class="line">	    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">	        <span class="keyword">try</span> &#123;</span><br><span class="line">	            Thread.sleep(<span class="number">10000</span>);</span><br><span class="line">	        &#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">	            e.printStackTrace();</span><br><span class="line">	        &#125;</span><br><span class="line">	        <span class="comment">// data sync done</span></span><br><span class="line">	        showMessage(getString(R.string.data_sync_complete));</span><br><span class="line">	    &#125;</span><br><span class="line">	&#125;).start();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">showMessage</span><span class="params">(String message)</span> &#123;</span><br><span class="line">	<span class="type">Intent</span> <span class="variable">intent</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Intent</span>(getBaseContext(), MessageActivity.class);</span><br><span class="line">	intent.putExtra(<span class="string">&quot;message&quot;</span> , message);</span><br><span class="line">	intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);</span><br><span class="line">	startActivity(intent);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>同时需要在<code>AndroidManifest.xml</code>中声明该<code>servce</code>， 并且该<code>service</code>必须添加一个权限<code>android:permission=&quot;android.permission.BIND_JOB_SERVICE</code>， 这样当定时时间到后，系统会主动绑定该服务，从而发起任务调度：</p>
+<p>同时需要在<code>AndroidManifest.xml</code>中声明该<code>servce</code>，
+并且该<code>service</code>必须添加一个权限<code>android:permission="android.permission.BIND_JOB_SERVICE</code>，
+这样当定时时间到后，系统会主动绑定该服务，从而发起任务调度：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">&lt;service android:name=<span class="string">&quot;.DataSyncJobService&quot;</span></span><br><span class="line">    android:permission=<span class="string">&quot;android.permission.BIND_JOB_SERVICE&quot;</span>/&gt;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>建立了任务处理的<code>service</code>之后，就可以通过<code>JobScheduler</code>来发起任务调度的请求了， Android提供了如下几个接口供用户调度任务：</p>
+<p>建立了任务处理的<code>service</code>之后，就可以通过<code>JobScheduler</code>来发起任务调度的请求了，
+Android提供了如下几个接口供用户调度任务：</p>
 <ul>
-<li><code>int schedule(in JobInfo job)</code> ： 发起一个任务<code>job</code>，如成功则返回1,失败则返回0;</li>
-<li><code>enqueue(JobInfo job, JobWorkItem worker)</code>： 与<code>schedule</code>类似，但允许将一个新的任务放入<code>job</code>的队列；</li>
+<li><code>int schedule(in JobInfo job)</code> ：
+发起一个任务<code>job</code>，如成功则返回1,失败则返回0;</li>
+<li><code>enqueue(JobInfo job, JobWorkItem worker)</code>：
+与<code>schedule</code>类似，但允许将一个新的任务放入<code>job</code>的队列；</li>
 <li><code>void cancel(int jobId)</code> ： 取消一个任务；</li>
 <li><code>void cancelAll()</code>： 取消所有任务；</li>
-<li><code> List&lt;JobInfo&gt; getAllPendingJobs()</code>：获取当前未处理的任务列表；</li>
-<li><code> JobInfo getPendingJob(int jobId)</code>： 根据<code>jobId</code>来获取对应未处理任务的信息；</li>
+<li><code>List&lt;JobInfo&gt; getAllPendingJobs()</code>：获取当前未处理的任务列表；</li>
+<li><code>JobInfo getPendingJob(int jobId)</code>：
+根据<code>jobId</code>来获取对应未处理任务的信息；</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">class</span> <span class="title class_">JobScheduler</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">RESULT_FAILURE</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">int</span> <span class="variable">RESULT_SUCCESS</span> <span class="operator">=</span> <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> <span class="type">int</span> <span class="title function_">schedule</span><span class="params">(JobInfo var1)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> <span class="type">int</span> <span class="title function_">enqueue</span><span class="params">(JobInfo job, JobWorkItem worker)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title function_">cancel</span><span class="params">(<span class="type">int</span> jobId)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> <span class="keyword">void</span> <span class="title function_">cancelAll</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> List&lt;JobInfo&gt; <span class="title function_">getAllPendingJobs</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">abstract</span> JobInfo <span class="title function_">getPendingJob</span><span class="params">(<span class="type">int</span> jobId)</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p><code>JobScheduler</code>无法实例化，只能通过<code>getSystemService</code>接口来获取实例，在下面这个函数中， 首先构建一个任务用于定时同步服务器数据：</p>
+<p><code>JobScheduler</code>无法实例化，只能通过<code>getSystemService</code>接口来获取实例，在下面这个函数中，
+首先构建一个任务用于定时同步服务器数据：</p>
 <ul>
-<li><code>setPeriordic</code>： 设置定时任务的时间间隔，如果没有设置则不是一个定时任务；</li>
-<li><code>setPersisted</code>： 持久化任务数据，下次开机时该任务会自动启动，如果设置了该选项，则需要在<code>AndroidManifest.xml</code>中添加一个用户权限声明：<br>  <code> &lt;uses-permission android:name=&quot;android.permission.RECEIVE_BOOT_COMPLETED&quot;/&gt;</code>，这样任务在开机启动后，立刻启动任务调度；</li>
-<li><code>setRequiredNetworkType</code>： 是否需要设置调度所需要的网络模式，比如可以设置是否在收费或者漫游情况下发起任务调度；</li>
+<li><code>setPeriordic</code>：
+设置定时任务的时间间隔，如果没有设置则不是一个定时任务；</li>
+<li><code>setPersisted</code>：
+持久化任务数据，下次开机时该任务会自动启动，如果设置了该选项，则需要在<code>AndroidManifest.xml</code>中添加一个用户权限声明：
+<code>&lt;uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/&gt;</code>，这样任务在开机启动后，立刻启动任务调度；</li>
+<li><code>setRequiredNetworkType</code>：
+是否需要设置调度所需要的网络模式，比如可以设置是否在收费或者漫游情况下发起任务调度；</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">startDataSyncJobScheduler</span><span class="params">()</span> &#123;</span><br><span class="line">	<span class="type">ComponentName</span> <span class="variable">jobService</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ComponentName</span>(<span class="built_in">this</span>, DataSyncJobService.class);</span><br><span class="line">	JobInfo.<span class="type">Builder</span> <span class="variable">builder</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">JobInfo</span>.Builder(DATA_SYNC_JOB_ID, jobService);</span><br><span class="line">	builder.setPeriodic(DATA_SYNC_INTERVAL)</span><br><span class="line">		.setPersisted(<span class="literal">true</span>)</span><br><span class="line">		.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY);</span><br><span class="line"></span><br><span class="line">	<span class="type">JobScheduler</span> <span class="variable">js</span> <span class="operator">=</span> (JobScheduler)getSystemService(JOB_SCHEDULER_SERVICE);</span><br><span class="line">	js.schedule(builder.build());</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>这样系统就会定时向<code>DataSyncJobService</code>发起任务请求，这里需要注意的是，当Android系统进入低电量的睡眠模式时，<code>JobScheuduler</code>是不允许执行的，详细可以参考<a target="_blank" rel="noopener" href="https://developer.android.com/training/monitoring-device-state/doze-standby.html">休眠与待机</a> 。</p>
-<h2 id="JobScheduler的原理"><a href="#JobScheduler的原理" class="headerlink" title="JobScheduler的原理"></a><strong>JobScheduler的原理</strong></h2><h3 id="JobSchedulerService初始化"><a href="#JobSchedulerService初始化" class="headerlink" title="JobSchedulerService初始化"></a>JobSchedulerService初始化</h3><p><code>JobSchedulerService</code>属于系统服务，因此在手机启动时，<code>SystemServer</code>进程会主动加载该服务。创建时，<code>JobSchedulerService</code>会依次初始化:</p>
+<p>这样系统就会定时向<code>DataSyncJobService</code>发起任务请求，这里需要注意的是，当Android系统进入低电量的睡眠模式时，<code>JobScheuduler</code>是不允许执行的，详细可以参考<a
+target="_blank" rel="noopener" href="https://developer.android.com/training/monitoring-device-state/doze-standby.html">休眠与待机</a>
+。</p>
+<h2 id="jobscheduler的原理"><strong>JobScheduler的原理</strong></h2>
+<h3 id="jobschedulerservice初始化">JobSchedulerService初始化</h3>
+<p><code>JobSchedulerService</code>属于系统服务，因此在手机启动时，<code>SystemServer</code>进程会主动加载该服务。创建时，<code>JobSchedulerService</code>会依次初始化:</p>
 <ul>
 <li><code>JobHandler</code>： 用于处理请求的<code>Handler</code>;</li>
 <li><code>JobSchedulerStub</code>:服务端stub类，用于处理客户端请求；</li>
@@ -562,12 +574,11 @@
 <li><code>StateController</code>: 监听系统状态，以此触发任务调度</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="title function_">JobSchedulerService</span><span class="params">(Context context)</span> &#123;</span><br><span class="line">    <span class="built_in">super</span>(context);</span><br><span class="line">    mHandler = <span class="keyword">new</span> <span class="title class_">JobHandler</span>(context.getMainLooper());</span><br><span class="line">    mConstants = <span class="keyword">new</span> <span class="title class_">Constants</span>(mHandler);</span><br><span class="line">    mJobSchedulerStub = <span class="keyword">new</span> <span class="title class_">JobSchedulerStub</span>();</span><br><span class="line">    mJobs = JobStore.initAndGet(<span class="built_in">this</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Create the controllers.</span></span><br><span class="line">    mControllers = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;StateController&gt;();</span><br><span class="line">    mControllers.add(ConnectivityController.get(<span class="built_in">this</span>));</span><br><span class="line">    mControllers.add(TimeController.get(<span class="built_in">this</span>));</span><br><span class="line">    mControllers.add(IdleController.get(<span class="built_in">this</span>));</span><br><span class="line">    mControllers.add(BatteryController.get(<span class="built_in">this</span>));</span><br><span class="line">    mControllers.add(AppIdleController.get(<span class="built_in">this</span>));</span><br><span class="line">    mControllers.add(ContentObserverController.get(<span class="built_in">this</span>));</span><br><span class="line">    mControllers.add(DeviceIdleJobsController.get(<span class="built_in">this</span>));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>系统启动阶段，<code>JobSchedulerService</code>需要注册应用程序安装包监听器（监听APP是否被卸载、重启），同时需要将持久化的任务数据从存储中加载，重新启动这些任务：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onBootPhase</span><span class="params">(<span class="type">int</span> phase)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (PHASE_SYSTEM_SERVICES_READY == phase) &#123;</span><br><span class="line">        mConstants.start(getContext().getContentResolver());</span><br><span class="line">        <span class="comment">// Register br for package removals and user removals.</span></span><br><span class="line">        <span class="keyword">final</span> <span class="type">IntentFilter</span> <span class="variable">filter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IntentFilter</span>();</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_CHANGED);</span><br><span class="line">        filter.addAction(Intent.ACTION_PACKAGE_RESTARTED);</span><br><span class="line">        filter.addAction(Intent.ACTION_QUERY_PACKAGE_RESTART);</span><br><span class="line">        filter.addDataScheme(<span class="string">&quot;package&quot;</span>);</span><br><span class="line">        getContext().registerReceiverAsUser(</span><br><span class="line">                mBroadcastReceiver, UserHandle.ALL, filter, <span class="literal">null</span>, <span class="literal">null</span>);</span><br><span class="line">        <span class="keyword">final</span> <span class="type">IntentFilter</span> <span class="variable">userFilter</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">IntentFilter</span>(Intent.ACTION_USER_REMOVED);</span><br><span class="line">        getContext().registerReceiverAsUser(</span><br><span class="line">                mBroadcastReceiver, UserHandle.ALL, userFilter, <span class="literal">null</span>, <span class="literal">null</span>);</span><br><span class="line">        mPowerManager = (PowerManager)getContext().getSystemService(Context.POWER_SERVICE);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            ActivityManagerNative.getDefault().registerUidObserver(mUidObserver,</span><br><span class="line">                    ActivityManager.UID_OBSERVER_PROCSTATE | ActivityManager.UID_OBSERVER_GONE</span><br><span class="line">                    | ActivityManager.UID_OBSERVER_IDLE);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">            <span class="comment">// ignored; both services live in system_server</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (phase == PHASE_THIRD_PARTY_APPS_CAN_START) &#123;</span><br><span class="line">        <span class="keyword">synchronized</span> (mLock) &#123;</span><br><span class="line">            <span class="comment">// Let&#x27;s go!</span></span><br><span class="line">            mReadyToRock = <span class="literal">true</span>;</span><br><span class="line">            mBatteryStats = IBatteryStats.Stub.asInterface(ServiceManager.getService(</span><br><span class="line">                    BatteryStats.SERVICE_NAME));</span><br><span class="line">            mLocalDeviceIdleController</span><br><span class="line">                    = LocalServices.getService(DeviceIdleController.LocalService.class);</span><br><span class="line">            <span class="comment">// Create the &quot;runners&quot;.</span></span><br><span class="line">            <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; MAX_JOB_CONTEXTS_COUNT; i++) &#123;</span><br><span class="line">                mActiveServices.add(</span><br><span class="line">                        <span class="keyword">new</span> <span class="title class_">JobServiceContext</span>(<span class="built_in">this</span>, mBatteryStats, mJobPackageTracker,</span><br><span class="line">                                getContext().getMainLooper()));</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// Attach jobs to their controllers.</span></span><br><span class="line">            mJobs.forEachJob(<span class="keyword">new</span> <span class="title class_">JobStatusFunctor</span>() &#123;</span><br><span class="line">                <span class="meta">@Override</span></span><br><span class="line">                <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">process</span><span class="params">(JobStatus job)</span> &#123;</span><br><span class="line">                    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">controller</span> <span class="operator">=</span> <span class="number">0</span>; controller &lt; mControllers.size(); controller++) &#123;</span><br><span class="line">                        <span class="keyword">final</span> <span class="type">StateController</span> <span class="variable">sc</span> <span class="operator">=</span> mControllers.get(controller);</span><br><span class="line">                        sc.maybeStartTrackingJobLocked(job, <span class="literal">null</span>);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;);</span><br><span class="line">            <span class="comment">// GO GO GO!</span></span><br><span class="line">            mHandler.obtainMessage(MSG_CHECK_JOB).sendToTarget();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p><code>JobSchedulerService</code>中共启动了16个<code>JobServiceContext</code>服务负责处理任务请求。接下来，就来看下<code>JobSchedulerService</code>是如何进行工作调度的。</p>
-<h3 id="工作调度"><a href="#工作调度" class="headerlink" title="工作调度"></a><strong>工作调度</strong></h3><p>目前<code>JobSchedulerService</code>支持的任务调度主要有如下几个属性：</p>
+<h3 id="工作调度"><strong>工作调度</strong></h3>
+<p>目前<code>JobSchedulerService</code>支持的任务调度主要有如下几个属性：</p>
 <ul>
 <li>周期性：给定时间间隔触发一次任务调度；</li>
 <li>设备充电：是否需要设备当前正在充电；</li>
@@ -577,13 +588,16 @@
 </ul>
 <p>通过指定任务属性，我们可以发起一个定时任务，也可以指定某个网络条件下触发任务调度：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">JobInfo</span> <span class="keyword">implements</span> <span class="title class_">Parcelable</span> &#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="comment">/** Builder class for constructing &#123;<span class="doctag">@link</span> JobInfo&#125; objects. */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">class</span> <span class="title class_">Builder</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">int</span> mJobId;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> ComponentName mJobService;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">PersistableBundle</span> <span class="variable">mExtras</span> <span class="operator">=</span> PersistableBundle.EMPTY;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> <span class="variable">mPriority</span> <span class="operator">=</span> PRIORITY_DEFAULT;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> mFlags;</span><br><span class="line">        <span class="comment">// Requirements.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">boolean</span> mRequiresCharging;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">boolean</span> mRequiresDeviceIdle;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> mNetworkType;</span><br><span class="line">        <span class="keyword">private</span> ArrayList&lt;TriggerContentUri&gt; mTriggerContentUris;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> <span class="variable">mTriggerContentUpdateDelay</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> <span class="variable">mTriggerContentMaxDelay</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">boolean</span> mIsPersisted;</span><br><span class="line">        <span class="comment">// One-off parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> mMinLatencyMillis;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> mMaxExecutionDelayMillis;</span><br><span class="line">        <span class="comment">// Periodic parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">boolean</span> mIsPeriodic;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">boolean</span> mHasEarlyConstraint;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">boolean</span> mHasLateConstraint;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> mIntervalMillis;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> mFlexMillis;</span><br><span class="line">        <span class="comment">// Back-off parameters.</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">long</span> <span class="variable">mInitialBackoffMillis</span> <span class="operator">=</span> DEFAULT_INITIAL_BACKOFF_MILLIS;</span><br><span class="line">        <span class="keyword">private</span> <span class="type">int</span> <span class="variable">mBackoffPolicy</span> <span class="operator">=</span> DEFAULT_BACKOFF_POLICY;</span><br><span class="line">        <span class="comment">/** Easy way to track whether the client has tried to set a back-off policy. */</span></span><br><span class="line">        <span class="keyword">private</span> <span class="type">boolean</span> <span class="variable">mBackoffPolicySet</span> <span class="operator">=</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">        ....</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="**参考文献 **"></a>**参考文献 **</h2><ul>
-<li>ASOP源代码路径： <a href="/android/frameworks/base/services/core/java/com/android/server/job/">&#x2F;android&#x2F;frameworks&#x2F;base&#x2F;services&#x2F;core&#x2F;java&#x2F;com&#x2F;android&#x2F;server&#x2F;job&#x2F; </a></li>
-<li><a target="_blank" rel="noopener" href="https://developer.android.com/training/monitoring-device-state/doze-standby.html">https://developer.android.com/training/monitoring-device-state/doze-standby.html</a> </li>
-<li>示例代码： <a target="_blank" rel="noopener" href="https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler">https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler</a></li>
+<h2 id="参考文献"><strong>参考文献 </strong></h2>
+<ul>
+<li>ASOP源代码路径： <a
+href="/android/frameworks/base/services/core/java/com/android/server/job/">/android/frameworks/base/services/core/java/com/android/server/job/</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://developer.android.com/training/monitoring-device-state/doze-standby.html">https://developer.android.com/training/monitoring-device-state/doze-standby.html</a></li>
+<li>示例代码： <a
+target="_blank" rel="noopener" href="https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler">https://github.com/runningforlife/AndroidExamples/tree/master/JobScheduler</a>
+****</li>
 </ul>
-<hr>
 
     </article>
     <!-- license -->
@@ -592,7 +606,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">https://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">December 23rd 2017, 3:24:07 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">2021-08-11, 14:59:38</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -758,7 +772,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8JobScheduler"><span class="toc-number">1.</span> <span class="toc-text">如何使用JobScheduler</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#JobScheduler%E7%9A%84%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">JobScheduler的原理</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#JobSchedulerService%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">2.1.</span> <span class="toc-text">JobSchedulerService初始化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E8%B0%83%E5%BA%A6"><span class="toc-number">2.2.</span> <span class="toc-text">工作调度</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">**参考文献 **</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8jobscheduler"><span class="toc-number">1.</span> <span class="toc-text">如何使用JobScheduler</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#jobscheduler%E7%9A%84%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">JobScheduler的原理</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#jobschedulerservice%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-number">2.1.</span> <span class="toc-text">JobSchedulerService初始化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E8%B0%83%E5%BA%A6"><span class="toc-number">2.2.</span> <span class="toc-text">工作调度</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">3.</span> <span class="toc-text">参考文献 </span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1407,7 +1421,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2858,7 +2883,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2876,6 +2901,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3734,44 +3765,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3789,14 +3795,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3809,14 +3820,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3827,11 +3838,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3849,14 +3855,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3872,6 +3873,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3904,31 +3915,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3937,6 +3923,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3959,19 +3950,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3987,6 +3968,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4014,14 +4030,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4034,39 +4050,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4077,16 +4083,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4114,6 +4110,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4129,9 +4150,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4149,41 +4180,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4194,14 +4190,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4229,16 +4230,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4259,9 +4250,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4279,24 +4280,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4304,24 +4305,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4334,9 +4345,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4359,9 +4375,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4384,6 +4400,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4399,14 +4425,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4417,6 +4443,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4434,41 +4480,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4482,6 +4493,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4504,11 +4530,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4524,16 +4545,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4547,6 +4558,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4569,16 +4595,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4594,24 +4610,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4622,6 +4623,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4664,6 +4680,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4679,14 +4715,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4707,21 +4738,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4789,19 +4805,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4819,6 +4825,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4834,16 +4865,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4852,6 +4873,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4874,21 +4910,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4907,16 +4928,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4944,11 +4955,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4969,14 +4975,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5004,19 +5025,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5029,6 +5045,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5037,6 +5058,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5049,6 +5080,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5070,6 +5106,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5080,19 +5121,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5100,14 +5131,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5125,14 +5156,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5148,11 +5179,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

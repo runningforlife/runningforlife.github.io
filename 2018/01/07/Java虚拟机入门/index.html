@@ -26,18 +26,12 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="Java诞生于互联网兴盛的上世纪90年代，为了在不同终端设备上运行Java程序，其在设计之初，就考虑到了语言的可移植性，确保编写完后，可以在任何平台上运行。随着互联网时代的来临，Java因其平台无关性（platform independence), 安全性(security)、网络可移动性(network mobility)以及内存自动管理(Garbage Collection)等特征而得到了广泛">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Internal%20Architecture%20of%20JVM.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Class_file_structure.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/java_constant_pool_types.jpg">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/java_Access_flag.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/JVM_RuntimeDataArea.png">
 <meta property="article:published_time" content="2018-01-07T08:53:10.000Z">
-<meta property="article:modified_time" content="2021-08-11T07:05:51.897Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.676Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Java Virtual Machine">
 <meta property="article:tag" content="Java">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Internal%20Architecture%20of%20JVM.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -528,54 +522,100 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>Java诞生于互联网兴盛的上世纪90年代，为了在不同终端设备上运行Java程序，其在设计之初，就考虑到了语言的可移植性，确保编写完后，可以在任何平台上运行。随着互联网时代的来临，Java因其平台无关性（platform independence), 安全性(security)、网络可移动性(network mobility)以及内存自动管理(Garbage Collection)等特征而得到了广泛的应用。那么， Java的这些特性究竟是如何实现的？相比早前的C&#x2F;C++等编译型语言，Java程序首先被编译成一个个包含了字节码(<code>bytecode</code>)的<code>.class</code>文件，运行时，<code>.class</code>文件被加载Java虚拟机（Java Virtual Machine)上执行。实际上，任何其他语言只要能够编译成JVM能够识别的<code>bytecode</code>， JVM都可以执行<span id="more"></span>。从这个角度来看，JVM封装了平台的硬件细节，使得Java程序在编译完后可以在任何有Java运行环境的（Java Runtime Enviroment, JRE)平台上运行，无需再关心不同平台的差异。接下来，就来看下，JVM的具体结构以及各个组成部分的功能。</p>
+        <p>Java诞生于互联网兴盛的上世纪90年代，为了在不同终端设备上运行Java程序，其在设计之初，就考虑到了语言的可移植性，确保编写完后，可以在任何平台上运行。随着互联网时代的来临，Java因其平台无关性（platform
+independence), 安全性(security)、网络可移动性(network
+mobility)以及内存自动管理(Garbage
+Collection)等特征而得到了广泛的应用。那么，
+Java的这些特性究竟是如何实现的？相比早前的C/C++等编译型语言，Java程序首先被编译成一个个包含了字节码(<code>bytecode</code>)的<code>.class</code>文件，运行时，<code>.class</code>文件被加载Java虚拟机（Java
+Virtual
+Machine)上执行。实际上，任何其他语言只要能够编译成JVM能够识别的<code>bytecode</code>，
+JVM都可以执行<span id="more"></span>。从这个角度来看，JVM封装了平台的硬件细节，使得Java程序在编译完后可以在任何有Java运行环境的（Java
+Runtime Enviroment,
+JRE)平台上运行，无需再关心不同平台的差异。接下来，就来看下，JVM的具体结构以及各个组成部分的功能。</p>
 <p>下图是JVM的结构图, 其主要由如下三个部分组成：</p>
 <ul>
-<li><strong>类加载系统</strong>(class loader subsystem）：负责加载class文件；</li>
-<li><strong>运行时数据区</strong>: (Runtime data areas）： 运行程序运行时的内存区域，保存如类实例、类名、方法参数、方法代码以及局部变量等，主要分为方法区(<code>method area</code>)、堆（<code>heap</code>)、栈（<code>Java Stacks</code>)等几个区域，对于不同的虚拟机实现运行时数据区可能并不一样。</li>
+<li><strong>类加载系统</strong>(class loader
+subsystem）：负责加载class文件；</li>
+<li><strong>运行时数据区</strong>: (Runtime data areas）：
+运行程序运行时的内存区域，保存如类实例、类名、方法参数、方法代码以及局部变量等，主要分为方法区(<code>method area</code>)、堆（<code>heap</code>)、栈（<code>Java Stacks</code>)等几个区域，对于不同的虚拟机实现运行时数据区可能并不一样。</li>
 <li><strong>执行系统</strong>(Execution Engine）：负责执行JVM指令</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Internal%20Architecture%20of%20JVM.png" alt="Internal Architecture of JVM"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Internal%20Architecture%20of%20JVM.png"
+alt="Internal Architecture of JVM" /></p>
 <!--more-->
-
-<h2 id="类文件"><a href="#类文件" class="headerlink" title="类文件"></a><strong>类文件</strong></h2><p>Java类文件<code>.class</code>是由<code>.java</code>文件编译过来的二进制文件，其中每个字符都只有8-bit，因此类文件字节流也叫做<code>bytecode</code>，每个数据项都是依次相邻存储，不会有任何填充位，如果一个数据项有多个字节，则将其分成多个连续的字节存放（采用高位在前的bit-endian编码）。这中连续存放的格式使得类文件更加紧凑，方便在网络中传输。</p>
+<h2 id="类文件"><strong>类文件</strong></h2>
+<p>Java类文件<code>.class</code>是由<code>.java</code>文件编译过来的二进制文件，其中每个字符都只有8-bit，因此类文件字节流也叫做<code>bytecode</code>，每个数据项都是依次相邻存储，不会有任何填充位，如果一个数据项有多个字节，则将其分成多个连续的字节存放（采用高位在前的bit-endian编码）。这中连续存放的格式使得类文件更加紧凑，方便在网络中传输。</p>
 <p>类文件的定义确保了不管在何种系统下编译产生，JVM都能够正确的加载、解析执行；因此，其他语言通过编译产生同样的<code>.class</code>文件，JVM同样能够解析执行。</p>
 <p>那么，类文件具体包含哪些信息了？Java文件中的变量、方法名以及方法中的代码又是如何存储的？JVM虚拟机规范给出了类文件的结构：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Class_file_structure.png" alt="class file structure"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/Class_file_structure.png"
+alt="class file structure" /></p>
 <p>这其中，<code>u1</code>,<code>u2</code>,<code>u4</code>分别表示一个字节、两个字节以及四个字节长的无符号整数，可以看出，类文件实际上是一个由不同长度的数据项组成，每个数据项都有一个类型(type)，名称(name)以及数量（count），比如类文件魔数<code>magic</code>是一个类型为<code>u2</code>、数量为1的数据项。类文件就是按照上述顺序存储的，我们来看看各个数据项的具体信息：</p>
-<h3 id="魔数-magic"><a href="#魔数-magic" class="headerlink" title="魔数(magic)"></a>魔数(magic)</h3><p>类文件的开头四个字节总是它的魔数(magic number)<code>0xCAFEBABE</code>，魔数用于识别某个文件是否是类文件；如果一个文件的魔术不是<code>0xCAFEBABE</code>，则肯定不是类文件。</p>
-<h3 id="minor-version-x2F-major-version"><a href="#minor-version-x2F-major-version" class="headerlink" title="minor_version&#x2F;major_version"></a>minor_version&#x2F;major_version</h3><p>第二个四个字节分别是次版本号与主版本号，用于表示Java对应的版本，如果版本号不再有效的范围内，JVM会直接拒绝加载该类文件。</p>
-<h3 id="常量池-constant-pool"><a href="#常量池-constant-pool" class="headerlink" title="常量池(constant pool)"></a>常量池(constant pool)</h3><p>顾名思义，常量池包含了类或者接口中的常量，如字符串、final变量、类名以及方法名等。常量池是由一个个常量项组成的表，该表大小为<code>constant_pool_count</code>，表索引的位置是从1到<code>constant_pool_count-1</code>,索引位置0是预留位置，一般不使用。 每个常量项都是由一个字节的<code>tag</code>与一个字节数组构成：</p>
+<h3 id="魔数magic">魔数(magic)</h3>
+<p>类文件的开头四个字节总是它的魔数(magic
+number)<code>0xCAFEBABE</code>，魔数用于识别某个文件是否是类文件；如果一个文件的魔术不是<code>0xCAFEBABE</code>，则肯定不是类文件。</p>
+<h3 id="minor_versionmajor_version">minor_version/major_version</h3>
+<p>第二个四个字节分别是次版本号与主版本号，用于表示Java对应的版本，如果版本号不再有效的范围内，JVM会直接拒绝加载该类文件。</p>
+<h3 id="常量池constant-pool">常量池(constant pool)</h3>
+<p>顾名思义，常量池包含了类或者接口中的常量，如字符串、final变量、类名以及方法名等。常量池是由一个个常量项组成的表，该表大小为<code>constant_pool_count</code>，表索引的位置是从1到<code>constant_pool_count-1</code>,索引位置0是预留位置，一般不使用。
+每个常量项都是由一个字节的<code>tag</code>与一个字节数组构成：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">cp_info &#123;</span><br><span class="line">    u1 tag;</span><br><span class="line">    u1 info[]</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p><code>info</code>数组的大小是根据不同tag对应的数据项所占空间大小决定的，常量池有如下几种tag类型：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/java_constant_pool_types.jpg" alt="contant pool tags"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/java_constant_pool_types.jpg"
+alt="contant pool tags" /></p>
 <p>例如，标签<code>CONSTANT_Class</code>，用于表示一个类或者接口名称，其主要有两部分组成：</p>
 <ul>
 <li>长度为<code>u1</code>的标签值；</li>
 <li>长度为<code>u2</code>的名称索引（指向常量表中的某个位置）</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">CONSTANT_Class_info &#123;</span><br><span class="line">    u1 tag;</span><br><span class="line">    u2 name_index;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>从这里也可以看到， 对于Java语言来说，类名或者接口名的最大长度为255个字符。</p>
-<h3 id="access-flags"><a href="#access-flags" class="headerlink" title="access_flags"></a>access_flags</h3><p>类型标志，占有2个字节，用于表示这个类或者接口的类型：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/java_Access_flag.png" alt="access flags"></p>
-<h3 id="this-class"><a href="#this-class" class="headerlink" title="this_class"></a>this_class</h3><p>在类型标志之后的两个字节，是<code>this_class</code>数据项，用于表示类名，该数据项实际是一个<code>constant pool</code>的索引，其指向一个<code>CONSTANT_Class</code>类。</p>
-<h3 id="super-class"><a href="#super-class" class="headerlink" title="super_class"></a>super_class</h3><p><code>super_class</code>占两个字节，跟<code>this_class</code>一样，也是一个常量池的索引，用于表示一个类的父类的全限定名（例如<code>java.lang.object</code>对应的全限定名为<code>java/lang/object</code>)。在Java中，所有类的基类都是<code>java.lang.object</code>，因此对于所有类，该索引都指向一个<code>java.lang.object</code>的<code>CONSTANT_Class_info</code>常量项，但是对于<code>Object</code>类本身来说，该值为0。</p>
-<h3 id="interfaces-count-and-interfaces"><a href="#interfaces-count-and-interfaces" class="headerlink" title="interfaces_count and interfaces"></a>interfaces_count and interfaces</h3><p><code>super_class</code>之后是<code>interfaces_count</code>，表示类所实现的接口或者在类中定义的接口数。接着<code>interfaces_count</code>是接口数据索引数组<code>interfaces</code>，该数组包含了所有指向常量池中接口描述信息<code>CONTANT_Class_info</code>的索引。</p>
+<p>从这里也可以看到，
+对于Java语言来说，类名或者接口名的最大长度为255个字符。</p>
+<h3 id="access_flags">access_flags</h3>
+<p>类型标志，占有2个字节，用于表示这个类或者接口的类型：</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/java_Access_flag.png"
+alt="access flags" /></p>
+<h3 id="this_class">this_class</h3>
+<p>在类型标志之后的两个字节，是<code>this_class</code>数据项，用于表示类名，该数据项实际是一个<code>constant pool</code>的索引，其指向一个<code>CONSTANT_Class</code>类。</p>
+<h3 id="super_class">super_class</h3>
+<p><code>super_class</code>占两个字节，跟<code>this_class</code>一样，也是一个常量池的索引，用于表示一个类的父类的全限定名（例如<code>java.lang.object</code>对应的全限定名为<code>java/lang/object</code>)。在Java中，所有类的基类都是<code>java.lang.object</code>，因此对于所有类，该索引都指向一个<code>java.lang.object</code>的<code>CONSTANT_Class_info</code>常量项，但是对于<code>Object</code>类本身来说，该值为0。</p>
+<h3 id="interfaces_count-and-interfaces">interfaces_count and
+interfaces</h3>
+<p><code>super_class</code>之后是<code>interfaces_count</code>，表示类所实现的接口或者在类中定义的接口数。接着<code>interfaces_count</code>是接口数据索引数组<code>interfaces</code>，该数组包含了所有指向常量池中接口描述信息<code>CONTANT_Class_info</code>的索引。</p>
 <p>在接口信息之后还包含了类似的数据项<code>fields_count/fields</code>、<code>methods_count/methods</code>、<code>attributes_count/attributes</code>。</p>
-<h2 id="运行时数据区"><a href="#运行时数据区" class="headerlink" title="运行时数据区"></a><strong>运行时数据区</strong></h2><p>类文件加载完成后， JVM需要为程序新建内存区域，保存诸如方法名、类名、类实例、方法参数、返回值以及局部变量等。JVM将这些运行时的内存主要分为几个区域(需要注意的是，不同的虚拟机实现运行时数据区可能并不相同）：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/JVM_RuntimeDataArea.png" alt="Java Runtime Data Areas"></p>
+<h2 id="运行时数据区"><strong>运行时数据区</strong></h2>
+<p>类文件加载完成后，
+JVM需要为程序新建内存区域，保存诸如方法名、类名、类实例、方法参数、返回值以及局部变量等。JVM将这些运行时的内存主要分为几个区域(需要注意的是，不同的虚拟机实现运行时数据区可能并不相同）：</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/JVM_RuntimeDataArea.png"
+alt="Java Runtime Data Areas" /></p>
 <ul>
-<li><strong>方法区</strong>(method area）：方法区在JVM启动时候创建，用于存储每个类的运行时常量池（constant pool),变量以及方法信息以及相应的代码。方法区为所有线程共享。如果方法区内存不足，不能满足分配请求时，JVM会抛出一个<code>OutOfMemoryError</code>异常；</li>
-<li><strong>堆区</strong>(Heap）：JVM启动时创建，所有引用类对象的创建都是在堆区进行的，该区的内存分配与释放都是由GC(Gabage Collector)来负责管理的。与方法区一样，堆区也是为所有线程共享的。当JVM的内存管理系统无法分配所需内存时，则抛出<code>OutOfMemoryError</code>异常；</li>
-<li><strong>栈</strong>(Java Stacks）：新的进程创建时，JVM为其创建一个栈区，用于保存线程的本地变量以及运行结果，返回值等。Java栈是由栈帧(Stack frames)组成的，一个栈帧包含了Java方法调用的状态，当一个线程调用某个方法时，JVM将一个新的栈帧压入栈区；当调用方法完成后，则将该栈帧从栈中弹出。如果一个线程所需的栈内存超过了JVM栈最大能够提供的大小，则会抛出<code>StackOverflowError</code>;</li>
-<li><strong>程序计数器寄存器</strong>(PC registers）：每个线程都有自己的程序计数器，用于保存当前线程所运行方法的地址，如果该方法不是native的，程序计数器保存的是线程当前正在执行的方法地址；而对于native方法，程序计数器的值是不定的；</li>
-<li><strong>本地方法栈</strong>(Native Method Stacks）:一个线程调用其他语言如C&#x2F;C++的方法时， JVM会为其创建一个本地方法栈，用于保存临时变量以及返回值等；</li>
-<li><strong>运行时常量池</strong>(run-time constant pool): 每个类与接口在类文件中都有一个<code>constant_pool</code>的表，用于存放数值或者方法的引用。每个常量池所需内存都是从JVM的方法区中分配的，JVM会在类或者接口创建的时候为其构造一个运行时常量池。当常量池内存分配不足时，JVM会抛出一个<code>OutOfMemoryError</code>的异常。</li>
+<li><strong>方法区</strong>(method
+area）：方法区在JVM启动时候创建，用于存储每个类的运行时常量池（constant
+pool),变量以及方法信息以及相应的代码。方法区为所有线程共享。如果方法区内存不足，不能满足分配请求时，JVM会抛出一个<code>OutOfMemoryError</code>异常；</li>
+<li><strong>堆区</strong>(Heap）：JVM启动时创建，所有引用类对象的创建都是在堆区进行的，该区的内存分配与释放都是由GC(Gabage
+Collector)来负责管理的。与方法区一样，堆区也是为所有线程共享的。当JVM的内存管理系统无法分配所需内存时，则抛出<code>OutOfMemoryError</code>异常；</li>
+<li><strong>栈</strong>(Java
+Stacks）：新的进程创建时，JVM为其创建一个栈区，用于保存线程的本地变量以及运行结果，返回值等。Java栈是由栈帧(Stack
+frames)组成的，一个栈帧包含了Java方法调用的状态，当一个线程调用某个方法时，JVM将一个新的栈帧压入栈区；当调用方法完成后，则将该栈帧从栈中弹出。如果一个线程所需的栈内存超过了JVM栈最大能够提供的大小，则会抛出<code>StackOverflowError</code>;</li>
+<li><strong>程序计数器寄存器</strong>(PC
+registers）：每个线程都有自己的程序计数器，用于保存当前线程所运行方法的地址，如果该方法不是native的，程序计数器保存的是线程当前正在执行的方法地址；而对于native方法，程序计数器的值是不定的；</li>
+<li><strong>本地方法栈</strong>(Native Method
+Stacks）:一个线程调用其他语言如C/C++的方法时，
+JVM会为其创建一个本地方法栈，用于保存临时变量以及返回值等；</li>
+<li><strong>运行时常量池</strong>(run-time constant pool):
+每个类与接口在类文件中都有一个<code>constant_pool</code>的表，用于存放数值或者方法的引用。每个常量池所需内存都是从JVM的方法区中分配的，JVM会在类或者接口创建的时候为其构造一个运行时常量池。当常量池内存分配不足时，JVM会抛出一个<code>OutOfMemoryError</code>的异常。</li>
 </ul>
-<h2 id="执行系统"><a href="#执行系统" class="headerlink" title="执行系统"></a><strong>执行系统</strong></h2><p>执行系统(Execution Engine)是JVM的核心部分，主要负责执行虚拟机指令。对于每个线程，都有自己的执行系统实例。执行系统可能直接执行字节码指令，或者执行本地代码，也可以通过<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Just-in-time_compilation" title="Just In Time compilation">JIT</a>执行编译后的本地代码。JVM规范对具体如何执行指令并没有做明确的规定，只是提供了指令的定义。</p>
-<p>JVM中的指令都有一个助记符，一般都是由一个单字节操作码(opcode)，跟着零个或者多个操作数(operands)，多数的指令都有操作码，没有操作数。大部分指令的操作码都在首个字母标识了该指令对应的动作，例如，<code>iload</code>指令加载局部变量值的操作栈上，这个局部变量的值必须是<code>int</code>,与此类似的指令还有<code>fload</code>, <code>dload</code>等：</p>
+<h2 id="执行系统"><strong>执行系统</strong></h2>
+<p>执行系统(Execution
+Engine)是JVM的核心部分，主要负责执行虚拟机指令。对于每个线程，都有自己的执行系统实例。执行系统可能直接执行字节码指令，或者执行本地代码，也可以通过<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Just-in-time_compilation"
+title="Just In Time compilation">JIT</a>执行编译后的本地代码。JVM规范对具体如何执行指令并没有做明确的规定，只是提供了指令的定义。</p>
+<p>JVM中的指令都有一个助记符，一般都是由一个单字节操作码(opcode)，跟着零个或者多个操作数(operands)，多数的指令都有操作码，没有操作数。大部分指令的操作码都在首个字母标识了该指令对应的动作，例如，<code>iload</code>指令加载局部变量值的操作栈上，这个局部变量的值必须是<code>int</code>,与此类似的指令还有<code>fload</code>,
+<code>dload</code>等：</p>
 <ul>
 <li>int型指令对应开头为<code>*i*</code>;</li>
 <li>float型指令对应为<code>*f*</code>;</li>
@@ -588,14 +628,15 @@
 </ul>
 <p>来看一个JVM指令的具体实例，有如下一个类<code>SayHello.java</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">package</span> com.examples.jason.javecore;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SayHello</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">sayHello</span><span class="params">()</span> &#123;</span><br><span class="line">        System.out.print(<span class="string">&quot;hello, world!\n&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        SayHello.sayHello();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>在对应文件目录输入指令<code>javac SayHello.java</code>，得到一个<code>SayHello.class</code>的文件，接着利用反编译工具<code>javap</code>,输入指令<code>javap -c SayHello.class</code>,得到反汇编后的字节码：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Compiled from <span class="string">&quot;SayHello.java&quot;</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">com</span>.examples.jason.javecore.SayHello &#123;</span><br><span class="line">  <span class="keyword">public</span> com.examples.jason.javecore.SayHello();</span><br><span class="line">    Code:</span><br><span class="line">       <span class="number">0</span>: aload_0</span><br><span class="line">       <span class="number">1</span>: invokespecial #<span class="number">1</span>                  <span class="comment">// Method java/lang/Object.&quot;&lt;init&gt;&quot;:()V</span></span><br><span class="line">       <span class="number">4</span>: <span class="keyword">return</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(java.lang.String[])</span>;</span><br><span class="line">    Code:</span><br><span class="line">       <span class="number">0</span>: invokestatic  #<span class="number">5</span>                  <span class="comment">// Method sayHello:()V</span></span><br><span class="line">       <span class="number">3</span>: <span class="keyword">return</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="http://www.onjava.com/pub/a/onjava/2003/11/12/classloader.html">http://www.onjava.com/pub/a/onjava/2003/11/12/classloader.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.javaworld.com/article/2077260/learn-java/learn-java-the-basics-of-java-class-loaders.html">https://www.javaworld.com/article/2077260/learn-java/learn-java-the-basics-of-java-class-loaders.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.artima.com/insidejvm/ed2/introarch.html">https://www.artima.com/insidejvm/ed2/introarch.html</a></li>
+<h2 id="参考资料"><strong>参考资料</strong></h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="http://www.onjava.com/pub/a/onjava/2003/11/12/classloader.html">http://www.onjava.com/pub/a/onjava/2003/11/12/classloader.html</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.javaworld.com/article/2077260/learn-java/learn-java-the-basics-of-java-class-loaders.html">https://www.javaworld.com/article/2077260/learn-java/learn-java-the-basics-of-java-class-loaders.html</a></li>
+<li>https://www.artima.com/insidejvm/ed2/introarch.html</li>
 </ul>
 
     </article>
@@ -605,7 +646,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">https://sniffer.site/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">January 7th 2018, 4:53:10 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">2021-08-11, 15:05:51</a>
+            <p>更新日期：<a href="https://sniffer.site/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -771,7 +812,8 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%B1%BB%E6%96%87%E4%BB%B6"><span class="toc-number">1.</span> <span class="toc-text">类文件</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%AD%94%E6%95%B0-magic"><span class="toc-number">1.1.</span> <span class="toc-text">魔数(magic)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#minor-version-x2F-major-version"><span class="toc-number">1.2.</span> <span class="toc-text">minor_version&#x2F;major_version</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E9%87%8F%E6%B1%A0-constant-pool"><span class="toc-number">1.3.</span> <span class="toc-text">常量池(constant pool)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#access-flags"><span class="toc-number">1.4.</span> <span class="toc-text">access_flags</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#this-class"><span class="toc-number">1.5.</span> <span class="toc-text">this_class</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#super-class"><span class="toc-number">1.6.</span> <span class="toc-text">super_class</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#interfaces-count-and-interfaces"><span class="toc-number">1.7.</span> <span class="toc-text">interfaces_count and interfaces</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%90%E8%A1%8C%E6%97%B6%E6%95%B0%E6%8D%AE%E5%8C%BA"><span class="toc-number">2.</span> <span class="toc-text">运行时数据区</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A7%E8%A1%8C%E7%B3%BB%E7%BB%9F"><span class="toc-number">3.</span> <span class="toc-text">执行系统</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%B1%BB%E6%96%87%E4%BB%B6"><span class="toc-number">1.</span> <span class="toc-text">类文件</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%AD%94%E6%95%B0magic"><span class="toc-number">1.1.</span> <span class="toc-text">魔数(magic)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#minor_versionmajor_version"><span class="toc-number">1.2.</span> <span class="toc-text">minor_version&#x2F;major_version</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E9%87%8F%E6%B1%A0constant-pool"><span class="toc-number">1.3.</span> <span class="toc-text">常量池(constant pool)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#access_flags"><span class="toc-number">1.4.</span> <span class="toc-text">access_flags</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#this_class"><span class="toc-number">1.5.</span> <span class="toc-text">this_class</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#super_class"><span class="toc-number">1.6.</span> <span class="toc-text">super_class</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#interfaces_count-and-interfaces"><span class="toc-number">1.7.</span> <span class="toc-text">interfaces_count and
+interfaces</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%90%E8%A1%8C%E6%97%B6%E6%95%B0%E6%8D%AE%E5%8C%BA"><span class="toc-number">2.</span> <span class="toc-text">运行时数据区</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A7%E8%A1%8C%E7%B3%BB%E7%BB%9F"><span class="toc-number">3.</span> <span class="toc-text">执行系统</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1420,7 +1462,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2871,7 +2924,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2889,6 +2942,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3747,44 +3806,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3802,14 +3836,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3822,14 +3861,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3840,11 +3879,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3862,14 +3896,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3885,6 +3914,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3917,31 +3956,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3950,6 +3964,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3972,19 +3991,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4000,6 +4009,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4027,14 +4071,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4047,39 +4091,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4090,16 +4124,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4127,6 +4151,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4142,9 +4191,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4162,41 +4221,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4207,14 +4231,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4242,16 +4271,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4272,9 +4291,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4292,24 +4321,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4317,24 +4346,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4347,9 +4386,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4372,9 +4416,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4397,6 +4441,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4412,14 +4466,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4430,6 +4484,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4447,41 +4521,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4495,6 +4534,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4517,11 +4571,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4537,16 +4586,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4560,6 +4599,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4582,16 +4636,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4607,24 +4651,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4635,6 +4664,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4677,6 +4721,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4692,14 +4756,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4720,21 +4779,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4802,19 +4846,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4832,6 +4866,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4847,16 +4906,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4865,6 +4914,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4887,21 +4951,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4920,16 +4969,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4957,11 +4996,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4982,14 +5016,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5017,19 +5066,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5042,6 +5086,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5050,6 +5099,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5062,6 +5121,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5083,6 +5147,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5093,19 +5162,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5113,14 +5172,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5138,14 +5197,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5161,11 +5220,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

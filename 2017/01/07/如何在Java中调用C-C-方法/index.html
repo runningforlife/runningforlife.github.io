@@ -19,15 +19,15 @@
         <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
     
     <meta name="description" content="关于编程,生活,工作">
-    <meta name="description" content="有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C&#x2F;C++实现。在Java中调用本地方法通常被称为Java Native Interface(JNI)。那么，什么时候需要用到JNI了？  需要在底层实现耗时更小、更快的程序 在Java中需要调用本地代码库 需要使用平台相关但Java标准库文件不支持的特性  接下来，我们就来看一看，如何在Java中通过J">
+    <meta name="description" content="有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C&#x2F;C++实现。在Java中调用本地方法通常被称为Java Native Interface(JNI)。那么，什么时候需要用到JNI了？  需要在底层实现耗时更小、更快的程序 在Java中需要调用本地代码库 需要使用平台相关但Java标准库文件不支持的特性  接下来，我们就来看一看，如何在Java中通过JNI来调用">
 <meta property="og:type" content="article">
 <meta property="og:title" content="如何在Java中调用C_C++方法">
 <meta property="og:url" content="https://sniffer.site/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/index.html">
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
-<meta property="og:description" content="有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C&#x2F;C++实现。在Java中调用本地方法通常被称为Java Native Interface(JNI)。那么，什么时候需要用到JNI了？  需要在底层实现耗时更小、更快的程序 在Java中需要调用本地代码库 需要使用平台相关但Java标准库文件不支持的特性  接下来，我们就来看一看，如何在Java中通过J">
+<meta property="og:description" content="有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C&#x2F;C++实现。在Java中调用本地方法通常被称为Java Native Interface(JNI)。那么，什么时候需要用到JNI了？  需要在底层实现耗时更小、更快的程序 在Java中需要调用本地代码库 需要使用平台相关但Java标准库文件不支持的特性  接下来，我们就来看一看，如何在Java中通过JNI来调用">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2017-01-07T05:05:57.000Z">
-<meta property="article:modified_time" content="2021-08-11T06:59:46.593Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.683Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="JNI">
@@ -525,7 +525,8 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C&#x2F;C++实现。在Java中调用本地方法通常被称为Java Native Interface(JNI)。那么，什么时候需要用到JNI了？</p>
+        <p>有时，需要在Java中直接调用本地（native)方法，把一些耗时的操作使用效率更高C/C++实现。在Java中调用本地方法通常被称为Java
+Native Interface(JNI)。那么，什么时候需要用到JNI了？</p>
 <ul>
 <li>需要在底层实现耗时更小、更快的程序</li>
 <li>在Java中需要调用本地代码库</li>
@@ -533,12 +534,13 @@
 </ul>
 <p>接下来，我们就来看一看，如何在Java中通过JNI来调用本地方法？</p>
 <span id="more"></span>
-
-<h1 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a><strong>准备工作</strong></h1><p>在开始JNI编程之前，需要确保在系统环境中有配置好了如下程序：</p>
+<h1 id="准备工作"><strong>准备工作</strong></h1>
+<p>在开始JNI编程之前，需要确保在系统环境中有配置好了如下程序：</p>
 <ul>
-<li>Java虚拟机程序， Java编译器(javac),一个本地方法的头文件生成程序(javah)</li>
+<li>Java虚拟机程序，
+Java编译器(javac),一个本地方法的头文件生成程序(javah)</li>
 <li>定义JNI的库文件以及本地头文件: jni.h,jvm.lib,jvm.dll,jvm.so</li>
-<li>c&#x2F;C++编译器，用于创建共享库代码</li>
+<li>c/C++编译器，用于创建共享库代码</li>
 </ul>
 <p>前面两条中的程序只要安装了JDK开发环境，都已包含在系统中了，可以直接使用。另外，需要注意的是，利用System.loadLibrary来加载本地库文件时，不同系统对于生成的库文件命名存在差异，例如在HelloWorld.java使用System.loadLibrary(“HelloWorld”)：</p>
 <ul>
@@ -547,49 +549,53 @@
 <li>Win: HelloWorld.dll</li>
 <li>Mac: libHelloWorld.jnilib</li>
 </ul>
-<p>在生成本地库文件时需要留意。接下来，我们就一步步来看下如何在Java中调用本地方法（以下实现均基于Ubuntu 16.04　64bit版本)。</p>
-<h1 id="六步实现在Java中调用本地方法"><a href="#六步实现在Java中调用本地方法" class="headerlink" title="六步实现在Java中调用本地方法"></a><strong>六步实现在Java中调用本地方法</strong></h1><h2 id="１．编写Java文件"><a href="#１．编写Java文件" class="headerlink" title="１．编写Java文件"></a><strong>１．编写Java文件</strong></h2><p>指定一个文件夹下，新建一个HelloJni.java文件,并在其中声明需要调用的本地方法：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HelloJni</span>&#123;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">native</span> <span class="type">int</span> <span class="title function_">add</span><span class="params">(<span class="type">int</span> x, <span class="type">int</span> y)</span>;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">native</span> String <span class="title function_">talkBack</span><span class="params">(String str)</span>;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">native</span> <span class="keyword">void</span> <span class="title function_">sayHello</span><span class="params">(String str)</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">static</span>&#123;</span><br><span class="line">		System.loadLibrary(<span class="string">&quot;HelloJni&quot;</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span>&#123;</span><br><span class="line">		</span><br><span class="line">		<span class="type">HelloJni</span> <span class="variable">jni</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HelloJni</span>();</span><br><span class="line">		</span><br><span class="line">		<span class="type">int</span> <span class="variable">add</span> <span class="operator">=</span> jni.add(<span class="number">5</span>,<span class="number">3</span>);</span><br><span class="line">		jni.sayHello(<span class="string">&quot;hello jni&quot;</span>);</span><br><span class="line">		</span><br><span class="line">		System.out.println(<span class="string">&quot;add: &quot;</span> + add);</span><br><span class="line">		System.out.println(<span class="string">&quot;talkBack: &quot;</span> + jni.talkBack(<span class="string">&quot;hello&quot;</span>));</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="２-编译Java文件，生成-class文件"><a href="#２-编译Java文件，生成-class文件" class="headerlink" title="２. 编译Java文件，生成.class文件"></a><strong>２. 编译Java文件，生成.class文件</strong></h2><p>在HelloJni.java目录下，打开命令行工具，输入:</p>
+<p>在生成本地库文件时需要留意。接下来，我们就一步步来看下如何在Java中调用本地方法（以下实现均基于Ubuntu
+16.04　64bit版本)。</p>
+<h1
+id="六步实现在java中调用本地方法"><strong>六步实现在Java中调用本地方法</strong></h1>
+<h2 id="编写java文件"><strong>１．编写Java文件</strong></h2>
+<p>指定一个文件夹下，新建一个HelloJni.java文件,并在其中声明需要调用的本地方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HelloJni</span>&#123;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">native</span> <span class="type">int</span> <span class="title function_">add</span><span class="params">(<span class="type">int</span> x, <span class="type">int</span> y)</span>;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">native</span> String <span class="title function_">talkBack</span><span class="params">(String str)</span>;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">native</span> <span class="keyword">void</span> <span class="title function_">sayHello</span><span class="params">(String str)</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">static</span>&#123;</span><br><span class="line">		System.loadLibrary(<span class="string">&quot;HelloJni&quot;</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span>&#123;</span><br><span class="line">		</span><br><span class="line">		<span class="type">HelloJni</span> <span class="variable">jni</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">HelloJni</span>();</span><br><span class="line">		</span><br><span class="line">		<span class="type">int</span> <span class="variable">add</span> <span class="operator">=</span> jni.add(<span class="number">5</span>,<span class="number">3</span>);</span><br><span class="line">		jni.sayHello(<span class="string">&quot;hello jni&quot;</span>);</span><br><span class="line">		</span><br><span class="line">		System.out.println(<span class="string">&quot;add: &quot;</span> + add);</span><br><span class="line">		System.out.println(<span class="string">&quot;talkBack: &quot;</span> + jni.talkBack(<span class="string">&quot;hello&quot;</span>));</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<h2 id="编译java文件生成.class文件"><strong>２.
+编译Java文件，生成.class文件</strong></h2>
+<p>在HelloJni.java目录下，打开命令行工具，输入:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">javac HelloJni.java</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>查看该文件夹，可以看到已经生成了相应的.class文件。</p>
-<h2 id="３-生成本地方法对应的头文件"><a href="#３-生成本地方法对应的头文件" class="headerlink" title="３. 生成本地方法对应的头文件"></a><strong>３. 生成本地方法对应的头文件</strong></h2><p>利用JDK中提供的javah程序，我们可以生成Java文件中对应的本地方法头文件,在命令行中输入:</p>
+<h2 id="生成本地方法对应的头文件"><strong>３.
+生成本地方法对应的头文件</strong></h2>
+<p>利用JDK中提供的javah程序，我们可以生成Java文件中对应的本地方法头文件,在命令行中输入:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">javah HelloJni</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>在对应的目录下，可以看到一个名为HelloJni.h的文件,长成这样子:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* DO NOT EDIT THIS FILE - it is machine generated */</span></span><br><span class="line">#include &lt;jni.h&gt;</span><br><span class="line"><span class="comment">/* Header for class HelloJni */</span></span><br><span class="line"></span><br><span class="line">#ifndef _Included_HelloJni</span><br><span class="line">#define _Included_HelloJni</span><br><span class="line">#ifdef __cplusplus</span><br><span class="line">extern <span class="string">&quot;C&quot;</span> &#123;</span><br><span class="line">#endif</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Class:     HelloJni</span></span><br><span class="line"><span class="comment"> * Method:    add</span></span><br><span class="line"><span class="comment"> * Signature: (II)I</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">JNIEXPORT jint JNICALL <span class="title function_">Java_HelloJni_add</span></span><br><span class="line">  <span class="params">(JNIEnv *, jobject, jint, jint)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Class:     HelloJni</span></span><br><span class="line"><span class="comment"> * Method:    talkBack</span></span><br><span class="line"><span class="comment"> * Signature: (Ljava/lang/String;)Ljava/lang/String;</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">JNIEXPORT jstring JNICALL <span class="title function_">Java_HelloJni_talkBack</span></span><br><span class="line">  <span class="params">(JNIEnv *, jobject, jstring)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Class:     HelloJni</span></span><br><span class="line"><span class="comment"> * Method:    sayHello</span></span><br><span class="line"><span class="comment"> * Signature: (Ljava/lang/String;)V</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">JNIEXPORT <span class="keyword">void</span> JNICALL <span class="title function_">Java_HelloJni_sayHello</span></span><br><span class="line">  <span class="params">(JNIEnv *, jobject, jstring)</span>;</span><br><span class="line"></span><br><span class="line">#ifdef __cplusplus</span><br><span class="line">&#125;</span><br><span class="line">#endif</span><br><span class="line">#endif</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-<h2 id="４-编写对应的C-x2F-C-方法"><a href="#４-编写对应的C-x2F-C-方法" class="headerlink" title="４. 编写对应的C&#x2F;C++方法"></a><strong>４. 编写对应的C&#x2F;C++方法</strong></h2><p>按照上述生成的HelloJni.h文件，注意函数的名称与返回值必须与HelloJni.h中完全一致：</p>
+<h2 id="编写对应的cc方法"><strong>４. 编写对应的C/C++方法</strong></h2>
+<p>按照上述生成的HelloJni.h文件，注意函数的名称与返回值必须与HelloJni.h中完全一致：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">#include <span class="string">&quot;HelloJni.h&quot;</span></span><br><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">#include &lt;string.h&gt;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">JNIEXPORT jint JNICALL <span class="title function_">Java_HelloJni_add</span></span><br><span class="line">  <span class="params">(JNIEnv *env, jobject obj, jint n1, jint n2)</span>&#123;</span><br><span class="line">  <span class="keyword">return</span> n1 + n2;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">JNIEXPORT jstring JNICALL <span class="title function_">Java_HelloJni_talkBack</span></span><br><span class="line">  <span class="params">(JNIEnv *env, jobject obj, jstring str)</span>&#123;</span><br><span class="line">  <span class="comment">//注意在C中，应为:const char *s = (*env)-&gt;GetStringUTFChars(str,0)</span></span><br><span class="line">  const <span class="type">char</span> *s = env-&gt;GetStringUTFChars(str,<span class="number">0</span>);</span><br><span class="line">  <span class="keyword">if</span>(strcmp(s,<span class="string">&quot;hello&quot;</span>) == <span class="number">0</span>　|| strcmp(s,<span class="string">&quot;hi&quot;</span>) == <span class="number">0</span>)&#123;</span><br><span class="line">  	<span class="keyword">return</span> env-&gt;NewStringUTF(<span class="string">&quot;jni from c/c++&quot;</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> env-&gt;NewStringUTF(<span class="string">&quot;unknow talking&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">JNIEXPORT <span class="keyword">void</span> JNICALL <span class="title function_">Java_HelloJni_sayHello</span></span><br><span class="line">  <span class="params">(JNIEnv *env, jobject obj, jstring str)</span>&#123;</span><br><span class="line">  const <span class="type">char</span> *s = env-&gt;GetStringUTFChars(str,<span class="number">0</span>);</span><br><span class="line">  <span class="type">char</span> chs[<span class="number">100</span>];</span><br><span class="line">  strcpy(chs,s);</span><br><span class="line">  printf(chs);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-<h2 id="５-生成共享库文件"><a href="#５-生成共享库文件" class="headerlink" title="５. 生成共享库文件"></a><strong>５. 生成共享库文件</strong></h2><p>这里利用Ubuntu系统自带的编译器gcc来产生共享库文件。有关gcc命令的参数可参考 <a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man1/gcc.1.html;%E5%9C%A8%E8%BF%99%E9%87%8C%EF%BC%8C%E9%9C%80%E8%A6%81%E4%B8%BB%E4%B9%89%E4%B8%A4%E7%82%B9%EF%BC%8C%E4%B8%80%E6%98%AF%E7%BC%96%E8%AF%91%E6%97%B6%E9%9C%80%E8%A6%81%E5%8C%85%E5%90%AB%E4%B8%A4%E4%B8%AAJNI%E7%9B%B8%E5%85%B3%E7%9A%84%E5%A4%B4%E6%96%87%E4%BB%B6jni.h%E4%BB%A5%E5%8F%8Ajni_md.h,%E5%90%A6%E5%88%99%E7%BC%96%E8%AF%91%E6%97%B6%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%94%99%E8%AF%AF%EF%BC%9A">http://man7.org/linux/man-pages/man1/gcc.1.html;在这里，需要主义两点，一是编译时需要包含两个JNI相关的头文件jni.h以及jni_md.h,否则编译时会出现错误：</a></p>
-<blockquote><p>对于Ubuntu系统，JDK一般安装在：&#x2F;usr&#x2F;lib&#x2F;jvm</p>
+<h2 id="生成共享库文件"><strong>５. 生成共享库文件</strong></h2>
+<p>这里利用Ubuntu系统自带的编译器gcc来产生共享库文件。有关gcc命令的参数可参考
+http://man7.org/linux/man-pages/man1/gcc.1.html;在这里，需要主义两点，一是编译时需要包含两个JNI相关的头文件jni.h以及jni_md.h,否则编译时会出现错误：</p>
+<blockquote><p>对于Ubuntu系统，JDK一般安装在：/usr/lib/jvm</p>
 </blockquote>
-
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">:~/Java$ gcc -shared -fPIC libHelloJni.so  HelloJni.cpp</span><br><span class="line">In file included from HelloJni.cpp:<span class="number">1</span>:<span class="number">0</span>:</span><br><span class="line">HelloJni.h:<span class="number">2</span>:<span class="number">17</span>: fatal error: jni.h: No such file <span class="keyword">or</span> directory</span><br><span class="line">compilation terminated.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>一个时生成的库文件名前面需要加上lib，如libHelloJni.so,使用System.loadLibrary调用时则去掉lib:System.loadLibrary(“HelloJni”)，否则调用时可能出现无法找到库文件的错误java.lang.UnsatisfiedLinkError，完整的编译命令如下：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">gcc -I/usr/lib/jvm/java<span class="number">-1.8</span><span class="number">.0</span>-openjdk-amd64/include/ -I/usr/lib/jvm/java<span class="number">-1.8</span><span class="number">.0</span>-openjdk-amd64/include/linux -fPIC  -shared -o  libHelloJni.so HelloJni.cpp </span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-<h2 id="６-运行java程序"><a href="#６-运行java程序" class="headerlink" title="６. 运行java程序"></a><strong>６. 运行java程序</strong></h2><p>在命令行中输入(需要指定.class文件的搜索路径):</p>
+<h2 id="运行java程序"><strong>６. 运行java程序</strong></h2>
+<p>在命令行中输入(需要指定.class文件的搜索路径):</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">java -Djava.library.path=/home/jason/Java HelloJni</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-<p>java命令可参考:<a target="_blank" rel="noopener" href="http://docs.oracle.com/javase/7/docs/technotes/tools/windows/java.html">http://docs.oracle.com/javase/7/docs/technotes/tools/windows/java.html</a></p>
-<h1 id="需要注意的地方"><a href="#需要注意的地方" class="headerlink" title="需要注意的地方"></a><strong>需要注意的地方</strong></h1><ul>
-<li>确保.c&#x2F;.cpp文件中函数名称与生成的.h头文件中的一致</li>
-<li>不同操作系统中，生成的共享库文件名称不一样,例如: 在HelloJni.java,System.loadLibrary(“HelloJni”);<br> Solaris: libHelloJni.so<br> Linux: libHelloJni.so<br> Win: HelloJni.dll<br> Mac: libHelloJni.jnilib</li>
-<li>执行Java程序时,添加参数 -Djava.library.path&#x3D;PATH，这里PATH就是JNI库所在位置</li>
+<p>java命令可参考:http://docs.oracle.com/javase/7/docs/technotes/tools/windows/java.html</p>
+<h1 id="需要注意的地方"><strong>需要注意的地方</strong></h1>
+<ul>
+<li>确保.c/.cpp文件中函数名称与生成的.h头文件中的一致</li>
+<li>不同操作系统中，生成的共享库文件名称不一样,例如:
+在HelloJni.java,System.loadLibrary(“HelloJni”); Solaris: libHelloJni.so
+Linux: libHelloJni.so Win: HelloJni.dll Mac: libHelloJni.jnilib</li>
+<li>执行Java程序时,添加参数
+-Djava.library.path=PATH，这里PATH就是JNI库所在位置</li>
 </ul>
-<h1 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h1><ul>
-<li><a target="_blank" rel="noopener" href="http://docs.oracle.com/javase/7/docs/technotes/guides/jni/index.html">http://docs.oracle.com/javase/7/docs/technotes/guides/jni/index.html</a></li>
-<li><a target="_blank" rel="noopener" href="http://www.ibm.com/developerworks/java/tutorials/j-jni/j-jni.html">http://www.ibm.com/developerworks/java/tutorials/j-jni/j-jni.html</a></li>
-<li><a target="_blank" rel="noopener" href="http://www.bogotobogo.com/cplusplus/eclipse_CDT_JNI_MinGW_64bit.php">http://www.bogotobogo.com/cplusplus/eclipse_CDT_JNI_MinGW_64bit.php</a></li>
+<h1 id="参考文献"><strong>参考文献</strong></h1>
+<ul>
+<li>http://docs.oracle.com/javase/7/docs/technotes/guides/jni/index.html</li>
+<li>http://www.ibm.com/developerworks/java/tutorials/j-jni/j-jni.html</li>
+<li>http://www.bogotobogo.com/cplusplus/eclipse_CDT_JNI_MinGW_64bit.php</li>
 </ul>
 
     </article>
@@ -599,7 +605,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">https://sniffer.site/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">January 7th 2017, 1:05:57 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">2021-08-11, 14:59:46</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -765,7 +771,9 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C"><span class="toc-number">1.</span> <span class="toc-text">准备工作</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AD%E6%AD%A5%E5%AE%9E%E7%8E%B0%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8%E6%9C%AC%E5%9C%B0%E6%96%B9%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">六步实现在Java中调用本地方法</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%EF%BC%91%EF%BC%8E%E7%BC%96%E5%86%99Java%E6%96%87%E4%BB%B6"><span class="toc-number">2.1.</span> <span class="toc-text">１．编写Java文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EF%BC%92-%E7%BC%96%E8%AF%91Java%E6%96%87%E4%BB%B6%EF%BC%8C%E7%94%9F%E6%88%90-class%E6%96%87%E4%BB%B6"><span class="toc-number">2.2.</span> <span class="toc-text">２. 编译Java文件，生成.class文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EF%BC%93-%E7%94%9F%E6%88%90%E6%9C%AC%E5%9C%B0%E6%96%B9%E6%B3%95%E5%AF%B9%E5%BA%94%E7%9A%84%E5%A4%B4%E6%96%87%E4%BB%B6"><span class="toc-number">2.3.</span> <span class="toc-text">３. 生成本地方法对应的头文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EF%BC%94-%E7%BC%96%E5%86%99%E5%AF%B9%E5%BA%94%E7%9A%84C-x2F-C-%E6%96%B9%E6%B3%95"><span class="toc-number">2.4.</span> <span class="toc-text">４. 编写对应的C&#x2F;C++方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EF%BC%95-%E7%94%9F%E6%88%90%E5%85%B1%E4%BA%AB%E5%BA%93%E6%96%87%E4%BB%B6"><span class="toc-number">2.5.</span> <span class="toc-text">５. 生成共享库文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%EF%BC%96-%E8%BF%90%E8%A1%8Cjava%E7%A8%8B%E5%BA%8F"><span class="toc-number">2.6.</span> <span class="toc-text">６. 运行java程序</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%9C%80%E8%A6%81%E6%B3%A8%E6%84%8F%E7%9A%84%E5%9C%B0%E6%96%B9"><span class="toc-number">3.</span> <span class="toc-text">需要注意的地方</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">4.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C"><span class="toc-number">1.</span> <span class="toc-text">准备工作</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AD%E6%AD%A5%E5%AE%9E%E7%8E%B0%E5%9C%A8java%E4%B8%AD%E8%B0%83%E7%94%A8%E6%9C%AC%E5%9C%B0%E6%96%B9%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">六步实现在Java中调用本地方法</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E5%86%99java%E6%96%87%E4%BB%B6"><span class="toc-number">2.1.</span> <span class="toc-text">１．编写Java文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91java%E6%96%87%E4%BB%B6%E7%94%9F%E6%88%90.class%E6%96%87%E4%BB%B6"><span class="toc-number">2.2.</span> <span class="toc-text">２.
+编译Java文件，生成.class文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E6%9C%AC%E5%9C%B0%E6%96%B9%E6%B3%95%E5%AF%B9%E5%BA%94%E7%9A%84%E5%A4%B4%E6%96%87%E4%BB%B6"><span class="toc-number">2.3.</span> <span class="toc-text">３.
+生成本地方法对应的头文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E5%86%99%E5%AF%B9%E5%BA%94%E7%9A%84cc%E6%96%B9%E6%B3%95"><span class="toc-number">2.4.</span> <span class="toc-text">４. 编写对应的C&#x2F;C++方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%85%B1%E4%BA%AB%E5%BA%93%E6%96%87%E4%BB%B6"><span class="toc-number">2.5.</span> <span class="toc-text">５. 生成共享库文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%90%E8%A1%8Cjava%E7%A8%8B%E5%BA%8F"><span class="toc-number">2.6.</span> <span class="toc-text">６. 运行java程序</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%9C%80%E8%A6%81%E6%B3%A8%E6%84%8F%E7%9A%84%E5%9C%B0%E6%96%B9"><span class="toc-number">3.</span> <span class="toc-text">需要注意的地方</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">4.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1414,7 +1422,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2865,7 +2884,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2883,6 +2902,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3741,44 +3766,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3796,14 +3796,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3816,14 +3821,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3834,11 +3839,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3856,14 +3856,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3879,6 +3874,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3911,31 +3916,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3944,6 +3924,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3966,19 +3951,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3994,6 +3969,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4021,14 +4031,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4041,39 +4051,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4084,16 +4084,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4121,6 +4111,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4136,9 +4151,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4156,41 +4181,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4201,14 +4191,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4236,16 +4231,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4266,9 +4251,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4286,24 +4281,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4311,24 +4306,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4341,9 +4346,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4366,9 +4376,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4391,6 +4401,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4406,14 +4426,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4424,6 +4444,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4441,41 +4481,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4489,6 +4494,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4511,11 +4531,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4531,16 +4546,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4554,6 +4559,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4576,16 +4596,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4601,24 +4611,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4629,6 +4624,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4671,6 +4681,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4686,14 +4716,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4714,21 +4739,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4796,19 +4806,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4826,6 +4826,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4841,16 +4866,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4859,6 +4874,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4881,21 +4911,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4914,16 +4929,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4951,11 +4956,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4976,14 +4976,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5011,19 +5026,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5036,6 +5046,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5044,6 +5059,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5056,6 +5081,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5077,6 +5107,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5087,19 +5122,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5107,14 +5132,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5132,14 +5157,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5155,11 +5180,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

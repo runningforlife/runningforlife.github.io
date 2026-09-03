@@ -26,15 +26,13 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="对于任务调度器来说，在发生调度时需要决定选择某个进程调度到哪个CPU执行，同时还需要基于系统当前的负载，实时的调整CPU运行的频率。Linux进程调度器为了适配各种不同场景的设备，如服务器，嵌入式设备，通常需要在多个性能目标上进行权衡取舍：  需要确保调度尽可能公平，保证每个任务都有机会得到执行 快速响应用户请求，比如对于交互式的用户任务，需要降低调度延迟，快速调度任务执行 实现更高的系统吞吐量，">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/walt-demand-calculation.png">
 <meta property="article:published_time" content="2025-10-02T02:58:01.000Z">
-<meta property="article:modified_time" content="2025-10-02T03:54:25.603Z">
+<meta property="article:modified_time" content="2026-09-03T05:42:41.217Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="PELT">
 <meta property="article:tag" content="WALT">
 <meta property="article:tag" content="进程调度">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/walt-demand-calculation.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -366,7 +364,7 @@
                 
                 
                     <div class="post-intro-read">
-                        <span>字数统计: <span class="post-count word-count">5.1k</span>阅读时长: <span class="post-count reading-time">21 min</span></span>
+                        <span>字数统计: <span class="post-count word-count">5.1k</span>阅读时长: <span class="post-count reading-time">22 min</span></span>
                     </div>
                 
                 <div class="post-intro-meta">
@@ -529,114 +527,139 @@
     <article class="article-entry">
         <p>对于任务调度器来说，在发生调度时需要决定选择某个进程调度到哪个CPU执行，同时还需要基于系统当前的负载，实时的调整CPU运行的频率。Linux进程调度器为了适配各种不同场景的设备，如服务器，嵌入式设备，通常需要在多个性能目标上进行权衡取舍：</p>
 <ul>
-<li>需要确保调度尽可能公平，保证每个任务都有机会得到执行</li>
-<li>快速响应用户请求，比如对于交互式的用户任务，需要降低调度延迟，快速调度任务执行</li>
-<li>实现更高的系统吞吐量，可以满足更多的任务并发执行</li>
-<li>同时尽可能降低系统功耗，在系统空闲或者负载降低时尽可能减小工作频率，减少能耗</li>
+<li><p>需要确保调度尽可能公平，保证每个任务都有机会得到执行</p></li>
+<li><p>快速响应用户请求，比如对于交互式的用户任务，需要降低调度延迟，快速调度任务执行</p></li>
+<li><p>实现更高的系统吞吐量，可以满足更多的任务并发执行</p></li>
+<li><p>同时尽可能降低系统功耗，在系统空闲或者负载降低时尽可能减小工作频率，减少能耗
+<span id="more"></span></p></li>
 </ul>
-<span id="more"></span>
-
 <p>通常来说，这些目标是相互冲突的，在公平调度器（<code>CFS(Complete Fair Scheduler)</code>）出来之前，之前的调度器并没有很好的解决这些问题。最开始<code>Linux</code>内核采用的是<code>O(n)</code>调度器，每次执行任务调度时会扫描就绪队列上的所有进程，计算进程的优先级，再从中选择一个最高优先级的任务执行，<code>O(n)</code>调度器的调度时间随着系统进程数量增加呈现线性增长，因此很难以进行扩展。为了解决该问题，2002年内核中引入<code>O(1)</code>调度器，其基本思想是，将进程的优先级分为动态优先级与静态优先级，静态优先级用于计算每个任务可运行的时间片长度，动态优先级在调度时用到，每次调度的都会选择动态优先级最高的任务运行。<code>O(1)</code>调度器采用了一个动态优先级数组来存放可运行的任务，因此可以在<code>O(1)</code>时间内选择一个最优的任务。</p>
-<p><code>O(1)</code>调度器虽然解决了调度延迟的问题，但无法准确的判断系统中交互式与批处理两种类似的任务，从而导致交互延迟；<code>O(1)</code>调度器发明人<code>Ingo Molnar</code>在<code>Con Kolivas</code>发明的调度器<code>RSDL(The Rotating Staircase Deadline Scheduler)</code>基础上实现了一个全新的调度器<code>CFS</code>: <code>CFS</code>换了一种思路，不再单纯通过优先级来选择执行的任务，而是通过计算进程消耗的<code>CPU</code>时间来决定哪个任务可以被调度，它会根据系统的任务优先级来计算出每个任务所需要的<code>虚拟时间(vruntime)</code>，调度时只需要选择<code>虚拟时间(vruntime)</code>最小的任务执行即可。</p>
-<p><code>CFS</code>虽然做到了足够的<code>公平</code>，但未考虑到任务的延迟<code>lag</code>，比如某个任务预期需要执行<code>20ms</code>，而实际上只拿到了<code>10ms</code>的<code>CPU</code>时间，这个差值认为是一个任务的延迟，在这种情况下按照<code>CFS</code>的调度策略执行，在极端情况下可能会导致该任务无法立即调度，从而导致响应的延迟。为了减少这种任务的调度延迟，<a target="_blank" rel="noopener" href="https://lwn.net/Articles/925371/">新的调度器(<code>EEVDF(Earlist Eligible Virtual Deadline First)</code>)</a>基于该延迟计算出每个任务的截止时间(<code>deadline</code>)，在实际调度时会选择截止时间最小的任务执行，以此改善任务调度的延迟。</p>
-<p><code>CFS</code>在<code>SMP</code>这种对称的系统中可以很好的发挥作用，因为调度时无需考虑单个<code>CPU</code>的差异，但如果处理如<code>AMP</code>（非对称系统）， <code>HMP</code>（异构系统）等更复杂的情况就显得力不从心。在<code>3.18</code>之前的内核版本中，<code>CFS</code>调度器都是根据每个运行队列上的负载来执行负载跟踪(<code>PRLT,Per Runqueue Load Tracking</code>)，<code>PRLT</code>有个比较明显的缺点，无法准确的知道每个进程对整体负载的贡献，因此难以准确对任务的负载的轻重做出判断，在<code>ARM</code>大小核的框架下，可能导致任务错配，比如<code>重</code>任务放到了小核上执行，而<code>轻</code>任务则放到了大核上，从而降低了系统的运行效率。<code>Linux</code>内核从<code>3.18</code>版本开始，引入了<code>PELT(Per-Entity Load Tracking)</code>，以便更准确的跟踪系统的负载；高通针对<code>PELT</code>响应慢的问题，提出了<code>WALT(Window Assisted Load Tracking)</code>算法，目前所有高通的平台都默认使用<code>WALT</code>来跟踪负载。</p>
+<p><code>O(1)</code>调度器虽然解决了调度延迟的问题，但无法准确的判断系统中交互式与批处理两种类似的任务，从而导致交互延迟；<code>O(1)</code>调度器发明人<code>Ingo Molnar</code>在<code>Con Kolivas</code>发明的调度器<code>RSDL(The Rotating Staircase Deadline Scheduler)</code>基础上实现了一个全新的调度器<code>CFS</code>:
+<code>CFS</code>换了一种思路，不再单纯通过优先级来选择执行的任务，而是通过计算进程消耗的<code>CPU</code>时间来决定哪个任务可以被调度，它会根据系统的任务优先级来计算出每个任务所需要的<code>虚拟时间(vruntime)</code>，调度时只需要选择<code>虚拟时间(vruntime)</code>最小的任务执行即可。</p>
+<p><code>CFS</code>虽然做到了足够的<code>公平</code>，但未考虑到任务的延迟<code>lag</code>，比如某个任务预期需要执行<code>20ms</code>，而实际上只拿到了<code>10ms</code>的<code>CPU</code>时间，这个差值认为是一个任务的延迟，在这种情况下按照<code>CFS</code>的调度策略执行，在极端情况下可能会导致该任务无法立即调度，从而导致响应的延迟。为了减少这种任务的调度延迟，<a
+target="_blank" rel="noopener" href="https://lwn.net/Articles/925371/">新的调度器(<code>EEVDF(Earlist Eligible Virtual Deadline First)</code>)</a>基于该延迟计算出每个任务的截止时间(<code>deadline</code>)，在实际调度时会选择截止时间最小的任务执行，以此改善任务调度的延迟。</p>
+<p><code>CFS</code>在<code>SMP</code>这种对称的系统中可以很好的发挥作用，因为调度时无需考虑单个<code>CPU</code>的差异，但如果处理如<code>AMP</code>（非对称系统），
+<code>HMP</code>（异构系统）等更复杂的情况就显得力不从心。在<code>3.18</code>之前的内核版本中，<code>CFS</code>调度器都是根据每个运行队列上的负载来执行负载跟踪(<code>PRLT,Per Runqueue Load Tracking</code>)，<code>PRLT</code>有个比较明显的缺点，无法准确的知道每个进程对整体负载的贡献，因此难以准确对任务的负载的轻重做出判断，在<code>ARM</code>大小核的框架下，可能导致任务错配，比如<code>重</code>任务放到了小核上执行，而<code>轻</code>任务则放到了大核上，从而降低了系统的运行效率。<code>Linux</code>内核从<code>3.18</code>版本开始，引入了<code>PELT(Per-Entity Load Tracking)</code>，以便更准确的跟踪系统的负载；高通针对<code>PELT</code>响应慢的问题，提出了<code>WALT(Window Assisted Load Tracking)</code>算法，目前所有高通的平台都默认使用<code>WALT</code>来跟踪负载。</p>
 <p>这篇文章，我们主要介绍下负载跟踪算法<code>PELT</code>、<code>WALT</code>的实现原理以及对两个算法进行对比。</p>
 <blockquote>
 <p>本文基于Linux内核版本5.4分析</p>
 </blockquote>
-<h2 id="PELT"><a href="#PELT" class="headerlink" title="PELT"></a><strong>PELT</strong></h2><p><code>PELT(Per-Entity Load Tracking)</code>中的<code>Entity</code>对应一个调度实体，可以是一个进程，也可以是一个<code>cgroup</code>中的所有进程。为了跟踪每个<code>Entity</code>的负载，系统时间（物理时间，非虚拟调度时间）被分成<code>1024us(1ms)</code>的时间序列，在每一个<code>1024us</code>的周期内，一个调度实体对系统的负载贡献可以根据该实体处于<code>runnable</code>状态（正在执行或者等待CPU调度执行）的时间来计算：如果该周期内，<code>runnable</code>的时间为<code>x</code>，相应的该实体对系统负载的贡献为<code>x/1024</code>。但如果要考虑更长时间（超过<code>1ms</code>）的负载状态，就需要将多个周期内的负载进行加权处理（离当前越近对当前系统负载贡献越小）得到系统的整体负载。假定$L_i$表示负载计算周期$p_i$的调度实体负载，那么该实体对系统负载的贡献可以表达为（指数权重滑动平均,EWMA）：</p>
-<p>$$ L &#x3D; L_0 + L_1<em>y + L_2 * y^2 + L_3 * y^3 + … &#x3D; \sum_{i&#x3D;1}^n L_i</em>y^i $$</p>
-<p>这里参数<code>y</code>是衰减权重值，一般按照$y_32&#x3D;0.5, y≈0.9786$得到，表示调度实体经过32个计算周期后，其对当前系统负载的贡献值为<code>0.5</code>；而当前时刻的负载对系统负载的贡献权重为<code>1</code>；类似的，我们向前滚动一个计算周期（<code>1ms</code>），则可以得到该任务新的负载贡献值：</p>
-<p>$$ L &#x3D; L_0’ + y <em>(L_0 + L_1</em>y + L_2 * y^2 + L_3 * y^3 + …) \<br>    &#x3D; L_0’ + L_0 * y + L_1*y^2 + L_2 * y^3 + L_3 * y^4 + …) $$</p>
-<p>可以看到当前时间负载就是该调度实体当前的负载，再加上前一个周期的负载乘以衰减系数<code>y</code>即可；因此，想要计算出当前负载，一般只需要计算出$val*y^n$即可，我们已知$y^n &#x3D; \frac{1}{2}$，可以将$y^n$的计算转换为如下：</p>
-<p>$$ y^n &#x3D; \frac{1}{(2)^\frac{n}{p}} * y^{n%p} $$</p>
+<h2 id="pelt">PELT</h2>
+<p><code>PELT(Per-Entity Load Tracking)</code>中的<code>Entity</code>对应一个调度实体，可以是一个进程，也可以是一个<code>cgroup</code>中的所有进程。为了跟踪每个<code>Entity</code>的负载，系统时间（物理时间，非虚拟调度时间）被分成<code>1024us(1ms)</code>的时间序列，在每一个<code>1024us</code>的周期内，一个调度实体对系统的负载贡献可以根据该实体处于<code>runnable</code>状态（正在执行或者等待CPU调度执行）的时间来计算：如果该周期内，<code>runnable</code>的时间为<code>x</code>，相应的该实体对系统负载的贡献为<code>x/1024</code>。但如果要考虑更长时间（超过<code>1ms</code>）的负载状态，就需要将多个周期内的负载进行加权处理（离当前越近对当前系统负载贡献越小）得到系统的整体负载。假定<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>L</mi><mi>i</mi></msub><annotation encoding="application/x-tex">L_i</annotation></semantics></math>表示负载计算周期<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>p</mi><mi>i</mi></msub><annotation encoding="application/x-tex">p_i</annotation></semantics></math>的调度实体负载，那么该实体对系统负载的贡献可以表达为（指数权重滑动平均,EWMA）：</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo>=</mo><msub><mi>L</mi><mn>0</mn></msub><mo>+</mo><msub><mi>L</mi><mn>1</mn></msub><mo>*</mo><mi>y</mi><mo>+</mo><msub><mi>L</mi><mn>2</mn></msub><mo>*</mo><msup><mi>y</mi><mn>2</mn></msup><mo>+</mo><msub><mi>L</mi><mn>3</mn></msub><mo>*</mo><msup><mi>y</mi><mn>3</mn></msup><mo>+</mo><mi>…</mi><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><msub><mi>L</mi><mi>i</mi></msub><mo>*</mo><msup><mi>y</mi><mi>i</mi></msup></mrow><annotation encoding="application/x-tex"> L = L_0 + L_1*y + L_2 * y^2 + L_3 * y^3 + … = \sum_{i=1}^n L_i*y^i </annotation></semantics></math></p>
+<p>这里参数<code>y</code>是衰减权重值，一般按照<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mn>32</mn></msub><mo>=</mo><mn>0.5</mn><mo>,</mo><mi>y</mi><mo>≈</mo><mn>0.9786</mn></mrow><annotation encoding="application/x-tex">y_32=0.5, y≈0.9786</annotation></semantics></math>得到，表示调度实体经过32个计算周期后，其对当前系统负载的贡献值为<code>0.5</code>；而当前时刻的负载对系统负载的贡献权重为<code>1</code>；类似的，我们向前滚动一个计算周期（<code>1ms</code>），则可以得到该任务新的负载贡献值：</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo>=</mo><msub><mi>L</mi><mn>0</mn></msub><mi>’</mi><mo>+</mo><mi>y</mi><mo>*</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>L</mi><mn>0</mn></msub><mo>+</mo><msub><mi>L</mi><mn>1</mn></msub><mo>*</mo><mi>y</mi><mo>+</mo><msub><mi>L</mi><mn>2</mn></msub><mo>*</mo><msup><mi>y</mi><mn>2</mn></msup><mo>+</mo><msub><mi>L</mi><mn>3</mn></msub><mo>*</mo><msup><mi>y</mi><mn>3</mn></msup><mo>+</mo><mi>…</mi><mo stretchy="false" form="postfix">)</mo><mspace width="0.222em"></mspace><mo>=</mo><msub><mi>L</mi><mn>0</mn></msub><mi>’</mi><mo>+</mo><msub><mi>L</mi><mn>0</mn></msub><mo>*</mo><mi>y</mi><mo>+</mo><msub><mi>L</mi><mn>1</mn></msub><mo>*</mo><msup><mi>y</mi><mn>2</mn></msup><mo>+</mo><msub><mi>L</mi><mn>2</mn></msub><mo>*</mo><msup><mi>y</mi><mn>3</mn></msup><mo>+</mo><msub><mi>L</mi><mn>3</mn></msub><mo>*</mo><msup><mi>y</mi><mn>4</mn></msup><mo>+</mo><mi>…</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex"> L = L_0’ + y *(L_0 + L_1*y + L_2 * y^2 + L_3 * y^3 + …) \
+    = L_0’ + L_0 * y + L_1*y^2 + L_2 * y^3 + L_3 * y^4 + …) </annotation></semantics></math></p>
+<p>可以看到当前时间负载就是该调度实体当前的负载，再加上前一个周期的负载乘以衰减系数<code>y</code>即可；因此，想要计算出当前负载，一般只需要计算出<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>v</mi><mi>a</mi><mi>l</mi><mo>*</mo><msup><mi>y</mi><mi>n</mi></msup></mrow><annotation encoding="application/x-tex">val*y^n</annotation></semantics></math>即可，我们已知<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>y</mi><mi>n</mi></msup><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac></mrow><annotation encoding="application/x-tex">y^n = \frac{1}{2}</annotation></semantics></math>，可以将<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>y</mi><mi>n</mi></msup><annotation encoding="application/x-tex">y^n</annotation></semantics></math>的计算转换为如下：</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>y</mi><mi>n</mi></msup><mo>=</mo><mfrac><mn>1</mn><mrow><mo stretchy="false" form="prefix">(</mo><mn>2</mn><msup><mo stretchy="false" form="postfix">)</mo><mfrac><mi>n</mi><mi>p</mi></mfrac></msup></mrow></mfrac><mo>*</mo><msup><mi>y</mi><mrow><mi>n</mi><mi>%</mi><mi>p</mi></mrow></msup></mrow><annotation encoding="application/x-tex"> y^n = \frac{1}{(2)^\frac{n}{p}} * y^{n \% p} </annotation></semantics></math></p>
 <p>这里的<code>p</code>表示负载计算的衰减周期，一般为<code>32ms</code>；实际上，我们只需要把<code>0 &lt; n &lt;= 32</code>这些情况的数据计算出来，对于<code>n &gt; 32</code>的情况，只需要通过如下公司计算出来即可，比如计算<code>n=35</code>的情况：</p>
-<p>$$ y^{35} &#x3D; \frac{1}{(2)^\frac{35}{32}} * y^{35%32} &#x3D; \frac{1}{2} * y^3 $$</p>
-<p>为了避免浮点运算，提高计算效率，内核会提前计算好<code>0 &lt; n &lt;= 32</code>的情况，将$y^n*2^32$的值计算好，保存到一个<code>runnable_avg_yN_inv</code>数组里，这样实际计算的时候只需要查表即可得到$y^n$的值;具体计算的代码可以参考<code>Documentation/scheduler/sched-pelt.c</code>:</p>
-<p>$$ runnable_avg_yN_inv[i] &#x3D; (2^{32} - 1) * y^i $$</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>y</mi><mn>35</mn></msup><mo>=</mo><mfrac><mn>1</mn><mrow><mo stretchy="false" form="prefix">(</mo><mn>2</mn><msup><mo stretchy="false" form="postfix">)</mo><mfrac><mn>35</mn><mn>32</mn></mfrac></msup></mrow></mfrac><mo>*</mo><msup><mi>y</mi><mrow><mn>35</mn><mi>%</mi><mn>32</mn></mrow></msup><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>*</mo><msup><mi>y</mi><mn>3</mn></msup></mrow><annotation encoding="application/x-tex"> y^{35} = \frac{1}{(2)^\frac{35}{32}} * y^{35 \% 32} = \frac{1}{2} * y^3 </annotation></semantics></math></p>
+<p>为了避免浮点运算，提高计算效率，内核会提前计算好<code>0 &lt; n &lt;= 32</code>的情况，将<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>y</mi><mi>n</mi></msup><mo>*</mo><msup><mn>2</mn><mn>32</mn></msup></mrow><annotation encoding="application/x-tex">y^n*2^32</annotation></semantics></math>的值计算好，保存到一个<code>runnable_avg_yN_inv</code>数组里，这样实际计算的时候只需要查表即可得到<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>y</mi><mi>n</mi></msup><annotation encoding="application/x-tex">y^n</annotation></semantics></math>的值;具体计算的代码可以参考<code>Documentation/scheduler/sched-pelt.c</code>:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mi>u</mi><mi>n</mi><mi>n</mi><mi>a</mi><mi>b</mi><mi>l</mi><mi>e</mi><mi>_</mi><mi>a</mi><mi>v</mi><mi>g</mi><mi>_</mi><mi>y</mi><mi>N</mi><mi>_</mi><mi>i</mi><mi>n</mi><mi>v</mi><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo stretchy="false" form="postfix">]</mo><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msup><mn>2</mn><mn>32</mn></msup><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>*</mo><msup><mi>y</mi><mi>i</mi></msup></mrow><annotation encoding="application/x-tex"> runnable\_avg\_yN\_inv[i] = (2^{32} - 1) * y^i </annotation></semantics></math></p>
 <p>基于该预计算的数据，内核在计算调度任务的负载时，直接通过如下函数<code>decay_load</code>就可以得到对应时刻负载的衰减权重系数：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Approximate:</span></span><br><span class="line"><span class="comment"> *   val * y^n,    where y^32 ~= 0.5 (~1 scheduling period)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> u64 <span class="title function_">decay_load</span><span class="params">(u64 val, u64 n)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> local_n;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (unlikely(n &gt; LOAD_AVG_PERIOD * <span class="number">63</span>))</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* after bounds checking we can collapse to 32-bit */</span></span><br><span class="line">	local_n = n;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * As y^PERIOD = 1/2, we can combine</span></span><br><span class="line"><span class="comment">	 *    y^n = 1/2^(n/PERIOD) * y^(n%PERIOD)</span></span><br><span class="line"><span class="comment">	 * With a look-up table which covers y^n (n&lt;PERIOD)</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * To achieve constant time decay_load.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (unlikely(local_n &gt;= LOAD_AVG_PERIOD)) &#123;</span><br><span class="line">		val &gt;&gt;= local_n / LOAD_AVG_PERIOD;</span><br><span class="line">		local_n %= LOAD_AVG_PERIOD;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	val = mul_u64_u32_shr(val, runnable_avg_yN_inv[local_n], <span class="number">32</span>);</span><br><span class="line">	<span class="keyword">return</span> val;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Approximate:</span></span><br><span class="line"><span class="comment"> *   val * y^n,    where y^32 ~= 0.5 (~1 scheduling period)</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> u64 <span class="title function_">decay_load</span><span class="params">(u64 val, u64 n)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> local_n;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (unlikely(n &gt; LOAD_AVG_PERIOD * <span class="number">63</span>))</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* after bounds checking we can collapse to 32-bit */</span></span><br><span class="line">	local_n = n;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * As y^PERIOD = 1/2, we can combine</span></span><br><span class="line"><span class="comment">	 *    y^n = 1/2^(n/PERIOD) * y^(n%PERIOD)</span></span><br><span class="line"><span class="comment">	 * With a look-up table which covers y^n (n&lt;PERIOD)</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * To achieve constant time decay_load.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (unlikely(local_n &gt;= LOAD_AVG_PERIOD)) &#123;</span><br><span class="line">		val &gt;&gt;= local_n / LOAD_AVG_PERIOD;</span><br><span class="line">		local_n %= LOAD_AVG_PERIOD;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	val = mul_u64_u32_shr(val, runnable_avg_yN_inv[local_n], <span class="number">32</span>);</span><br><span class="line">	<span class="keyword">return</span> val;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>实际计算当前时刻的负载要更麻烦些，具体可以参考内核代码<code>sched/pelt.c</code>中的函数<code>accumulate_sum</code>；为了跟踪系统负载，内核在任务结构体<code>struct task_struct</code>中增加了一个<code>struct sched_avg</code>的结构体，用以保存系统负载相关的状态:</p>
 <ul>
-<li><code>last_update_time</code>: 上一次系统负载更新的时间点，基于与上次更新的时间差，我们可以计算对应的<code>load_avg/util_avg</code>的值</li>
-<li><code>load_sum/runnable_load_sum/util_sum</code>：根据上述中的权重衰减级数得到的系统负载值，<code>load_sum</code>是衰减周期内所有负载的总和，包括了<code>running/runnable</code>两种状态的时间；<code>util_sum</code>仅包含<code>running</code>时间。对于普通任务来说，<code>runnable_load_sum</code>等于<code>util_sum</code>，对于一个分组调度实体来说，<code>runnable_load_sum</code>是所有该分组任务的<code>running+runnable</code>时间的总和</li>
-<li><code>period_contrib</code>: 计算中间值，用于保存负载计算时时间窗口的临时值</li>
-<li><code>load_avg/runnable_avg/util_avg</code>： 根据<code>*_sum</code>计算得到的平均值</li>
-<li><code>util_est</code>: 任务阻塞后，其负载会不断衰减。如果一个重载任务阻塞太长时间，根据标准<code>PELT</code>计算出来的负载会非常小，当该任务被唤醒时，由于负载较小会让调度器做出错误的判断。因此引入了这个成员，记录阻塞之前的负载均值<code>load_avg</code>信息</li>
+<li><p><code>last_update_time</code>:
+上一次系统负载更新的时间点，基于与上次更新的时间差，我们可以计算对应的<code>load_avg/util_avg</code>的值</p></li>
+<li><p><code>load_sum/runnable_load_sum/util_sum</code>：根据上述中的权重衰减级数得到的系统负载值，<code>load_sum</code>是衰减周期内所有负载的总和，包括了<code>running/runnable</code>两种状态的时间；<code>util_sum</code>仅包含<code>running</code>时间。对于普通任务来说，<code>runnable_load_sum</code>等于<code>util_sum</code>，对于一个分组调度实体来说，<code>runnable_load_sum</code>是所有该分组任务的<code>running+runnable</code>时间的总和</p></li>
+<li><p><code>period_contrib</code>:
+计算中间值，用于保存负载计算时时间窗口的临时值</p></li>
+<li><p><code>load_avg/runnable_avg/util_avg</code>：
+根据<code>*_sum</code>计算得到的平均值</p></li>
+<li><p><code>util_est</code>:
+任务阻塞后，其负载会不断衰减。如果一个重载任务阻塞太长时间，根据标准<code>PELT</code>计算出来的负载会非常小，当该任务被唤醒时，由于负载较小会让调度器做出错误的判断。因此引入了这个成员，记录阻塞之前的负载均值<code>load_avg</code>信息</p></li>
 </ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sched_avg</span> &#123;</span></span><br><span class="line">	u64				last_update_time;</span><br><span class="line">	u64				load_sum;</span><br><span class="line">	u64				runnable_sum;</span><br><span class="line">	u32				util_sum;</span><br><span class="line">	u32				period_contrib;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			load_avg;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			runnable_avg;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			util_avg;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">util_est</span>			<span class="title">util_est</span>;</span></span><br><span class="line">&#125; ____cacheline_aligned;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sched_avg</span> &#123;</span></span><br><span class="line">	u64				last_update_time;</span><br><span class="line">	u64				load_sum;</span><br><span class="line">	u64				runnable_sum;</span><br><span class="line">	u32				util_sum;</span><br><span class="line">	u32				period_contrib;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			load_avg;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			runnable_avg;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span>			util_avg;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">util_est</span>			<span class="title">util_est</span>;</span></span><br><span class="line">&#125; ____cacheline_aligned;</span><br></pre></td></tr></table></figure>
 <p><code>Linux</code>内核调度器在执行任务调度的时候或者内核时钟中断来时，会实时更新当前系统的负载，比如在任务入队（<code>enqueue_task_fair</code>）、出队（<code>dequeue_task_fair</code>）或者切换不同的<code>cgroup</code>分组(<code>task_change_group_fair</code>)的时候会主动更新当前负载;以任务入队函数<code>enqueue_entity</code>为例，在更新完任务的优先级相关的时间片信息后，会通过<code>update_load_avg</code>更新系统负载。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line"><span class="title function_">enqueue_entity</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *se, <span class="type">int</span> flags)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">bool</span> renorm = !(flags &amp; ENQUEUE_WAKEUP) || (flags &amp; ENQUEUE_MIGRATED);</span><br><span class="line">	<span class="type">bool</span> curr = cfs_rq-&gt;curr == se;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * If we&#x27;re the current task, we must renormalise before calling</span></span><br><span class="line"><span class="comment">	 * update_curr().</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (renorm &amp;&amp; curr)</span><br><span class="line">		se-&gt;vruntime += cfs_rq-&gt;min_vruntime;</span><br><span class="line"></span><br><span class="line">	update_curr(cfs_rq);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Otherwise, renormalise after, such that we&#x27;re placed at the current</span></span><br><span class="line"><span class="comment">	 * moment in time, instead of some random moment in the past. Being</span></span><br><span class="line"><span class="comment">	 * placed in the past could significantly boost this task to the</span></span><br><span class="line"><span class="comment">	 * fairness detriment of existing tasks.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (renorm &amp;&amp; !curr)</span><br><span class="line">		se-&gt;vruntime += cfs_rq-&gt;min_vruntime;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * When enqueuing a sched_entity, we must:</span></span><br><span class="line"><span class="comment">	 *   - Update loads to have both entity and cfs_rq synced with now.</span></span><br><span class="line"><span class="comment">	 *   - Add its load to cfs_rq-&gt;runnable_avg</span></span><br><span class="line"><span class="comment">	 *   - For group_entity, update its weight to reflect the new share of</span></span><br><span class="line"><span class="comment">	 *     its group cfs_rq</span></span><br><span class="line"><span class="comment">	 *   - Add its new weight to cfs_rq-&gt;load.weight</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	update_load_avg(cfs_rq, se, UPDATE_TG | DO_ATTACH);  <span class="comment">//更新任务分组</span></span><br><span class="line">	se_update_runnable(se);</span><br><span class="line">	update_cfs_group(se);</span><br><span class="line">	account_entity_enqueue(cfs_rq, se);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (flags &amp; ENQUEUE_WAKEUP)</span><br><span class="line">		place_entity(cfs_rq, se, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	check_schedstat_required();</span><br><span class="line">	update_stats_enqueue(cfs_rq, se, flags);</span><br><span class="line">	check_spread(cfs_rq, se);</span><br><span class="line">	<span class="keyword">if</span> (!curr)</span><br><span class="line">		__enqueue_entity(cfs_rq, se);</span><br><span class="line">	se-&gt;on_rq = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * When bandwidth control is enabled, cfs might have been removed</span></span><br><span class="line"><span class="comment">	 * because of a parent been throttled but cfs-&gt;nr_running &gt; 1. Try to</span></span><br><span class="line"><span class="comment">	 * add it unconditionnally.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (cfs_rq-&gt;nr_running == <span class="number">1</span> || cfs_bandwidth_used())</span><br><span class="line">		list_add_leaf_cfs_rq(cfs_rq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (cfs_rq-&gt;nr_running == <span class="number">1</span>)</span><br><span class="line">		check_enqueue_throttle(cfs_rq);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line"><span class="title function_">enqueue_entity</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *se, <span class="type">int</span> flags)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">bool</span> renorm = !(flags &amp; ENQUEUE_WAKEUP) || (flags &amp; ENQUEUE_MIGRATED);</span><br><span class="line">	<span class="type">bool</span> curr = cfs_rq-&gt;curr == se;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * If we&#x27;re the current task, we must renormalise before calling</span></span><br><span class="line"><span class="comment">	 * update_curr().</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (renorm &amp;&amp; curr)</span><br><span class="line">		se-&gt;vruntime += cfs_rq-&gt;min_vruntime;</span><br><span class="line"></span><br><span class="line">	update_curr(cfs_rq);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Otherwise, renormalise after, such that we&#x27;re placed at the current</span></span><br><span class="line"><span class="comment">	 * moment in time, instead of some random moment in the past. Being</span></span><br><span class="line"><span class="comment">	 * placed in the past could significantly boost this task to the</span></span><br><span class="line"><span class="comment">	 * fairness detriment of existing tasks.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (renorm &amp;&amp; !curr)</span><br><span class="line">		se-&gt;vruntime += cfs_rq-&gt;min_vruntime;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * When enqueuing a sched_entity, we must:</span></span><br><span class="line"><span class="comment">	 *   - Update loads to have both entity and cfs_rq synced with now.</span></span><br><span class="line"><span class="comment">	 *   - Add its load to cfs_rq-&gt;runnable_avg</span></span><br><span class="line"><span class="comment">	 *   - For group_entity, update its weight to reflect the new share of</span></span><br><span class="line"><span class="comment">	 *     its group cfs_rq</span></span><br><span class="line"><span class="comment">	 *   - Add its new weight to cfs_rq-&gt;load.weight</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	update_load_avg(cfs_rq, se, UPDATE_TG | DO_ATTACH);  <span class="comment">//更新任务分组</span></span><br><span class="line">	se_update_runnable(se);</span><br><span class="line">	update_cfs_group(se);</span><br><span class="line">	account_entity_enqueue(cfs_rq, se);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (flags &amp; ENQUEUE_WAKEUP)</span><br><span class="line">		place_entity(cfs_rq, se, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	check_schedstat_required();</span><br><span class="line">	update_stats_enqueue(cfs_rq, se, flags);</span><br><span class="line">	check_spread(cfs_rq, se);</span><br><span class="line">	<span class="keyword">if</span> (!curr)</span><br><span class="line">		__enqueue_entity(cfs_rq, se);</span><br><span class="line">	se-&gt;on_rq = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * When bandwidth control is enabled, cfs might have been removed</span></span><br><span class="line"><span class="comment">	 * because of a parent been throttled but cfs-&gt;nr_running &gt; 1. Try to</span></span><br><span class="line"><span class="comment">	 * add it unconditionnally.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (cfs_rq-&gt;nr_running == <span class="number">1</span> || cfs_bandwidth_used())</span><br><span class="line">		list_add_leaf_cfs_rq(cfs_rq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (cfs_rq-&gt;nr_running == <span class="number">1</span>)</span><br><span class="line">		check_enqueue_throttle(cfs_rq);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>函数<code>update_load_avg</code>主要作用是更新系统的负载状态，包括更新当前调度任务的负载，对应任务队列的负载，同时需要更新任务所在的分组的负载状态：</p>
 <ul>
-<li><code>__update_load_avg_se</code>: 更新当前调度实体的负载信息</li>
-<li><code>update_cfs_rq_load_avg</code>: 更新调度实体对应的任务队列上的负载</li>
-<li><code>propagate_entity_load_avg</code>: 将调度实体的负载信息在控制分组内进行传递</li>
-<li><code>cfs_rq_util_change</code>: 如果负载有更新，需要通知系统调频模块选择一个适当的CPU频率</li>
+<li><p><code>__update_load_avg_se</code>:
+更新当前调度实体的负载信息</p></li>
+<li><p><code>update_cfs_rq_load_avg</code>:
+更新调度实体对应的任务队列上的负载</p></li>
+<li><p><code>propagate_entity_load_avg</code>:
+将调度实体的负载信息在控制分组内进行传递</p></li>
+<li><p><code>cfs_rq_util_change</code>:
+如果负载有更新，需要通知系统调频模块选择一个适当的CPU频率</p></li>
 </ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* Update task and its cfs_rq load average */</span></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> <span class="title function_">update_load_avg</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *se, <span class="type">int</span> flags)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 now = cfs_rq_clock_pelt(cfs_rq);</span><br><span class="line">	<span class="type">int</span> decayed;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Track task load average for carrying it to new CPU after migrated, and</span></span><br><span class="line"><span class="comment">	 * track group sched_entity load average for task_h_load calc in migration</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (se-&gt;avg.last_update_time &amp;&amp; !(flags &amp; SKIP_AGE_LOAD))</span><br><span class="line">		__update_load_avg_se(now, cfs_rq, se);</span><br><span class="line"></span><br><span class="line">	decayed  = update_cfs_rq_load_avg(now, cfs_rq);</span><br><span class="line">	decayed |= propagate_entity_load_avg(se);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!se-&gt;avg.last_update_time &amp;&amp; (flags &amp; DO_ATTACH)) &#123;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * DO_ATTACH means we&#x27;re here from enqueue_entity().</span></span><br><span class="line"><span class="comment">		 * !last_update_time means we&#x27;ve passed through</span></span><br><span class="line"><span class="comment">		 * migrate_task_rq_fair() indicating we migrated.</span></span><br><span class="line"><span class="comment">		 *</span></span><br><span class="line"><span class="comment">		 * IOW we&#x27;re enqueueing a task on a new CPU.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		attach_entity_load_avg(cfs_rq, se);</span><br><span class="line">		update_tg_load_avg(cfs_rq);</span><br><span class="line"></span><br><span class="line">	&#125; <span class="keyword">else</span> <span class="keyword">if</span> (decayed) &#123;</span><br><span class="line">		cfs_rq_util_change(cfs_rq, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (flags &amp; UPDATE_TG)</span><br><span class="line">			update_tg_load_avg(cfs_rq);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="WALT"><a href="#WALT" class="headerlink" title="WALT"></a><strong>WALT</strong></h2><p><code>WALT(Window Assisted Load Tracking)</code>一种基于时间窗口（一般默认为<code>16ms</code>，高通的代码里会根据系统时钟中断频率<code>HZ</code>来调整窗口大小）的负载跟踪算法，是高通针对手机移动平台提出的一种负载跟踪方案。其基本思想是，基于一个固定的时间窗口来计算任务负载，同时会考虑过去几个窗口内（默认是计算<code>5</code>个窗口内的负载均值）的负载情况，实际计算时会取当前负载与历史负载均值的最大值作为任务的当前负载。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Update task and its cfs_rq load average */</span></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> <span class="title function_">update_load_avg</span><span class="params">(<span class="keyword">struct</span> cfs_rq *cfs_rq, <span class="keyword">struct</span> sched_entity *se, <span class="type">int</span> flags)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 now = cfs_rq_clock_pelt(cfs_rq);</span><br><span class="line">	<span class="type">int</span> decayed;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Track task load average for carrying it to new CPU after migrated, and</span></span><br><span class="line"><span class="comment">	 * track group sched_entity load average for task_h_load calc in migration</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">if</span> (se-&gt;avg.last_update_time &amp;&amp; !(flags &amp; SKIP_AGE_LOAD))</span><br><span class="line">		__update_load_avg_se(now, cfs_rq, se);</span><br><span class="line"></span><br><span class="line">	decayed  = update_cfs_rq_load_avg(now, cfs_rq);</span><br><span class="line">	decayed |= propagate_entity_load_avg(se);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!se-&gt;avg.last_update_time &amp;&amp; (flags &amp; DO_ATTACH)) &#123;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * DO_ATTACH means we&#x27;re here from enqueue_entity().</span></span><br><span class="line"><span class="comment">		 * !last_update_time means we&#x27;ve passed through</span></span><br><span class="line"><span class="comment">		 * migrate_task_rq_fair() indicating we migrated.</span></span><br><span class="line"><span class="comment">		 *</span></span><br><span class="line"><span class="comment">		 * IOW we&#x27;re enqueueing a task on a new CPU.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		attach_entity_load_avg(cfs_rq, se);</span><br><span class="line">		update_tg_load_avg(cfs_rq);</span><br><span class="line"></span><br><span class="line">	&#125; <span class="keyword">else</span> <span class="keyword">if</span> (decayed) &#123;</span><br><span class="line">		cfs_rq_util_change(cfs_rq, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (flags &amp; UPDATE_TG)</span><br><span class="line">			update_tg_load_avg(cfs_rq);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="walt">WALT</h2>
+<p><code>WALT(Window Assisted Load Tracking)</code>一种基于时间窗口（一般默认为<code>16ms</code>，高通的代码里会根据系统时钟中断频率<code>HZ</code>来调整窗口大小）的负载跟踪算法，是高通针对手机移动平台提出的一种负载跟踪方案。其基本思想是，基于一个固定的时间窗口来计算任务负载，同时会考虑过去几个窗口内（默认是计算<code>5</code>个窗口内的负载均值）的负载情况，实际计算时会取当前负载与历史负载均值的最大值作为任务的当前负载。</p>
 <p><code>WALT</code>算法在当前<code>struct task_struct</code>中嵌入了一个<code>struct walt_task_struct</code>用于保存负载相关的信息，包括当前窗口的负载，历史负载，以及<code>CPU</code>能力归一化后的负载:</p>
 <ul>
-<li><code>mark_start</code>: 任务开始执行的时间标记</li>
-<li><code>sum</code>: 当前窗口任务总的运行时间（包括运行时间和等待时间，做了频率缩放）</li>
-<li><code>sum_history</code>: 上一个窗口任务总的运行时间（不包括休眠时间）</li>
-<li><code>demand</code>: 上一个窗口最大的任务负载，用于调节CPU工作频率</li>
-<li><code>curr_window_cpu</code>: 当前窗口任务在各个<code>CPU</code>上的运行时间</li>
-<li><code>prev_window_cpu</code>: 上一个窗口任务在各个<code>CPU</code>上的运行时间</li>
-<li><code>pred_demand</code>: 当前窗口预测的任务负载(用于<code>EAS</code>功耗感知调度)</li>
-<li><code>demand_scaled</code>: 当前窗口任务的归一化后负载（缩放到了1024）</li>
+<li><p><code>mark_start</code>: 任务开始执行的时间标记</p></li>
+<li><p><code>sum</code>:
+当前窗口任务总的运行时间（包括运行时间和等待时间，做了频率缩放）</p></li>
+<li><p><code>sum_history</code>:
+上一个窗口任务总的运行时间（不包括休眠时间）</p></li>
+<li><p><code>demand</code>:
+上一个窗口最大的任务负载，用于调节CPU工作频率</p></li>
+<li><p><code>curr_window_cpu</code>:
+当前窗口任务在各个<code>CPU</code>上的运行时间</p></li>
+<li><p><code>prev_window_cpu</code>:
+上一个窗口任务在各个<code>CPU</code>上的运行时间</p></li>
+<li><p><code>pred_demand</code>:
+当前窗口预测的任务负载(用于<code>EAS</code>功耗感知调度)</p></li>
+<li><p><code>demand_scaled</code>:
+当前窗口任务的归一化后负载（缩放到了1024）</p></li>
 </ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">walt_task_struct</span> &#123;</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * &#x27;mark_start&#x27; marks the beginning of an event (task waking up, task</span></span><br><span class="line"><span class="comment">	 * starting to execute, task being preempted) within a window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;sum&#x27; represents how runnable a task has been within current</span></span><br><span class="line"><span class="comment">	 * window. It incorporates both running time and wait time and is</span></span><br><span class="line"><span class="comment">	 * frequency scaled.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;sum_history&#x27; keeps track of history of &#x27;sum&#x27; seen over previous</span></span><br><span class="line"><span class="comment">	 * RAVG_HIST_SIZE windows. Windows where task was entirely sleeping are</span></span><br><span class="line"><span class="comment">	 * ignored.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;demand&#x27; represents maximum sum seen over previous</span></span><br><span class="line"><span class="comment">	 * sysctl_sched_ravg_hist_size windows. &#x27;demand&#x27; could drive frequency</span></span><br><span class="line"><span class="comment">	 * demand for tasks.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;curr_window_cpu&#x27; represents task&#x27;s contribution to cpu busy time on</span></span><br><span class="line"><span class="comment">	 * various CPUs in the current window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;prev_window_cpu&#x27; represents task&#x27;s contribution to cpu busy time on</span></span><br><span class="line"><span class="comment">	 * various CPUs in the previous window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;curr_window&#x27; represents the sum of all entries in curr_window_cpu</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;prev_window&#x27; represents the sum of all entries in prev_window_cpu</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;pred_demand&#x27; represents task&#x27;s current predicted cpu busy time</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;busy_buckets&#x27; groups historical busy time into different buckets</span></span><br><span class="line"><span class="comment">	 * used for prediction</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;demand_scaled&#x27; represents task&#x27;s demand scaled to 1024</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	u64				mark_start;</span><br><span class="line">	u32				sum, demand;</span><br><span class="line">	u32				coloc_demand;</span><br><span class="line">	u32				sum_history[RAVG_HIST_SIZE_MAX];</span><br><span class="line">	u32				*curr_window_cpu, *prev_window_cpu;</span><br><span class="line">	u32				curr_window, prev_window;</span><br><span class="line">	u32				pred_demand;</span><br><span class="line">	u8				busy_buckets[NUM_BUSY_BUCKETS];</span><br><span class="line">	u16				demand_scaled;</span><br><span class="line">	u16				pred_demand_scaled;</span><br><span class="line">	u64				active_time;</span><br><span class="line">	<span class="type">int</span>				boost;</span><br><span class="line">	<span class="type">bool</span>				wake_up_idle;</span><br><span class="line">	<span class="type">bool</span>				misfit;</span><br><span class="line">	<span class="type">bool</span>				rtg_high_prio;</span><br><span class="line">	u8				low_latency;</span><br><span class="line">	u64				boost_period;</span><br><span class="line">	u64				boost_expires;</span><br><span class="line">	u64				last_sleep_ts;</span><br><span class="line">	u32				init_load_pct;</span><br><span class="line">	u32				unfilter;</span><br><span class="line">	u64				last_wake_ts;</span><br><span class="line">	u64				last_enqueued_ts;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">walt_related_thread_group</span> __<span class="title">rcu</span> *<span class="title">grp</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span>		<span class="title">grp_list</span>;</span></span><br><span class="line">	u64				cpu_cycles;</span><br><span class="line">	<span class="type">cpumask_t</span>			cpus_requested;</span><br><span class="line">	<span class="type">bool</span>				iowaited;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">walt_task_struct</span> &#123;</span></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * &#x27;mark_start&#x27; marks the beginning of an event (task waking up, task</span></span><br><span class="line"><span class="comment">	 * starting to execute, task being preempted) within a window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;sum&#x27; represents how runnable a task has been within current</span></span><br><span class="line"><span class="comment">	 * window. It incorporates both running time and wait time and is</span></span><br><span class="line"><span class="comment">	 * frequency scaled.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;sum_history&#x27; keeps track of history of &#x27;sum&#x27; seen over previous</span></span><br><span class="line"><span class="comment">	 * RAVG_HIST_SIZE windows. Windows where task was entirely sleeping are</span></span><br><span class="line"><span class="comment">	 * ignored.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;demand&#x27; represents maximum sum seen over previous</span></span><br><span class="line"><span class="comment">	 * sysctl_sched_ravg_hist_size windows. &#x27;demand&#x27; could drive frequency</span></span><br><span class="line"><span class="comment">	 * demand for tasks.</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;curr_window_cpu&#x27; represents task&#x27;s contribution to cpu busy time on</span></span><br><span class="line"><span class="comment">	 * various CPUs in the current window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;prev_window_cpu&#x27; represents task&#x27;s contribution to cpu busy time on</span></span><br><span class="line"><span class="comment">	 * various CPUs in the previous window</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;curr_window&#x27; represents the sum of all entries in curr_window_cpu</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;prev_window&#x27; represents the sum of all entries in prev_window_cpu</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;pred_demand&#x27; represents task&#x27;s current predicted cpu busy time</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;busy_buckets&#x27; groups historical busy time into different buckets</span></span><br><span class="line"><span class="comment">	 * used for prediction</span></span><br><span class="line"><span class="comment">	 *</span></span><br><span class="line"><span class="comment">	 * &#x27;demand_scaled&#x27; represents task&#x27;s demand scaled to 1024</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	u64				mark_start;</span><br><span class="line">	u32				sum, demand;</span><br><span class="line">	u32				coloc_demand;</span><br><span class="line">	u32				sum_history[RAVG_HIST_SIZE_MAX];</span><br><span class="line">	u32				*curr_window_cpu, *prev_window_cpu;</span><br><span class="line">	u32				curr_window, prev_window;</span><br><span class="line">	u32				pred_demand;</span><br><span class="line">	u8				busy_buckets[NUM_BUSY_BUCKETS];</span><br><span class="line">	u16				demand_scaled;</span><br><span class="line">	u16				pred_demand_scaled;</span><br><span class="line">	u64				active_time;</span><br><span class="line">	<span class="type">int</span>				boost;</span><br><span class="line">	<span class="type">bool</span>				wake_up_idle;</span><br><span class="line">	<span class="type">bool</span>				misfit;</span><br><span class="line">	<span class="type">bool</span>				rtg_high_prio;</span><br><span class="line">	u8				low_latency;</span><br><span class="line">	u64				boost_period;</span><br><span class="line">	u64				boost_expires;</span><br><span class="line">	u64				last_sleep_ts;</span><br><span class="line">	u32				init_load_pct;</span><br><span class="line">	u32				unfilter;</span><br><span class="line">	u64				last_wake_ts;</span><br><span class="line">	u64				last_enqueued_ts;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">walt_related_thread_group</span> __<span class="title">rcu</span> *<span class="title">grp</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">list_head</span>		<span class="title">grp_list</span>;</span></span><br><span class="line">	u64				cpu_cycles;</span><br><span class="line">	<span class="type">cpumask_t</span>			cpus_requested;</span><br><span class="line">	<span class="type">bool</span>				iowaited;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p><code>WALT</code>负载计算是根据系统的事件来触发的，比如系统时间中断，任务状态变化（任务创建、唤醒、切换等），负载均衡，中断等都会重新计算任务的负载信息，比如执行调度函数<code>_schedule</code>时，会调用<code>walt_update_task_ravg</code>更新任务负载信息：</p>
 <ul>
-<li>首先调用<code>update_window_start</code>函数更新任务窗口开始时间</li>
-<li><code>update_task_rq_cpu_cycles</code>更新任务队列的CPU运行的周期</li>
-<li><code>update_task_demand</code>更新任务的负载信息，这个是<code>WALT</code>算法的关键函数</li>
-<li><code>update_cpu_busy_time</code>更新CPU在该窗口内的运行时间信息</li>
-<li><code>update_task_pred_demand</code>更新任务的预测负载信息</li>
-<li><code>run_walt_irq_work</code>触发一个软中断，用于更新当前CPU的工作频率</li>
+<li><p>首先调用<code>update_window_start</code>函数更新任务窗口开始时间</p></li>
+<li><p><code>update_task_rq_cpu_cycles</code>更新任务队列的CPU运行的周期</p></li>
+<li><p><code>update_task_demand</code>更新任务的负载信息，这个是<code>WALT</code>算法的关键函数</p></li>
+<li><p><code>update_cpu_busy_time</code>更新CPU在该窗口内的运行时间信息</p></li>
+<li><p><code>update_task_pred_demand</code>更新任务的预测负载信息</p></li>
+<li><p><code>run_walt_irq_work</code>触发一个软中断，用于更新当前CPU的工作频率</p></li>
 </ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/* Reflect task activity on its demand and cpu&#x27;s busy time statistics */</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">walt_update_task_ravg</span><span class="params">(<span class="keyword">struct</span> task_struct *p, <span class="keyword">struct</span> rq *rq, <span class="type">int</span> event,</span></span><br><span class="line"><span class="params">						u64 wallclock, u64 irqtime)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 old_window_start;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!rq-&gt;wrq.window_start || p-&gt;wts.mark_start == wallclock)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	lockdep_assert_held(&amp;rq-&gt;lock);</span><br><span class="line"></span><br><span class="line">	old_window_start = update_window_start(rq, wallclock, event);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!p-&gt;wts.mark_start) &#123;</span><br><span class="line">		update_task_cpu_cycles(p, cpu_of(rq), wallclock);</span><br><span class="line">		<span class="keyword">goto</span> done;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	update_task_rq_cpu_cycles(p, rq, event, wallclock, irqtime);</span><br><span class="line">	update_task_demand(p, rq, event, wallclock);</span><br><span class="line">	update_cpu_busy_time(p, rq, event, wallclock, irqtime);</span><br><span class="line">	update_task_pred_demand(rq, p, event);</span><br><span class="line">	<span class="keyword">if</span> (event == PUT_PREV_TASK &amp;&amp; p-&gt;state)</span><br><span class="line">		p-&gt;wts.iowaited = p-&gt;in_iowait;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">done:</span><br><span class="line">	p-&gt;wts.mark_start = wallclock;</span><br><span class="line"></span><br><span class="line">	run_walt_irq_work(old_window_start, rq);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Reflect task activity on its demand and cpu&#x27;s busy time statistics */</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">walt_update_task_ravg</span><span class="params">(<span class="keyword">struct</span> task_struct *p, <span class="keyword">struct</span> rq *rq, <span class="type">int</span> event,</span></span><br><span class="line"><span class="params">						u64 wallclock, u64 irqtime)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 old_window_start;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!rq-&gt;wrq.window_start || p-&gt;wts.mark_start == wallclock)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	lockdep_assert_held(&amp;rq-&gt;lock);</span><br><span class="line"></span><br><span class="line">	old_window_start = update_window_start(rq, wallclock, event);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!p-&gt;wts.mark_start) &#123;</span><br><span class="line">		update_task_cpu_cycles(p, cpu_of(rq), wallclock);</span><br><span class="line">		<span class="keyword">goto</span> done;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	update_task_rq_cpu_cycles(p, rq, event, wallclock, irqtime);</span><br><span class="line">	update_task_demand(p, rq, event, wallclock);</span><br><span class="line">	update_cpu_busy_time(p, rq, event, wallclock, irqtime);</span><br><span class="line">	update_task_pred_demand(rq, p, event);</span><br><span class="line">	<span class="keyword">if</span> (event == PUT_PREV_TASK &amp;&amp; p-&gt;state)</span><br><span class="line">		p-&gt;wts.iowaited = p-&gt;in_iowait;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">done:</span><br><span class="line">	p-&gt;wts.mark_start = wallclock;</span><br><span class="line"></span><br><span class="line">	run_walt_irq_work(old_window_start, rq);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>真正更新任务负载的函数是<code>update_task_demand</code>。负载的计算主要有三种不同的情况：</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/walt-demand-calculation.png" alt="walt-demand-calculation"></p>
-<ol>
-<li>如果系统事件在当前窗口(<code>ws &lt; ms &lt;wc</code>)内发生，那么只需要更新当前窗口的任务负载</li>
-<li>如果系统事件横跨了两个窗口(<code>ms &lt; ws &lt; wc</code>)，任务开始的时间在上一个窗口，那么需要更新当前窗口的任务负载和上一个窗口的任务负载</li>
-<li>如果系统事件横跨多个窗口（<code>ms &lt; ws &lt; wc</code>)），即任务开始的时间在之前的某个窗口，那么需要更新所有的历史窗口的任务负载</li>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/walt-demand-calculation.png"
+alt="walt-demand-calculation" /></p>
+<ol type="1">
+<li><p>如果系统事件在当前窗口(<code>ws &lt; ms &lt;wc</code>)内发生，那么只需要更新当前窗口的任务负载</p></li>
+<li><p>如果系统事件横跨了两个窗口(<code>ms &lt; ws &lt; wc</code>)，任务开始的时间在上一个窗口，那么需要更新当前窗口的任务负载和上一个窗口的任务负载</p></li>
+<li><p>如果系统事件横跨多个窗口（<code>ms &lt; ws &lt; wc</code>)），即任务开始的时间在之前的某个窗口，那么需要更新所有的历史窗口的任务负载
+任务计算运行时间的方式就是根据<code>ws</code>和<code>ms</code>的差值缩放到<code>1024</code>(CPU的最大默认能力)，基于任务的运行时间，<code>WALT</code>选择历史窗口中平均负载值与当前任务负载中较大的一个作为真正的负载，缩放后得到<code>demand_scaled</code>作为系统调频、任务放置等决策依据,具体可以参考函数<code>update_history</code>的实现：</p></li>
 </ol>
-<p>任务计算运行时间的方式就是根据<code>ws</code>和<code>ms</code>的差值缩放到<code>1024</code>(CPU的最大默认能力)，基于任务的运行时间，<code>WALT</code>选择历史窗口中平均负载值与当前任务负载中较大的一个作为真正的负载，缩放后得到<code>demand_scaled</code>作为系统调频、任务放置等决策依据,具体可以参考函数<code>update_history</code>的实现：</p>
-<p>$$ delta &#x3D; (ws - ms) * cur_cpu_freq&#x2F;max_cpu_freq * cpu_capacity &#x2F; 1024 &#x2F;&#x2F; 任务缩放后的执行时间 $$</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Account cpu demand of task and/or update task&#x27;s cpu demand history</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * ms = p-&gt;wts.mark_start;</span></span><br><span class="line"><span class="comment"> * wc = wallclock</span></span><br><span class="line"><span class="comment"> * ws = rq-&gt;wrq.window_start</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> u64 <span class="title function_">update_task_demand</span><span class="params">(<span class="keyword">struct</span> task_struct *p, <span class="keyword">struct</span> rq *rq,</span></span><br><span class="line"><span class="params">			       <span class="type">int</span> event, u64 wallclock)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 mark_start = p-&gt;wts.mark_start;</span><br><span class="line">	u64 delta, window_start = rq-&gt;wrq.window_start;</span><br><span class="line">	<span class="type">int</span> new_window, nr_full_windows;</span><br><span class="line">	u32 window_size = sched_ravg_window;</span><br><span class="line">	u64 runtime;</span><br><span class="line"></span><br><span class="line">	new_window = mark_start &lt; window_start;</span><br><span class="line">	<span class="keyword">if</span> (!account_busy_for_task_demand(rq, p, event)) &#123;</span><br><span class="line">		<span class="keyword">if</span> (new_window)</span><br><span class="line">			<span class="comment">/*</span></span><br><span class="line"><span class="comment">			 * If the time accounted isn&#x27;t being accounted as</span></span><br><span class="line"><span class="comment">			 * busy time, and a new window started, only the</span></span><br><span class="line"><span class="comment">			 * previous window need be closed out with the</span></span><br><span class="line"><span class="comment">			 * pre-existing demand. Multiple windows may have</span></span><br><span class="line"><span class="comment">			 * elapsed, but since empty windows are dropped,</span></span><br><span class="line"><span class="comment">			 * it is not necessary to account those.</span></span><br><span class="line"><span class="comment">			 */</span></span><br><span class="line">			update_history(rq, p, p-&gt;wts.sum, <span class="number">1</span>, event);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!new_window) &#123;</span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * The simple case - busy time contained within the existing</span></span><br><span class="line"><span class="comment">		 * window.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">return</span> add_to_task_demand(rq, p, wallclock - mark_start);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Busy time spans at least two windows. Temporarily rewind</span></span><br><span class="line"><span class="comment">	 * window_start to first window boundary after mark_start.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	delta = window_start - mark_start;</span><br><span class="line">	nr_full_windows = div64_u64(delta, window_size);</span><br><span class="line">	window_start -= (u64)nr_full_windows * (u64)window_size;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Process (window_start - mark_start) first */</span></span><br><span class="line">	runtime = add_to_task_demand(rq, p, window_start - mark_start);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Push new sample(s) into task&#x27;s demand history */</span></span><br><span class="line">	update_history(rq, p, p-&gt;wts.sum, <span class="number">1</span>, event);</span><br><span class="line">	<span class="keyword">if</span> (nr_full_windows) &#123;</span><br><span class="line">		u64 scaled_window = scale_exec_time(window_size, rq);</span><br><span class="line"></span><br><span class="line">		update_history(rq, p, scaled_window, nr_full_windows, event);</span><br><span class="line">		runtime += nr_full_windows * scaled_window;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Roll window_start back to current to process any remainder</span></span><br><span class="line"><span class="comment">	 * in current window.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	window_start += (u64)nr_full_windows * (u64)window_size;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Process (wallclock - window_start) next */</span></span><br><span class="line">	mark_start = window_start;</span><br><span class="line">	runtime += add_to_task_demand(rq, p, wallclock - mark_start);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> runtime;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mi>e</mi><mi>l</mi><mi>t</mi><mi>a</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>w</mi><mi>s</mi><mo>−</mo><mi>m</mi><mi>s</mi><mo stretchy="false" form="postfix">)</mo><mo>*</mo><mi>c</mi><mi>u</mi><msub><mi>r</mi><mi>c</mi></msub><mi>p</mi><msub><mi>u</mi><mi>f</mi></msub><mi>r</mi><mi>e</mi><mi>q</mi><mi>/</mi><mi>m</mi><mi>a</mi><msub><mi>x</mi><mi>c</mi></msub><mi>p</mi><msub><mi>u</mi><mi>f</mi></msub><mi>r</mi><mi>e</mi><mi>q</mi><mo>*</mo><mi>c</mi><mi>p</mi><msub><mi>u</mi><mi>c</mi></msub><mi>a</mi><mi>p</mi><mi>a</mi><mi>c</mi><mi>i</mi><mi>t</mi><mi>y</mi><mi>/</mi><mn>1024</mn><mi>/</mi><mi>/</mi><mi>任</mi><mi>务</mi><mi>缩</mi><mi>放</mi><mi>后</mi><mi>的</mi><mi>执</mi><mi>行</mi><mi>时</mi><mi>间</mi></mrow><annotation encoding="application/x-tex"> delta = (ws - ms) * cur_cpu_freq/max_cpu_freq * cpu_capacity / 1024 // 任务缩放后的执行时间 </annotation></semantics></math></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Account cpu demand of task and/or update task&#x27;s cpu demand history</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * ms = p-&gt;wts.mark_start;</span></span><br><span class="line"><span class="comment"> * wc = wallclock</span></span><br><span class="line"><span class="comment"> * ws = rq-&gt;wrq.window_start</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> u64 <span class="title function_">update_task_demand</span><span class="params">(<span class="keyword">struct</span> task_struct *p, <span class="keyword">struct</span> rq *rq,</span></span><br><span class="line"><span class="params">			       <span class="type">int</span> event, u64 wallclock)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 mark_start = p-&gt;wts.mark_start;</span><br><span class="line">	u64 delta, window_start = rq-&gt;wrq.window_start;</span><br><span class="line">	<span class="type">int</span> new_window, nr_full_windows;</span><br><span class="line">	u32 window_size = sched_ravg_window;</span><br><span class="line">	u64 runtime;</span><br><span class="line"></span><br><span class="line">	new_window = mark_start &lt; window_start;</span><br><span class="line">	<span class="keyword">if</span> (!account_busy_for_task_demand(rq, p, event)) &#123;</span><br><span class="line">		<span class="keyword">if</span> (new_window)</span><br><span class="line">			<span class="comment">/*</span></span><br><span class="line"><span class="comment">			 * If the time accounted isn&#x27;t being accounted as</span></span><br><span class="line"><span class="comment">			 * busy time, and a new window started, only the</span></span><br><span class="line"><span class="comment">			 * previous window need be closed out with the</span></span><br><span class="line"><span class="comment">			 * pre-existing demand. Multiple windows may have</span></span><br><span class="line"><span class="comment">			 * elapsed, but since empty windows are dropped,</span></span><br><span class="line"><span class="comment">			 * it is not necessary to account those.</span></span><br><span class="line"><span class="comment">			 */</span></span><br><span class="line">			update_history(rq, p, p-&gt;wts.sum, <span class="number">1</span>, event);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!new_window) &#123;</span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * The simple case - busy time contained within the existing</span></span><br><span class="line"><span class="comment">		 * window.</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="keyword">return</span> add_to_task_demand(rq, p, wallclock - mark_start);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Busy time spans at least two windows. Temporarily rewind</span></span><br><span class="line"><span class="comment">	 * window_start to first window boundary after mark_start.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	delta = window_start - mark_start;</span><br><span class="line">	nr_full_windows = div64_u64(delta, window_size);</span><br><span class="line">	window_start -= (u64)nr_full_windows * (u64)window_size;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Process (window_start - mark_start) first */</span></span><br><span class="line">	runtime = add_to_task_demand(rq, p, window_start - mark_start);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Push new sample(s) into task&#x27;s demand history */</span></span><br><span class="line">	update_history(rq, p, p-&gt;wts.sum, <span class="number">1</span>, event);</span><br><span class="line">	<span class="keyword">if</span> (nr_full_windows) &#123;</span><br><span class="line">		u64 scaled_window = scale_exec_time(window_size, rq);</span><br><span class="line"></span><br><span class="line">		update_history(rq, p, scaled_window, nr_full_windows, event);</span><br><span class="line">		runtime += nr_full_windows * scaled_window;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Roll window_start back to current to process any remainder</span></span><br><span class="line"><span class="comment">	 * in current window.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	window_start += (u64)nr_full_windows * (u64)window_size;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Process (wallclock - window_start) next */</span></span><br><span class="line">	mark_start = window_start;</span><br><span class="line">	runtime += add_to_task_demand(rq, p, wallclock - mark_start);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> runtime;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>最后系统调频时，基于<code>WALT</code>计算出来的负载，可以以此调整CPU运行的频率，具体可以参考<code>cpufreq_schedutil.c</code>:</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">long</span> <span class="title function_">sugov_get_util</span><span class="params">(<span class="keyword">struct</span> sugov_cpu *sg_cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">rq</span> *<span class="title">rq</span> =</span> cpu_rq(sg_cpu-&gt;cpu);</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> max = arch_scale_cpu_capacity(sg_cpu-&gt;cpu);</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> util;</span><br><span class="line"></span><br><span class="line">	sg_cpu-&gt;max = max;</span><br><span class="line">	sg_cpu-&gt;bw_dl = cpu_bw_dl(rq);</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_SCHED_WALT</span></span><br><span class="line">	util = cpu_util_freq_walt(sg_cpu-&gt;cpu, &amp;sg_cpu-&gt;walt_load);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> uclamp_rq_util_with(rq, util, <span class="literal">NULL</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">	util = cpu_util_cfs(rq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> schedutil_cpu_util(sg_cpu-&gt;cpu, util, max, FREQUENCY_UTIL, <span class="literal">NULL</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-<h2 id="PELT与WALT的对比"><a href="#PELT与WALT的对比" class="headerlink" title="PELT与WALT的对比"></a><strong>PELT与WALT的对比</strong></h2><p><code>PELT</code>是<code>ARM</code>公司开发的一种负载跟踪算法，基于滑动平均的方式预测任务负载，但由于其缺乏对大小核(<code>Big.Little</code>)架构的支持，加上其负载衰减慢，因此并不合适手机等终端设备这种负载突发、变化频繁的系统，<code>WALT</code>针对上述的缺点做了改建优化，总结来说，两者的区别如下:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">unsigned</span> <span class="type">long</span> <span class="title function_">sugov_get_util</span><span class="params">(<span class="keyword">struct</span> sugov_cpu *sg_cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">rq</span> *<span class="title">rq</span> =</span> cpu_rq(sg_cpu-&gt;cpu);</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> max = arch_scale_cpu_capacity(sg_cpu-&gt;cpu);</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> util;</span><br><span class="line"></span><br><span class="line">	sg_cpu-&gt;max = max;</span><br><span class="line">	sg_cpu-&gt;bw_dl = cpu_bw_dl(rq);</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_SCHED_WALT</span></span><br><span class="line">	util = cpu_util_freq_walt(sg_cpu-&gt;cpu, &amp;sg_cpu-&gt;walt_load);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> uclamp_rq_util_with(rq, util, <span class="literal">NULL</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">	util = cpu_util_cfs(rq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> schedutil_cpu_util(sg_cpu-&gt;cpu, util, max, FREQUENCY_UTIL, <span class="literal">NULL</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="pelt与walt的对比">PELT与WALT的对比</h2>
+<p><code>PELT</code>是<code>ARM</code>公司开发的一种负载跟踪算法，基于滑动平均的方式预测任务负载，但由于其缺乏对大小核(<code>Big.Little</code>)架构的支持，加上其负载衰减慢，因此并不合适手机等终端设备这种负载突发、变化频繁的系统，<code>WALT</code>针对上述的缺点做了改建优化，总结来说，两者的区别如下:</p>
 <ul>
-<li><code>PELT</code>负载跟踪只考虑到了<code>SMP</code>这种架构，对于当前手机芯片<code>HMP</code>这种异构体系并不合适；而且，<code>PELT</code>只是考虑到了<code>CFS</code>调度类的负载跟踪，并没有考虑到系统其他调度类，如<code>RT</code>&#x2F;<code>DEADLINE</code>等，因此缺乏对系统负载的全局性考虑。</li>
-<li>考虑到移动平台大小核(<code>Big.Little</code>)的体系架构，会将负载基于<code>CPU</code>能力与频率进行归一化处理，从而更准确的判断任务负载与CPU能力之间的匹配</li>
-<li>从调度、调频的延迟来看，由于<code>PLET</code>考虑了更长的时间周期，因此无法快速响应负载，对于像<code>Android</code>这样的移动平台来说，可能会出现系统响应变慢；<code>WALT</code>能更快速的响应突发的负载，但相对来说可能会带来更多的能耗</li>
+<li><p><code>PELT</code>负载跟踪只考虑到了<code>SMP</code>这种架构，对于当前手机芯片<code>HMP</code>这种异构体系并不合适；而且，<code>PELT</code>只是考虑到了<code>CFS</code>调度类的负载跟踪，并没有考虑到系统其他调度类，如<code>RT</code>/<code>DEADLINE</code>等，因此缺乏对系统负载的全局性考虑。</p></li>
+<li><p>考虑到移动平台大小核(<code>Big.Little</code>)的体系架构，会将负载基于<code>CPU</code>能力与频率进行归一化处理，从而更准确的判断任务负载与CPU能力之间的匹配</p></li>
+<li><p>从调度、调频的延迟来看，由于<code>PLET</code>考虑了更长的时间周期，因此无法快速响应负载，对于像<code>Android</code>这样的移动平台来说，可能会出现系统响应变慢；<code>WALT</code>能更快速的响应突发的负载，但相对来说可能会带来更多的能耗
+<code>Linaro</code>的官网上有一个文档对<code>PLET</code>与<code>WALT</code>的比较进行了详细的分析，可以参考下<a
+target="_blank" rel="noopener" href="https://static.linaro.org/connect/bkk16/Presentations/Tuesday/BKK16-208.pdf">PELT
+vs Window tracking and EAS on SMP multi-cluster</a>。</p></li>
 </ul>
-<p><code>Linaro</code>的官网上有一个文档对<code>PLET</code>与<code>WALT</code>的比较进行了详细的分析，可以参考下<a target="_blank" rel="noopener" href="https://static.linaro.org/connect/bkk16/Presentations/Tuesday/BKK16-208.pdf">PELT vs Window tracking<br>and EAS on SMP multi-cluster</a>。</p>
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/lizhijun_buaa/article/details/135954017">https://blog.csdn.net/lizhijun_buaa/article/details/135954017</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.cnblogs.com/lingjiajun/p/12317090.html">https://www.cnblogs.com/lingjiajun/p/12317090.html</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/531853/">https://lwn.net/Articles/531853/</a></li>
-<li><a target="_blank" rel="noopener" href="http://www.wowotech.net/process_management/PELT.html">http://www.wowotech.net/process_management/PELT.html</a></li>
-<li><a target="_blank" rel="noopener" href="http://www.wowotech.net/tag/pelt">http://www.wowotech.net/tag/pelt</a></li>
-<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/feelabclihu/article/details/108414156">https://blog.csdn.net/feelabclihu/article/details/108414156</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.anandtech.com/show/12620/improving-the-exynos-9810-galaxy-s9-part-2/2">https://www.anandtech.com/show/12620/improving-the-exynos-9810-galaxy-s9-part-2/2</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/925371/">https://lwn.net/Articles/925371/</a></li>
-<li><a target="_blank" rel="noopener" href="https://android.googlesource.com/kernel/msm/+/android-msm-bullhead-3.10-marshmallow-dr/Documentation/scheduler/sched-hmp.txt">https://android.googlesource.com/kernel/msm/+/android-msm-bullhead-3.10-marshmallow-dr/Documentation/scheduler/sched-hmp.txt</a></li>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/lizhijun_buaa/article/details/135954017">https://blog.csdn.net/lizhijun_buaa/article/details/135954017</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.cnblogs.com/lingjiajun/p/12317090.html">https://www.cnblogs.com/lingjiajun/p/12317090.html</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://lwn.net/Articles/531853/">https://lwn.net/Articles/531853/</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="http://www.wowotech.net/process_management/PELT.html">http://www.wowotech.net/process_management/PELT.html</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="http://www.wowotech.net/tag/pelt">http://www.wowotech.net/tag/pelt</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://blog.csdn.net/feelabclihu/article/details/108414156">https://blog.csdn.net/feelabclihu/article/details/108414156</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.anandtech.com/show/12620/improving-the-exynos-9810-galaxy-s9-part-2/2">https://www.anandtech.com/show/12620/improving-the-exynos-9810-galaxy-s9-part-2/2</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://lwn.net/Articles/925371/">https://lwn.net/Articles/925371/</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://android.googlesource.com/kernel/msm/+/android-msm-bullhead-3.10-marshmallow-dr/Documentation/scheduler/sched-hmp.txt">https://android.googlesource.com/kernel/msm/+/android-msm-bullhead-3.10-marshmallow-dr/Documentation/scheduler/sched-hmp.txt</a></p></li>
 </ul>
 
     </article>
@@ -646,7 +669,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">October 2nd 2025, 10:58:01 am</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">2025-10-02, 11:54:25</a>
+            <p>更新日期：<a href="https://sniffer.site/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">2026-09-03, 13:42:41</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -827,7 +850,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#PELT"><span class="toc-number">1.</span> <span class="toc-text">PELT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#WALT"><span class="toc-number">2.</span> <span class="toc-text">WALT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PELT%E4%B8%8EWALT%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="toc-number">3.</span> <span class="toc-text">PELT与WALT的对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#pelt"><span class="toc-number">1.</span> <span class="toc-text">PELT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#walt"><span class="toc-number">2.</span> <span class="toc-text">WALT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#pelt%E4%B8%8Ewalt%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="toc-number">3.</span> <span class="toc-text">PELT与WALT的对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1476,7 +1499,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2927,7 +2961,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2945,6 +2979,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3803,44 +3843,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3858,14 +3873,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3878,14 +3898,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3896,11 +3916,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3918,14 +3933,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3941,6 +3951,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3973,31 +3993,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -4006,6 +4001,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -4028,19 +4028,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4056,6 +4046,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4083,14 +4108,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4103,39 +4128,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4146,16 +4161,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4183,6 +4188,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4198,9 +4228,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4218,41 +4258,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4263,14 +4268,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4298,16 +4308,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4328,9 +4328,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4348,24 +4358,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4373,24 +4383,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4403,9 +4423,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4428,9 +4453,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4453,6 +4478,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4468,14 +4503,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4486,6 +4521,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4503,41 +4558,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4551,6 +4571,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4573,11 +4608,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4593,16 +4623,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4616,6 +4636,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4638,16 +4673,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4663,24 +4688,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4691,6 +4701,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4733,6 +4758,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4748,14 +4793,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4776,21 +4816,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4858,19 +4883,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4888,6 +4903,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4903,16 +4943,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4921,6 +4951,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4943,21 +4988,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4976,16 +5006,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -5013,11 +5033,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5038,14 +5053,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5073,19 +5103,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5098,6 +5123,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5106,6 +5136,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5118,6 +5158,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5139,6 +5184,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5149,19 +5199,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5169,14 +5209,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5194,14 +5234,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5217,11 +5257,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

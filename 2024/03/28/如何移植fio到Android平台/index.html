@@ -27,7 +27,7 @@
 <meta property="og:description" content="fio是一个广泛使用的磁盘性能测试工具，功能强大，可以用于测试磁盘性能，也可以通过I&#x2F;O重放来模拟用户的实际请求，其主要有如下几个特点:  支持多种文件系统，包括NTFS，ext4，btrfs，xfs等 支持多种IO模式，包括randwrite，read，write，dd，trim，flush，discard等">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2024-03-28T12:01:20.000Z">
-<meta property="article:modified_time" content="2024-03-31T10:06:45.067Z">
+<meta property="article:modified_time" content="2026-08-23T10:39:47.081Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="fio">
 <meta property="article:tag" content="文件系统">
@@ -527,60 +527,66 @@
     <article class="article-entry">
         <p>fio是一个广泛使用的磁盘性能测试工具，功能强大，可以用于测试磁盘性能，也可以通过<code>I/O</code>重放来模拟用户的实际请求，其主要有如下几个特点:</p>
 <ul>
-<li>支持多种文件系统，包括NTFS，ext4，btrfs，xfs等</li>
-<li>支持多种IO模式，包括randwrite，read，write，dd，trim，flush，discard等<span id="more"></span></li>
-<li>fio可以测试不同类型的IO，包括随机写，连续写，顺序写，随机读，连续读，顺序读等</li>
-<li>另外<code>fio</code>还支持I&#x2F;O限制，可以限制IO带宽，IO延迟，IO吞吐量等</li>
+<li><p>支持多种文件系统，包括NTFS，ext4，btrfs，xfs等</p></li>
+<li><p>支持多种IO模式，包括randwrite，read，write，dd，trim，flush，discard等<span id="more"></span></p></li>
+<li><p>fio可以测试不同类型的IO，包括随机写，连续写，顺序写，随机读，连续读，顺序读等</p></li>
+<li><p>另外<code>fio</code>还支持I/O限制，可以限制IO带宽，IO延迟，IO吞吐量等
+这篇文章，我们将介绍如何移植<code>fio</code>到Android平台，以及常见的使用方法。首先来看看如何通过交叉编译移植<code>fio</code>。</p></li>
 </ul>
-<p>这篇文章，我们将介绍如何移植<code>fio</code>到Android平台，以及常见的使用方法。首先来看看如何通过交叉编译移植<code>fio</code>。</p>
-<h2 id="编译准备"><a href="#编译准备" class="headerlink" title="编译准备"></a><strong>编译准备</strong></h2><p>首先到<code>fio</code>的官方网站<code>https://github.com/axboe/fio</code>下载源码：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">git <span class="built_in">clone</span> https://github.com/axboe/fio</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>如果本地没有安装过NDK，需要下载NDK:<a target="_blank" rel="noopener" href="https://developer.android.google.cn/ndk/downloads?hl=zh-cn%EF%BC%9B%E7%84%B6%E5%90%8E%E8%AE%BE%E5%AE%9ANDK%E7%9A%84%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F%EF%BC%9A">https://developer.android.google.cn/ndk/downloads?hl=zh-cn；然后设定NDK的环境变量：</a></p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="built_in">export</span> NDK_HOME=/path/to/ndk</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="编译代码"><a href="#编译代码" class="headerlink" title="编译代码"></a><strong>编译代码</strong></h2><p>在编译之前，先通过<code>./configure --help</code>看看编译配置具体有哪些参数:</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">./configure --<span class="built_in">help</span></span><br><span class="line">--prefix=               Use this directory as installation prefix</span><br><span class="line">--cpu=                  Specify target CPU <span class="keyword">if</span> auto-detect fails</span><br><span class="line">--cc=                   Specify compiler to use</span><br><span class="line">--extra-cflags=         Specify extra CFLAGS to pass to compiler</span><br><span class="line">--build-32bit-win       Enable 32-bit build on Windows</span><br><span class="line">--target-win-ver=       Minimum version of Windows to target (only accepts 7)</span><br><span class="line">--enable-pdb            Enable Windows PDB symbols generation (needs clang/lld)</span><br><span class="line">--build-static          Build a static fio</span><br><span class="line">--esx                   Configure build options <span class="keyword">for</span> esx</span><br><span class="line">--enable-gfio           Enable building of gtk gfio</span><br><span class="line">--disable-numa          Disable libnuma even <span class="keyword">if</span> found</span><br><span class="line">--disable-rdma          Disable RDMA support even <span class="keyword">if</span> found</span><br><span class="line">--disable-rados         Disable Rados support even <span class="keyword">if</span> found</span><br><span class="line">--disable-rbd           Disable Rados Block Device even <span class="keyword">if</span> found</span><br><span class="line">--disable-http          Disable HTTP support even <span class="keyword">if</span> found</span><br><span class="line">--disable-gfapi         Disable gfapi</span><br><span class="line">--enable-libhdfs        Enable hdfs support</span><br><span class="line">--enable-libnfs         Enable nfs support</span><br><span class="line">--disable-libnfs        Disable nfs support</span><br><span class="line">--disable-lex           Disable use of lex/yacc <span class="keyword">for</span> math</span><br><span class="line">--disable-pmem          Disable pmem based engines even <span class="keyword">if</span> found</span><br><span class="line">--enable-lex            Enable use of lex/yacc <span class="keyword">for</span> math</span><br><span class="line">--disable-shm           Disable SHM support</span><br><span class="line">--disable-optimizations Don<span class="string">&#x27;t enable compiler optimizations</span></span><br><span class="line"><span class="string">--enable-cuda           Enable GPUDirect RDMA support</span></span><br><span class="line"><span class="string">--enable-libcufile      Enable GPUDirect Storage cuFile support</span></span><br><span class="line"><span class="string">--disable-native        Don&#x27;</span>t build <span class="keyword">for</span> native host</span><br><span class="line">--with-ime=             Install path <span class="keyword">for</span> DDN<span class="string">&#x27;s Infinite Memory Engine</span></span><br><span class="line"><span class="string">--enable-libiscsi       Enable iscsi support</span></span><br><span class="line"><span class="string">--enable-libnbd         Enable libnbd (NBD engine) support</span></span><br><span class="line"><span class="string">--disable-xnvme         Disable xnvme support even if found</span></span><br><span class="line"><span class="string">--disable-isal          Disable isal support even if found</span></span><br><span class="line"><span class="string">--disable-libblkio      Disable libblkio support even if found</span></span><br><span class="line"><span class="string">--disable-libzbc        Disable libzbc even if found</span></span><br><span class="line"><span class="string">--disable-tcmalloc      Disable tcmalloc support</span></span><br><span class="line"><span class="string">--dynamic-libengines    Lib-based ioengines as dynamic libraries</span></span><br><span class="line"><span class="string">--disable-dfs           Disable DAOS File System support even if found</span></span><br><span class="line"><span class="string">--enable-asan           Enable address sanitizer</span></span><br><span class="line"><span class="string">--seed-buckets=         Number of seed buckets for the refill-buffer</span></span><br><span class="line"><span class="string">--disable-tls		Disable __thread local storage</span></span><br><span class="line"><span class="string"></span></span><br></pre></td></tr></table></figure>
+<h2 id="编译准备">编译准备</h2>
+<p>首先到<code>fio</code>的官方网站<code>https://github.com/axboe/fio</code>下载源码：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/axboe/fio</span><br></pre></td></tr></table></figure>
+<p>如果本地没有安装过NDK，需要下载NDK:<a
+target="_blank" rel="noopener" href="https://developer.android.google.cn/ndk/downloads?hl=zh-cn%EF%BC%9B%E7%84%B6%E5%90%8E%E8%AE%BE%E5%AE%9ANDK%E7%9A%84%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F%EF%BC%9A">https://developer.android.google.cn/ndk/downloads?hl=zh-cn；然后设定NDK的环境变量：</a></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> NDK_HOME=/path/to/ndk</span><br></pre></td></tr></table></figure>
+<h2 id="编译代码">编译代码</h2>
+<p>在编译之前，先通过<code>./configure --help</code>看看编译配置具体有哪些参数:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">./configure --<span class="built_in">help</span></span><br><span class="line">--prefix=               Use this directory as installation prefix</span><br><span class="line">--cpu=                  Specify target CPU <span class="keyword">if</span> auto-detect fails</span><br><span class="line">--cc=                   Specify compiler to use</span><br><span class="line">--extra-cflags=         Specify extra CFLAGS to pass to compiler</span><br><span class="line">--build-32bit-win       Enable 32-bit build on Windows</span><br><span class="line">--target-win-ver=       Minimum version of Windows to target (only accepts 7)</span><br><span class="line">--enable-pdb            Enable Windows PDB symbols generation (needs clang/lld)</span><br><span class="line">--build-static          Build a static fio</span><br><span class="line">--esx                   Configure build options <span class="keyword">for</span> esx</span><br><span class="line">--enable-gfio           Enable building of gtk gfio</span><br><span class="line">--disable-numa          Disable libnuma even <span class="keyword">if</span> found</span><br><span class="line">--disable-rdma          Disable RDMA support even <span class="keyword">if</span> found</span><br><span class="line">--disable-rados         Disable Rados support even <span class="keyword">if</span> found</span><br><span class="line">--disable-rbd           Disable Rados Block Device even <span class="keyword">if</span> found</span><br><span class="line">--disable-http          Disable HTTP support even <span class="keyword">if</span> found</span><br><span class="line">--disable-gfapi         Disable gfapi</span><br><span class="line">--enable-libhdfs        Enable hdfs support</span><br><span class="line">--enable-libnfs         Enable nfs support</span><br><span class="line">--disable-libnfs        Disable nfs support</span><br><span class="line">--disable-lex           Disable use of lex/yacc <span class="keyword">for</span> math</span><br><span class="line">--disable-pmem          Disable pmem based engines even <span class="keyword">if</span> found</span><br><span class="line">--enable-lex            Enable use of lex/yacc <span class="keyword">for</span> math</span><br><span class="line">--disable-shm           Disable SHM support</span><br><span class="line">--disable-optimizations Don<span class="string">&#x27;t enable compiler optimizations</span></span><br><span class="line"><span class="string">--enable-cuda           Enable GPUDirect RDMA support</span></span><br><span class="line"><span class="string">--enable-libcufile      Enable GPUDirect Storage cuFile support</span></span><br><span class="line"><span class="string">--disable-native        Don&#x27;</span>t build <span class="keyword">for</span> native host</span><br><span class="line">--with-ime=             Install path <span class="keyword">for</span> DDN<span class="string">&#x27;s Infinite Memory Engine</span></span><br><span class="line"><span class="string">--enable-libiscsi       Enable iscsi support</span></span><br><span class="line"><span class="string">--enable-libnbd         Enable libnbd (NBD engine) support</span></span><br><span class="line"><span class="string">--disable-xnvme         Disable xnvme support even if found</span></span><br><span class="line"><span class="string">--disable-isal          Disable isal support even if found</span></span><br><span class="line"><span class="string">--disable-libblkio      Disable libblkio support even if found</span></span><br><span class="line"><span class="string">--disable-libzbc        Disable libzbc even if found</span></span><br><span class="line"><span class="string">--disable-tcmalloc      Disable tcmalloc support</span></span><br><span class="line"><span class="string">--dynamic-libengines    Lib-based ioengines as dynamic libraries</span></span><br><span class="line"><span class="string">--disable-dfs           Disable DAOS File System support even if found</span></span><br><span class="line"><span class="string">--enable-asan           Enable address sanitizer</span></span><br><span class="line"><span class="string">--seed-buckets=         Number of seed buckets for the refill-buffer</span></span><br><span class="line"><span class="string">--disable-tls		Disable __thread local storage</span></span><br></pre></td></tr></table></figure>
 <p>具体需要哪些选项，我们可以根据需要来进行选择与配置。为了便于编译，我们写一个简单的编译脚本：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line">UNAME=Android</span><br><span class="line">ARCH=arm64</span><br><span class="line">CPU=aarch64</span><br><span class="line">API=26</span><br><span class="line">PREFIX=$(<span class="built_in">pwd</span>)/Android/<span class="variable">$CPU</span></span><br><span class="line">CROSS_COMPILE=<span class="variable">$NDK_HOME</span>/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android<span class="variable">$API</span>-</span><br><span class="line">CC=<span class="variable">$NDK_HOME</span>/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android<span class="variable">$API</span>-clang</span><br><span class="line"><span class="comment">#CROSS_PREFIX=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android$API-</span></span><br><span class="line"></span><br><span class="line">./configure --prefix=<span class="variable">$PREFIX</span> --cpu=<span class="variable">$CPU</span> --cc=<span class="variable">$CC</span> --build-static --disable-numa</span><br><span class="line"></span><br><span class="line">make clean</span><br><span class="line">make V=1 UNAME=<span class="variable">$UNAME</span> CROSS_COMPILE=<span class="variable">$CROSS_COMPILE</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>执行上述脚本发现没在配置阶段会提示错误: 交叉编译工具使用的是 <code>gcc</code>, 而看NDK的工具都是 <code>clang</code> 的，需要修改下配置：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line">UNAME=Android</span><br><span class="line">ARCH=arm64</span><br><span class="line">CPU=aarch64</span><br><span class="line">API=26</span><br><span class="line">PREFIX=$(<span class="built_in">pwd</span>)/Android/<span class="variable">$CPU</span></span><br><span class="line">CROSS_COMPILE=<span class="variable">$NDK_HOME</span>/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android<span class="variable">$API</span>-</span><br><span class="line">CC=<span class="variable">$NDK_HOME</span>/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android<span class="variable">$API</span>-clang</span><br><span class="line"><span class="comment">#CROSS_PREFIX=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android$API-</span></span><br><span class="line"></span><br><span class="line">./configure --prefix=<span class="variable">$PREFIX</span> --cpu=<span class="variable">$CPU</span> --cc=<span class="variable">$CC</span> --build-static --disable-numa</span><br><span class="line"></span><br><span class="line">make clean</span><br><span class="line">make V=1 UNAME=<span class="variable">$UNAME</span> CROSS_COMPILE=<span class="variable">$CROSS_COMPILE</span></span><br></pre></td></tr></table></figure>
+<p>执行上述脚本发现没在配置阶段会提示错误: 交叉编译工具使用的是
+<code>gcc</code>, 而看NDK的工具都是 <code>clang</code>
+的，需要修改下配置：</p>
 <ul>
-<li>由于当前NDK都采用 <code>clang</code>, 但 <code>fio</code>源码配置文件默认是 <code>gcc</code>的编译器，因此需要修改下 <code>configure</code>  文件：</li>
+<li>由于当前NDK都采用 <code>clang</code>, 但
+<code>fio</code>源码配置文件默认是
+<code>gcc</code>的编译器，因此需要修改下 <code>configure</code>
+文件：</li>
 </ul>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">diff --git a/configure b/configure</span><br><span class="line">index 420d97db..c245bcd9 100755</span><br><span class="line">--- a/configure</span><br><span class="line">+++ b/configure</span><br><span class="line">@@ -350,7 +350,7 @@ <span class="keyword">if</span> <span class="built_in">test</span> -z <span class="string">&quot;<span class="variable">$&#123;CC&#125;</span><span class="variable">$&#123;cross_prefix&#125;</span>&quot;</span>; <span class="keyword">then</span></span><br><span class="line">     cc=clang</span><br><span class="line">   <span class="keyword">fi</span></span><br><span class="line"> <span class="keyword">else</span></span><br><span class="line">-  cc=<span class="string">&quot;<span class="variable">$&#123;CC-<span class="variable">$&#123;cross_prefix&#125;</span>gcc&#125;</span>&quot;</span></span><br><span class="line">+  cc=<span class="string">&quot;<span class="variable">$&#123;CC-<span class="variable">$&#123;cross_prefix&#125;</span>clang&#125;</span>&quot;</span></span><br><span class="line"> <span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
-
 <p>修改完后，再次编译还是会提示错误:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">In file included from engines/io_uring.c:29:</span><br><span class="line">engines/nvme.h:18:8: error: redefinition of <span class="string">&#x27;nvme_uring_cmd&#x27;</span></span><br><span class="line">struct nvme_uring_cmd &#123;</span><br><span class="line">       ^</span><br><span class="line">/home/jason/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/include/linux/nvme_ioctl.h:80:8: note: previous definition is here</span><br><span class="line">struct nvme_uring_cmd &#123;</span><br><span class="line">       ^</span><br><span class="line">1 error generated.</span><br><span class="line">make: *** [Makefile:526: engines/io_uring.o] Error 1</span><br></pre></td></tr></table></figure>
-
-<p>看代码是由于重复定义导致了， fio的源码里有一个地方重新定义了, 因此需要针对Android平台做判断, 照例修改下 <code>configure</code>的配置即可:</p>
+<p>看代码是由于重复定义导致了， fio的源码里有一个地方重新定义了,
+因此需要针对Android平台做判断, 照例修改下
+<code>configure</code>的配置即可:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * If the uapi headers installed on the system lacks nvme uring <span class="built_in">command</span></span><br><span class="line"> * support, use the <span class="built_in">local</span> version to prevent compilation issues.</span><br><span class="line"> */</span><br><span class="line"><span class="comment">#ifndef CONFIG_NVME_URING_CMD</span></span><br><span class="line">struct nvme_uring_cmd &#123;</span><br><span class="line">	__u8	opcode;</span><br><span class="line">	__u8	flags;</span><br><span class="line">	__u16	rsvd1;</span><br><span class="line">	__u32	nsid;</span><br><span class="line">	__u32	cdw2;</span><br><span class="line">	__u32	cdw3;</span><br><span class="line">	__u64	metadata;</span><br><span class="line">	__u64	addr;</span><br><span class="line">	__u32	metadata_len;</span><br><span class="line">	__u32	data_len;</span><br><span class="line">	__u32	cdw10;</span><br><span class="line">	__u32	cdw11;</span><br><span class="line">	__u32	cdw12;</span><br><span class="line">	__u32	cdw13;</span><br><span class="line">	__u32	cdw14;</span><br><span class="line">	__u32	cdw15;</span><br><span class="line">	__u32	timeout_ms;</span><br><span class="line">	__u32   rsvd2;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
-
-<p>找到生成 <code>CONFIG_NVME_URING_CMD</code>的地方，增加对 <code>Android</code>的判断即可:</p>
+<p>找到生成 <code>CONFIG_NVME_URING_CMD</code>的地方，增加对
+<code>Android</code>的判断即可:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">@@ -2656,7 +2656,7 @@ <span class="keyword">if</span> <span class="built_in">test</span> <span class="string">&quot;<span class="variable">$libzbc</span>&quot;</span> != <span class="string">&quot;no&quot;</span> ; <span class="keyword">then</span></span><br><span class="line"> <span class="keyword">fi</span></span><br><span class="line"> print_config <span class="string">&quot;libzbc engine&quot;</span> <span class="string">&quot;<span class="variable">$libzbc</span>&quot;</span></span><br><span class="line"> </span><br><span class="line">-<span class="keyword">if</span> <span class="built_in">test</span> <span class="string">&quot;<span class="variable">$targetos</span>&quot;</span> = <span class="string">&quot;Linux&quot;</span> ; <span class="keyword">then</span></span><br><span class="line">+<span class="keyword">if</span> <span class="built_in">test</span> <span class="string">&quot;<span class="variable">$targetos</span>&quot;</span> = <span class="string">&quot;Linux&quot;</span> || <span class="built_in">test</span> <span class="string">&quot;<span class="variable">$targetos</span>&quot;</span> = <span class="string">&quot;Android&quot;</span>; <span class="keyword">then</span></span><br><span class="line"> <span class="comment">##########################################</span></span><br><span class="line"> <span class="comment"># Check NVME_URING_CMD support</span></span><br><span class="line"> <span class="built_in">cat</span> &gt; <span class="variable">$TMPC</span> &lt;&lt; <span class="string">EOF</span></span><br><span class="line"><span class="string"> </span></span><br></pre></td></tr></table></figure>
-
 <p>这一次编译正常了，可以看到有生成可执行文件，将其push到Android设备，可以正常执行。</p>
-<h2 id="如何使用fio"><a href="#如何使用fio" class="headerlink" title="如何使用fio"></a>如何使用<code>fio</code></h2><p><code>fio</code>的命令主要有两个部分，一部分是参数，一部分是测试的配置文件。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">fio [options] [jobfile] ...</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<h2 id="如何使用fio">如何使用fio</h2>
+<p><code>fio</code>的命令主要有两个部分，一部分是参数，一部分是测试的配置文件。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fio [options] [jobfile] ...</span><br></pre></td></tr></table></figure>
 <p>参数用于设置<code>fio</code>以及输出一些调试信息，而真正让<code>fio</code>运行的是<code>jobfile</code>，用于指定运行时的测试参数，包括如下几个部分:</p>
 <ul>
-<li>I&#x2F;O的类型： 指定读写模式，比如是顺序读还是随机读等，比如是否使用直接I&#x2F;O(<code>direct I/O</code>)</li>
-<li>读写块大小： 指定读写块大小，比如是4k还是64k</li>
-<li>读写的总文件大小： 指定文件大小，比如是1G还是10G</li>
-<li>I&#x2F;O引擎: 使用共享内存的方式还是普通的读写操作</li>
-<li>I&#x2F;O深度： 对于使用异步I&#x2F;O引擎的情况，指定I&#x2F;O队列的大小</li>
-<li>目标文件与设备： 指定测试需要执行的文件或者设备</li>
-<li>线程或进程： 指定测试需要执行的线程数量</li>
+<li><p>I/O的类型：
+指定读写模式，比如是顺序读还是随机读等，比如是否使用直接I/O(<code>direct I/O</code>)</p></li>
+<li><p>读写块大小： 指定读写块大小，比如是4k还是64k</p></li>
+<li><p>读写的总文件大小： 指定文件大小，比如是1G还是10G</p></li>
+<li><p>I/O引擎: 使用共享内存的方式还是普通的读写操作</p></li>
+<li><p>I/O深度： 对于使用异步I/O引擎的情况，指定I/O队列的大小</p></li>
+<li><p>目标文件与设备： 指定测试需要执行的文件或者设备</p></li>
+<li><p>线程或进程： 指定测试需要执行的线程数量
+比如如果我们需要测试某个磁盘的性能可以使用直接模式，具体命令如下：</p></li>
 </ul>
-<p>比如如果我们需要测试某个磁盘的性能可以使用直接模式，具体命令如下：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">fio -direct=1 -iodepth=1 -thread -rw=randwrite -ioengine=psync -bs=16k -size=10G -numjobs=10 -runtime=1000 -group_reporting -name=fio-test</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>测试完成后，<code>fio</code>会生成报告, 包括<code>I/O</code>带宽，读写的速度以及<code>I/O</code>延迟等:</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Jobs: 10 (f=10): [w(10)][85.7%][w=1829MiB/s][w=117k IOPS][eta 00m:01s]</span><br><span class="line">fio-test: (groupid=0, <span class="built_in">jobs</span>=10): err= 0: pid=16991: Sun Mar 31 18:03:08 2024</span><br><span class="line">  write: IOPS=95.3k, BW=1489MiB/s (1562MB/s)(10.0GiB/6875msec); 0 zone resets</span><br><span class="line">    clat (usec): min=14, max=545565, avg=101.30, stdev=3043.89</span><br><span class="line">     lat (usec): min=14, max=545569, avg=103.13, stdev=3043.92</span><br><span class="line">    clat percentiles (usec):</span><br><span class="line">     |  1.00th=[   24],  5.00th=[   28], 10.00th=[   32], 20.00th=[   38],</span><br><span class="line">     | 30.00th=[   45], 40.00th=[   53], 50.00th=[   58], 60.00th=[   61],</span><br><span class="line">     | 70.00th=[   64], 80.00th=[   68], 90.00th=[   74], 95.00th=[   86],</span><br><span class="line">     | 99.00th=[  668], 99.50th=[ 2278], 99.90th=[ 4817], 99.95th=[ 5342],</span><br><span class="line">     | 99.99th=[ 6587]</span><br><span class="line">   bw (  MiB/s): min=    0, max= 1947, per=98.94%, avg=1473.64, stdev=65.83, samples=130</span><br><span class="line">   iops        : min=   20, max=124616, avg=94312.77, stdev=4213.24, samples=130</span><br><span class="line">  lat (usec)   : 20=0.12%, 50=35.96%, 100=60.59%, 250=2.20%, 500=0.09%</span><br><span class="line">  lat (usec)   : 750=0.06%, 1000=0.16%</span><br><span class="line">  lat (msec)   : 2=0.20%, 4=0.40%, 10=0.22%, 20=0.01%, 250=0.01%</span><br><span class="line">  lat (msec)   : 750=0.01%</span><br><span class="line">  cpu          : usr=4.98%, sys=37.83%, ctx=664271, majf=0, minf=0</span><br><span class="line">  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, &gt;=64=0.0%</span><br><span class="line">     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, &gt;=64=0.0%</span><br><span class="line">     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, &gt;=64=0.0%</span><br><span class="line">     issued rwts: total=0,655360,0,0 short=0,0,0,0 dropped=0,0,0,0</span><br><span class="line">     latency   : target=0, window=0, percentile=100.00%, depth=1</span><br><span class="line"></span><br><span class="line">Run status group 0 (all <span class="built_in">jobs</span>):</span><br><span class="line">  WRITE: bw=1489MiB/s (1562MB/s), 1489MiB/s-1489MiB/s (1562MB/s-1562MB/s), io=10.0GiB (10.7GB), run=6875-6875msec</span><br><span class="line"></span><br><span class="line">Disk stats (<span class="built_in">read</span>/write):</span><br><span class="line">  nvme0n1: ios=0/628636, sectors=0/20133840, merge=0/2245, ticks=0/40603, in_queue=41130, util=96.51%</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="https://fio.readthedocs.io/en/latest/fio_doc.html">https://fio.readthedocs.io/en/latest/fio_doc.html</a></li>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fio -direct=1 -iodepth=1 -thread -rw=randwrite -ioengine=psync -bs=16k -size=10G -numjobs=10 -runtime=1000 -group_reporting -name=fio-test</span><br></pre></td></tr></table></figure>
+<p>测试完成后，<code>fio</code>会生成报告,
+包括<code>I/O</code>带宽，读写的速度以及<code>I/O</code>延迟等:</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">Jobs: 10 (f=10): [w(10)][85.7%][w=1829MiB/s][w=117k IOPS][eta 00m:01s]</span><br><span class="line">fio-test: (groupid=0, <span class="built_in">jobs</span>=10): err= 0: pid=16991: Sun Mar 31 18:03:08 2024</span><br><span class="line">  write: IOPS=95.3k, BW=1489MiB/s (1562MB/s)(10.0GiB/6875msec); 0 zone resets</span><br><span class="line">    clat (usec): min=14, max=545565, avg=101.30, stdev=3043.89</span><br><span class="line">     lat (usec): min=14, max=545569, avg=103.13, stdev=3043.92</span><br><span class="line">    clat percentiles (usec):</span><br><span class="line">     |  1.00th=[   24],  5.00th=[   28], 10.00th=[   32], 20.00th=[   38],</span><br><span class="line">     | 30.00th=[   45], 40.00th=[   53], 50.00th=[   58], 60.00th=[   61],</span><br><span class="line">     | 70.00th=[   64], 80.00th=[   68], 90.00th=[   74], 95.00th=[   86],</span><br><span class="line">     | 99.00th=[  668], 99.50th=[ 2278], 99.90th=[ 4817], 99.95th=[ 5342],</span><br><span class="line">     | 99.99th=[ 6587]</span><br><span class="line">   bw (  MiB/s): min=    0, max= 1947, per=98.94%, avg=1473.64, stdev=65.83, samples=130</span><br><span class="line">   iops        : min=   20, max=124616, avg=94312.77, stdev=4213.24, samples=130</span><br><span class="line">  lat (usec)   : 20=0.12%, 50=35.96%, 100=60.59%, 250=2.20%, 500=0.09%</span><br><span class="line">  lat (usec)   : 750=0.06%, 1000=0.16%</span><br><span class="line">  lat (msec)   : 2=0.20%, 4=0.40%, 10=0.22%, 20=0.01%, 250=0.01%</span><br><span class="line">  lat (msec)   : 750=0.01%</span><br><span class="line">  cpu          : usr=4.98%, sys=37.83%, ctx=664271, majf=0, minf=0</span><br><span class="line">  IO depths    : 1=100.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, &gt;=64=0.0%</span><br><span class="line">     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, &gt;=64=0.0%</span><br><span class="line">     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, &gt;=64=0.0%</span><br><span class="line">     issued rwts: total=0,655360,0,0 short=0,0,0,0 dropped=0,0,0,0</span><br><span class="line">     latency   : target=0, window=0, percentile=100.00%, depth=1</span><br><span class="line"></span><br><span class="line">Run status group 0 (all <span class="built_in">jobs</span>):</span><br><span class="line">  WRITE: bw=1489MiB/s (1562MB/s), 1489MiB/s-1489MiB/s (1562MB/s-1562MB/s), io=10.0GiB (10.7GB), run=6875-6875msec</span><br><span class="line"></span><br><span class="line">Disk stats (<span class="built_in">read</span>/write):</span><br><span class="line">  nvme0n1: ios=0/628636, sectors=0/20133840, merge=0/2245, ticks=0/40603, in_queue=41130, util=96.51%</span><br></pre></td></tr></table></figure>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://fio.readthedocs.io/en/latest/fio_doc.html">https://fio.readthedocs.io/en/latest/fio_doc.html</a></li>
 </ul>
 
     </article>
@@ -590,7 +596,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">https://sniffer.site/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">March 28th 2024, 8:01:20 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">2024-03-31, 18:06:45</a>
+            <p>更新日期：<a href="https://sniffer.site/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">2026-08-23, 18:39:47</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -1405,7 +1411,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2856,7 +2873,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2874,6 +2891,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3732,44 +3755,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3787,14 +3785,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3807,14 +3810,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3825,11 +3828,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3847,14 +3845,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3870,6 +3863,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3902,31 +3905,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3935,6 +3913,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3957,19 +3940,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3985,6 +3958,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4012,14 +4020,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4032,39 +4040,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4075,16 +4073,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4112,6 +4100,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4127,9 +4140,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4147,41 +4170,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4192,14 +4180,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4227,16 +4220,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4257,9 +4240,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4277,24 +4270,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4302,24 +4295,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4332,9 +4335,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4357,9 +4365,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4382,6 +4390,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4397,14 +4415,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4415,6 +4433,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4432,41 +4470,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4480,6 +4483,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4502,11 +4520,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4522,16 +4535,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4545,6 +4548,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4567,16 +4585,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4592,24 +4600,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4620,6 +4613,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4662,6 +4670,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4677,14 +4705,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4705,21 +4728,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4787,19 +4795,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4817,6 +4815,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4832,16 +4855,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4850,6 +4863,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4872,21 +4900,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4905,16 +4918,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4942,11 +4945,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4967,14 +4965,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5002,19 +5015,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5027,6 +5035,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5035,6 +5048,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5047,6 +5070,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5068,6 +5096,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5078,19 +5111,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5098,14 +5121,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5123,14 +5146,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5146,11 +5169,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

@@ -27,7 +27,7 @@
 <meta property="og:description" content="在之前的一篇文章(Glide架构分析 )中介绍了Glide的具体原理。这篇文章，用一个下载图片的示例来说明Glide加载图片的整个过程。以下是用Glide从网络上加载一个图片的代码片段： 123456789    Glide  .with(activity) &#x2F;&#x2F; Activity  .load(url)  .centerCrop()  .placeholder(R.drawable.loadin">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2017-05-30T03:15:02.000Z">
-<meta property="article:modified_time" content="2022-03-22T12:10:01.873Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.696Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Android">
 <meta property="article:tag" content="Glide">
@@ -525,9 +525,10 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>在之前的一篇文章(<a href="http://sniffer.site/2017/05/20/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">Glide架构分析</a> )中介绍了Glide的具体原理。这篇文章，用一个下载图片的示例来说明Glide加载图片的整个过程。以下是用Glide从网络上加载一个图片的代码片段：</p>
+        <p>在之前的一篇文章(<a
+href="http://sniffer.site/2017/05/20/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">Glide架构分析</a>
+)中介绍了Glide的具体原理。这篇文章，用一个下载图片的示例来说明Glide加载图片的整个过程。以下是用Glide从网络上加载一个图片的代码片段：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">    </span><br><span class="line">Glide</span><br><span class="line">  .with(activity) <span class="comment">// Activity</span></span><br><span class="line">  .load(url)</span><br><span class="line">  .centerCrop()</span><br><span class="line">  .placeholder(R.drawable.loading_spinner)</span><br><span class="line">  .crossFade()</span><br><span class="line">  .into(myImageView);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>大致说来，在Glide中图片的加载有如下几个过程：</p>
 <ul>
 <li>产生一个图片加载的请求<code>GenericRequest&lt;T&gt;</code>;</li>
@@ -537,90 +538,66 @@
 </ul>
 <p>现在就来详细的看下Glide加载图片的整个过程。</p>
 <span id="more"></span>
-
-<h2 id="产生图片加载请求"><a href="#产生图片加载请求" class="headerlink" title="产生图片加载请求"></a><strong>产生图片加载请求</strong></h2><p>调用<code>Glide.with(activity)</code>产生一个<code>RequestManager</code>，用来负责管理和启动数据加载请求。</p>
+<h2 id="产生图片加载请求"><strong>产生图片加载请求</strong></h2>
+<p>调用<code>Glide.with(activity)</code>产生一个<code>RequestManager</code>，用来负责管理和启动数据加载请求。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> RequestManager <span class="title function_">with</span><span class="params">(Activity activity)</span> &#123;</span><br><span class="line">    <span class="type">RequestManagerRetriever</span> <span class="variable">retriever</span> <span class="operator">=</span> RequestManagerRetriever.get();</span><br><span class="line">    <span class="keyword">return</span> retriever.get(activity);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>在<code>RequestManagerRetriever</code>产生<code>RequestMananger</code>时，会启动一个没有视图对象的<code>Fragment</code>用以自动管理Glide中加载请求的生命周期：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">RequestManager <span class="title function_">fragmentGet</span><span class="params">(Context context, android.app.FragmentManager fm)</span> &#123;</span><br><span class="line">    <span class="type">RequestManagerFragment</span> <span class="variable">current</span> <span class="operator">=</span> getRequestManagerFragment(fm);</span><br><span class="line">    <span class="type">RequestManager</span> <span class="variable">requestManager</span> <span class="operator">=</span> current.getRequestManager();</span><br><span class="line">    <span class="keyword">if</span> (requestManager == <span class="literal">null</span>) &#123;</span><br><span class="line">        requestManager = <span class="keyword">new</span> <span class="title class_">RequestManager</span>(context, current.getLifecycle(), current.getRequestManagerTreeNode());</span><br><span class="line">        current.setRequestManager(requestManager);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> requestManager;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)</span></span><br><span class="line">RequestManagerFragment <span class="title function_">getRequestManagerFragment</span><span class="params">(<span class="keyword">final</span> android.app.FragmentManager fm)</span> &#123;</span><br><span class="line">    <span class="type">RequestManagerFragment</span> <span class="variable">current</span> <span class="operator">=</span> (RequestManagerFragment) fm.findFragmentByTag(FRAGMENT_TAG);</span><br><span class="line">    <span class="keyword">if</span> (current == <span class="literal">null</span>) &#123;</span><br><span class="line">        current = pendingRequestManagerFragments.get(fm);</span><br><span class="line">        <span class="keyword">if</span> (current == <span class="literal">null</span>) &#123;</span><br><span class="line">            current = <span class="keyword">new</span> <span class="title class_">RequestManagerFragment</span>();</span><br><span class="line">            pendingRequestManagerFragments.put(fm, current);</span><br><span class="line">            fm.beginTransaction().add(current, FRAGMENT_TAG).commitAllowingStateLoss();</span><br><span class="line">            handler.obtainMessage(ID_REMOVE_FRAGMENT_MANAGER, fm).sendToTarget();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> current;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>继续调用<code>RequestManager.load(url)</code>,<code>RequestMananger</code>开始着手创建新的图片加载请求<code>DrawableTypeRequest&lt;String&gt;</code>：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> DrawableTypeRequest&lt;String&gt; <span class="title function_">load</span><span class="params">(String string)</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> (DrawableTypeRequest&lt;String&gt;) fromString().load(string);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> DrawableTypeRequest&lt;String&gt; <span class="title function_">fromString</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> loadGeneric(String.class);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> &lt;T&gt; DrawableTypeRequest&lt;T&gt; <span class="title function_">loadGeneric</span><span class="params">(Class&lt;T&gt; modelClass)</span> &#123;</span><br><span class="line">    <span class="comment">// 数据加载器，Glide默认的是HttpUrlGlideUrlLoader</span></span><br><span class="line">    ModelLoader&lt;T, InputStream&gt; streamModelLoader = Glide.buildStreamModelLoader(modelClass, context);</span><br><span class="line">    ModelLoader&lt;T, ParcelFileDescriptor&gt; fileDescriptorModelLoader =</span><br><span class="line">            Glide.buildFileDescriptorModelLoader(modelClass, context);</span><br><span class="line">    ....</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> optionsApplier.apply(</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">DrawableTypeRequest</span>&lt;T&gt;(modelClass, streamModelLoader, fileDescriptorModelLoader, context,</span><br><span class="line">                    glide, requestTracker, lifecycle, optionsApplier));</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>通过<code>DrawableTypeRequest</code>，可以配置图片加载时的参数，如图片显示位置(<code>fitCenter</code>;<code>centerCrop</code>),图片加载的优先级<code>priority</code>,设置下载之前的占位符图片<code>placeholder()</code>，以及图片下载失败时的图片<code>error()</code>:</p>
 <blockquote>
 <p>这些参数配置功能均在<code>DrawableRequestBuilder</code></p>
 </blockquote>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> DrawableRequestBuilder&lt;ModelType&gt; <span class="title function_">priority</span><span class="params">(Priority priority)</span> &#123;</span><br><span class="line">    <span class="built_in">super</span>.priority(priority);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line"><span class="keyword">public</span> DrawableRequestBuilder&lt;ModelType&gt; <span class="title function_">centerCrop</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> transform(glide.getDrawableCenterCrop());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line"><span class="keyword">public</span> DrawableRequestBuilder&lt;ModelType&gt; <span class="title function_">fitCenter</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> transform(glide.getDrawableFitCenter());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> DrawableRequestBuilder&lt;ModelType&gt; <span class="title function_">crossFade</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="built_in">super</span>.animate(<span class="keyword">new</span> <span class="title class_">DrawableCrossFadeFactory</span>&lt;GlideDrawable&gt;());</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> DrawableRequestBuilder&lt;ModelType&gt; <span class="title function_">error</span><span class="params">(<span class="type">int</span> resourceId)</span> &#123;</span><br><span class="line">    <span class="built_in">super</span>.error(resourceId);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>至此，图片加载请求就完成了。此时调用<code>into(ImageView)</code>，Glide就可以准备加载图片了。在<code>GenericRequestBuilder</code>中，调用<code>into(ImageView)</code>时首先会将<code>ImageView</code>包装成一个<code>Target&lt;R&gt;</code>,这里的资源类型<code>R</code>是<code>GlideDrawable</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> Target&lt;TranscodeType&gt; <span class="title function_">into</span><span class="params">(ImageView view)</span> &#123;</span><br><span class="line">    Util.assertMainThread();</span><br><span class="line">    <span class="keyword">if</span> (view == <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;You must pass in a non null View&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!isTransformationSet &amp;&amp; view.getScaleType() != <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="keyword">switch</span> (view.getScaleType()) &#123;</span><br><span class="line">            <span class="keyword">case</span> CENTER_CROP:</span><br><span class="line">                applyCenterCrop();</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> FIT_CENTER:</span><br><span class="line">            <span class="keyword">case</span> FIT_START:</span><br><span class="line">            <span class="keyword">case</span> FIT_END:</span><br><span class="line">                applyFitCenter();</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="comment">//$CASES-OMITTED$</span></span><br><span class="line">            <span class="keyword">default</span>:</span><br><span class="line">                <span class="comment">// Do nothing.</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> into(glide.buildImageViewTarget(view, transcodeClass));</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>Glide调用<code>ImageViewTargetFactory</code>来生成一个<code>Target</code>对象，这里实际创建的是一个<code>GlideDrawableImageViewTarget</code>对象：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ImageViewTargetFactory</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> &lt;Z&gt; Target&lt;Z&gt; <span class="title function_">buildTarget</span><span class="params">(ImageView view, Class&lt;Z&gt; clazz)</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (GlideDrawable.class.isAssignableFrom(clazz)) &#123;</span><br><span class="line">            <span class="keyword">return</span> (Target&lt;Z&gt;) <span class="keyword">new</span> <span class="title class_">GlideDrawableImageViewTarget</span>(view);</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (Bitmap.class.equals(clazz)) &#123;</span><br><span class="line">            <span class="keyword">return</span> (Target&lt;Z&gt;) <span class="keyword">new</span> <span class="title class_">BitmapImageViewTarget</span>(view);</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (Drawable.class.isAssignableFrom(clazz)) &#123;</span><br><span class="line">            <span class="keyword">return</span> (Target&lt;Z&gt;) <span class="keyword">new</span> <span class="title class_">DrawableImageViewTarget</span>(view);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IllegalArgumentException</span>(<span class="string">&quot;Unhandled class: &quot;</span> + clazz</span><br><span class="line">                    + <span class="string">&quot;, try .as*(Class).transcode(ResourceTranscoder)&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>调用<code>into(Target)</code>，在这里生成一个<code>Request</code>,并将其传递给<code>RequestTracker</code>执行。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> &lt;Y <span class="keyword">extends</span> <span class="title class_">Target</span>&lt;TranscodeType&gt;&gt; Y <span class="title function_">into</span><span class="params">(Y target)</span> &#123;</span><br><span class="line">    Util.assertMainThread();</span><br><span class="line">    ....</span><br><span class="line">    <span class="type">Request</span> <span class="variable">previous</span> <span class="operator">=</span> target.getRequest();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (previous != <span class="literal">null</span>) &#123;</span><br><span class="line">        previous.clear();</span><br><span class="line">        requestTracker.removeRequest(previous);</span><br><span class="line">        previous.recycle();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 产生图片加载请求</span></span><br><span class="line">    <span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span> buildRequest(target);</span><br><span class="line">    target.setRequest(request);</span><br><span class="line">    lifecycle.addListener(target);</span><br><span class="line">    requestTracker.runRequest(request);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> target;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="启动图片加载"><a href="#启动图片加载" class="headerlink" title="启动图片加载"></a><strong>启动图片加载</strong></h2><p>调用<code>RequestTracker.runRequest</code>，保存该<code>Request</code>到队列中，如果当前状态没有处于<code>paused</code>，则直接调用<code>Request.begin</code>,启动<code>Request</code>:</p>
+<h2 id="启动图片加载"><strong>启动图片加载</strong></h2>
+<p>调用<code>RequestTracker.runRequest</code>，保存该<code>Request</code>到队列中，如果当前状态没有处于<code>paused</code>，则直接调用<code>Request.begin</code>,启动<code>Request</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">runRequest</span><span class="params">(Request request)</span> &#123;</span><br><span class="line">    requests.add(request);</span><br><span class="line">    <span class="keyword">if</span> (!isPaused) &#123;</span><br><span class="line">        request.begin();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        pendingRequests.add(request);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">begin</span><span class="params">()</span> &#123;</span><br><span class="line">    startTime = LogTime.getLogTime();</span><br><span class="line">    <span class="keyword">if</span> (model == <span class="literal">null</span>) &#123;</span><br><span class="line">        onException(<span class="literal">null</span>);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    status = Status.WAITING_FOR_SIZE;</span><br><span class="line">    <span class="keyword">if</span> (Util.isValidDimensions(overrideWidth, overrideHeight)) &#123;</span><br><span class="line">        onSizeReady(overrideWidth, overrideHeight);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        target.getSize(<span class="built_in">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!isComplete() &amp;&amp; !isFailed() &amp;&amp; canNotifyStatusChanged()) &#123;</span><br><span class="line">        target.onLoadStarted(getPlaceholderDrawable());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>如果图片给定的尺寸大小有效，则从<code>FixedLoadProvider</code>中获取一个数据加载器（在构造<code>DrawableTypeRequest</code>时由Glide创建），并将其作为参数传入<code>Engine</code>进行图片加载：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onSizeReady</span><span class="params">(<span class="type">int</span> width, <span class="type">int</span> height)</span> &#123;</span><br><span class="line">    ....</span><br><span class="line">    status = Status.RUNNING;</span><br><span class="line"></span><br><span class="line">    width = Math.round(sizeMultiplier * width);</span><br><span class="line">    height = Math.round(sizeMultiplier * height);</span><br><span class="line"></span><br><span class="line">    ModelLoader&lt;A, T&gt; modelLoader = loadProvider.getModelLoader();</span><br><span class="line">    <span class="keyword">final</span> DataFetcher&lt;T&gt; dataFetcher = modelLoader.getResourceFetcher(model, width, height);</span><br><span class="line">    ....</span><br><span class="line">    ResourceTranscoder&lt;Z, R&gt; transcoder = loadProvider.getTranscoder();</span><br><span class="line">    ....</span><br><span class="line">    loadedFromMemoryCache = <span class="literal">true</span>;</span><br><span class="line">    <span class="comment">// 调用load进行图片加载</span></span><br><span class="line">    loadStatus = engine.load(signature, width, height, dataFetcher, loadProvider, transformation, transcoder,</span><br><span class="line">            priority, isMemoryCacheable, diskCacheStrategy, <span class="built_in">this</span>);</span><br><span class="line">    loadedFromMemoryCache = resource != <span class="literal">null</span>;</span><br><span class="line">    </span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>加载图片，如果缓存中有，则直接回调返回该资源；或者<code>Engine</code>中有保存的活跃资源（之前提交了<code>Request</code>但尚未被释放的资源）也会直接返回该资源。否则需要从DISK或者网络端进行加载：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> &lt;T, Z, R&gt; LoadStatus <span class="title function_">load</span><span class="params">(Key signature, <span class="type">int</span> width, <span class="type">int</span> height, DataFetcher&lt;T&gt; fetcher,</span></span><br><span class="line"><span class="params">        DataLoadProvider&lt;T, Z&gt; loadProvider, Transformation&lt;Z&gt; transformation, ResourceTranscoder&lt;Z, R&gt; transcoder,</span></span><br><span class="line"><span class="params">        Priority priority, <span class="type">boolean</span> isMemoryCacheable, DiskCacheStrategy diskCacheStrategy, ResourceCallback cb)</span> &#123;</span><br><span class="line">    Util.assertMainThread();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">final</span> <span class="type">String</span> <span class="variable">id</span> <span class="operator">=</span> fetcher.getId();</span><br><span class="line">    <span class="type">EngineKey</span> <span class="variable">key</span> <span class="operator">=</span> keyFactory.buildKey(id, signature, width, height, loadProvider.getCacheDecoder(),</span><br><span class="line">            loadProvider.getSourceDecoder(), transformation, loadProvider.getEncoder(),</span><br><span class="line">            transcoder, loadProvider.getSourceEncoder());</span><br><span class="line">    <span class="comment">// cache中已经包含</span></span><br><span class="line">    EngineResource&lt;?&gt; cached = loadFromCache(key, isMemoryCacheable);</span><br><span class="line">    <span class="keyword">if</span> (cached != <span class="literal">null</span>) &#123;</span><br><span class="line">        cb.onResourceReady(cached);</span><br><span class="line">        <span class="keyword">if</span> (Log.isLoggable(TAG, Log.VERBOSE)) &#123;</span><br><span class="line">            logWithTimeAndKey(<span class="string">&quot;Loaded resource from cache&quot;</span>, startTime, key);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 活跃资源中包含该请求所需资源</span></span><br><span class="line">    EngineResource&lt;?&gt; active = loadFromActiveResources(key, isMemoryCacheable);</span><br><span class="line">    <span class="keyword">if</span> (active != <span class="literal">null</span>) &#123;</span><br><span class="line">        cb.onResourceReady(active);</span><br><span class="line">        <span class="keyword">if</span> (Log.isLoggable(TAG, Log.VERBOSE)) &#123;</span><br><span class="line">            logWithTimeAndKey(<span class="string">&quot;Loaded resource from active resources&quot;</span>, startTime, key);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">EngineJob</span> <span class="variable">current</span> <span class="operator">=</span> jobs.get(key);</span><br><span class="line">    ....</span><br><span class="line">    <span class="type">EngineJob</span> <span class="variable">engineJob</span> <span class="operator">=</span> engineJobFactory.build(key, isMemoryCacheable);</span><br><span class="line">    DecodeJob&lt;T, Z, R&gt; decodeJob = <span class="keyword">new</span> <span class="title class_">DecodeJob</span>&lt;T, Z, R&gt;(key, width, height, fetcher, loadProvider, transformation,</span><br><span class="line">            transcoder, diskCacheProvider, diskCacheStrategy, priority);</span><br><span class="line">    <span class="comment">// EngineRunnable负责图片下载，解码</span></span><br><span class="line">    <span class="type">EngineRunnable</span> <span class="variable">runnable</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">EngineRunnable</span>(engineJob, decodeJob, priority);</span><br><span class="line">    jobs.put(key, engineJob);</span><br><span class="line">    engineJob.addCallback(cb);</span><br><span class="line">    <span class="comment">// 开始执行图片加载</span></span><br><span class="line">    engineJob.start(runnable);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">LoadStatus</span>(cb, engineJob);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>将<code>EngineRunnable</code>可执行对象放入一个优先级线程池<code>FifoPriorityThreadPoolExecutor</code>中执行：</p>
 <blockquote>
 <p>两个线程池均在GlideBuilder创建，然后传给Engine的构造函数</p>
 </blockquote>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">start</span><span class="params">(EngineRunnable engineRunnable)</span> &#123;</span><br><span class="line">    <span class="built_in">this</span>.engineRunnable = engineRunnable;</span><br><span class="line">    future = diskCacheService.submit(engineRunnable);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>由于<code>EngineRunnable</code>的初始状态为<code>CACHE</code>,因此首先会尝试从DISK的缓存中加载资源，如果加载成功，则直接回调返回该资源给上层调用者：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">    ....</span><br><span class="line">    <span class="type">Exception</span> <span class="variable">exception</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    Resource&lt;?&gt; resource = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 从DISK或者NETWORK加载图片</span></span><br><span class="line">        resource = decode();</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        exception = e;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 资源加载结束，回调返回结果</span></span><br><span class="line">    <span class="keyword">if</span> (resource == <span class="literal">null</span>) &#123;</span><br><span class="line">        onLoadFailed(exception);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        onLoadComplete(resource);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> Resource&lt;?&gt; decode() <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="comment">// stage为cache,直接从cache中获取资源</span></span><br><span class="line">    <span class="keyword">if</span> (isDecodingFromCache()) &#123;</span><br><span class="line">        <span class="keyword">return</span> decodeFromCache();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> decodeFromSource();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>调用<code>DecodeJob.decodeFromCache()</code>尝试从CACHE中获取资源：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> Resource&lt;?&gt; decodeFromCache() <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    Resource&lt;?&gt; result = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        result = decodeJob.decodeResultFromCache();</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        <span class="keyword">if</span> (Log.isLoggable(TAG, Log.DEBUG)) &#123;</span><br><span class="line">            Log.d(TAG, <span class="string">&quot;Exception decoding result from cache: &quot;</span> + e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (result == <span class="literal">null</span>) &#123;</span><br><span class="line">        result = decodeJob.decodeSourceFromCache();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>如果CACHE中并没有发现可用的资源，<code>EngineRunnable</code>进入<code>SOURCE</code>状态：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">onLoadFailed</span><span class="params">(Exception e)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (isDecodingFromCache()) &#123;</span><br><span class="line">        stage = Stage.SOURCE;</span><br><span class="line">        <span class="comment">// 通过EngineJob将该执行对象再次执行</span></span><br><span class="line">        manager.submitForSource(<span class="built_in">this</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        manager.onException(e);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// EngineJob: 这一次提交到网络端线程池加载资源</span></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">submitForSource</span><span class="params">(EngineRunnable runnable)</span> &#123;</span><br><span class="line">    future = sourceService.submit(runnable);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="从网络端下载图片，回调返回结果"><a href="#从网络端下载图片，回调返回结果" class="headerlink" title="从网络端下载图片，回调返回结果"></a><strong>从网络端下载图片，回调返回结果</strong></h2><p>调用<code>DecodeJob.decodeFromSource()</code>,从网络端下载图片,并将数据解码成对应格式:</p>
+<h2
+id="从网络端下载图片回调返回结果"><strong>从网络端下载图片，回调返回结果</strong></h2>
+<p>调用<code>DecodeJob.decodeFromSource()</code>,从网络端下载图片,并将数据解码成对应格式:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> Resource&lt;Z&gt; <span class="title function_">decodeFromSource</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    Resource&lt;T&gt; decoded = decodeSource();</span><br><span class="line">    <span class="keyword">return</span> transformEncodeAndTranscode(decoded);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>调用<code>Resource&lt;T&gt;</code>对应的<code>DataFetcher&lt;A&gt;</code>来从网络端加载数据，这里<code>T</code>是一个<code>Bitmap</code>， 而<code>A</code>是一个<code>InputStream</code>数据流；接着讲该输入流转换成相应的<code>Resource&lt;Bitmap&gt;</code>类：</p>
+<p>调用<code>Resource&lt;T&gt;</code>对应的<code>DataFetcher&lt;A&gt;</code>来从网络端加载数据，这里<code>T</code>是一个<code>Bitmap</code>，
+而<code>A</code>是一个<code>InputStream</code>数据流；接着讲该输入流转换成相应的<code>Resource&lt;Bitmap&gt;</code>类：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> Resource&lt;T&gt; <span class="title function_">decodeSource</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    Resource&lt;T&gt; decoded = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="type">long</span> <span class="variable">startTime</span> <span class="operator">=</span> LogTime.getLogTime();</span><br><span class="line">        <span class="comment">// 这里的DataFetcher实际上是OkHttpStreamFetcher</span></span><br><span class="line">        <span class="keyword">final</span> <span class="type">A</span> <span class="variable">data</span> <span class="operator">=</span> fetcher.loadData(priority);</span><br><span class="line">        <span class="keyword">if</span> (Log.isLoggable(TAG, Log.VERBOSE)) &#123;</span><br><span class="line">            logWithTimeAndKey(<span class="string">&quot;Fetched data&quot;</span>, startTime);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (isCancelled) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        decoded = decodeFromSourceData(data);</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        fetcher.cleanup();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> decoded;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
 <p>调用<code>OkHttpStreamFetcher.loadData()</code>加载数据：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> InputStream <span class="title function_">loadData</span><span class="params">(Priority priority)</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    Request.<span class="type">Builder</span> <span class="variable">requestBuilder</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Request</span>.Builder().url(url.toStringUrl());</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (Map.Entry&lt;String, String&gt; headerEntry : url.getHeaders().entrySet()) &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> headerEntry.getKey();</span><br><span class="line">        requestBuilder.addHeader(key, headerEntry.getValue());</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="type">Request</span> <span class="variable">request</span> <span class="operator">=</span> requestBuilder.build();</span><br><span class="line"></span><br><span class="line">    Response response;</span><br><span class="line">    call = client.newCall(request);</span><br><span class="line">    response = call.execute();</span><br><span class="line">    responseBody = response.body();</span><br><span class="line">    <span class="keyword">if</span> (!response.isSuccessful()) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">IOException</span>(<span class="string">&quot;Request failed with code: &quot;</span> + response.code());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="variable">contentLength</span> <span class="operator">=</span> responseBody.contentLength();</span><br><span class="line">    stream = ContentLengthInputStream.obtain(responseBody.byteStream(), contentLength);</span><br><span class="line">    <span class="keyword">return</span> stream;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
 <p>这里<code>loadProvider</code>是<code>StreamBitmapDataLoadProvider</code>，而用于资源解码的是<code>StreamBitmapDecoder</code>：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> Resource&lt;T&gt; <span class="title function_">decodeFromSourceData</span><span class="params">(A data)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">    <span class="keyword">final</span> Resource&lt;T&gt; decoded;</span><br><span class="line">    <span class="comment">// 默认的磁盘缓存策略是(source,result) = (false, true)</span></span><br><span class="line">    <span class="keyword">if</span> (diskCacheStrategy.cacheSource()) &#123;</span><br><span class="line">        decoded = cacheAndDecodeSourceData(data);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 调用InputStream对应的资源解码器对InputStream进行解密</span></span><br><span class="line">        decoded = loadProvider.getSourceDecoder().decode(data, width, height);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> decoded;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//StreamBitmapDecoder: 输入流数据进行解码，按照给定的图片尺寸对图片进行比例采样</span></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> Resource&lt;Bitmap&gt; <span class="title function_">decode</span><span class="params">(InputStream source, <span class="type">int</span> width, <span class="type">int</span> height)</span> &#123;</span><br><span class="line">    <span class="type">Bitmap</span> <span class="variable">bitmap</span> <span class="operator">=</span> downsampler.decode(source, bitmapPool, width, height, decodeFormat);</span><br><span class="line">    <span class="keyword">return</span> BitmapResource.obtain(bitmap, bitmapPool);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>至此图片解码完成了，接着要讲<code>Resource&lt;Bitmap&gt;</code>转换成另一种包装类格式<code>GlideBitmapDrawable</code>，因而此时实际返回的是一个<code>GlideBitmapDrawableResource</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> Resource&lt;Z&gt; <span class="title function_">decodeFromSource</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    Resource&lt;T&gt; decoded = decodeSource();</span><br><span class="line">    <span class="comment">// 大小变换以及转换成另一个类Z</span></span><br><span class="line">    <span class="keyword">return</span> transformEncodeAndTranscode(decoded);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> Resource&lt;Z&gt; <span class="title function_">transformEncodeAndTranscode</span><span class="params">(Resource&lt;T&gt; decoded)</span> &#123;</span><br><span class="line">    <span class="type">long</span> <span class="variable">startTime</span> <span class="operator">=</span> LogTime.getLogTime();</span><br><span class="line">    Resource&lt;T&gt; transformed = transform(decoded);</span><br><span class="line">    <span class="keyword">if</span> (Log.isLoggable(TAG, Log.VERBOSE)) &#123;</span><br><span class="line">        logWithTimeAndKey(<span class="string">&quot;Transformed resource from source&quot;</span>, startTime);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 将变换后的结果保存到缓存</span></span><br><span class="line">    writeTransformedToCache(transformed);</span><br><span class="line">    <span class="comment">// 转换成GlideBitmapDrawable</span></span><br><span class="line">    Resource&lt;Z&gt; result = transcode(transformed);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
 <p>回调<code>onLoadComplete()</code>,告知<code>EngineJob</code>资源加载完成了:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">onLoadComplete</span><span class="params">(Resource resource)</span> &#123;</span><br><span class="line">    manager.onResourceReady(resource);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>回调<code>EngineJob.onResourceReady()</code>,在主线程上处理回调结果：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">EngineJob</span> <span class="keyword">implements</span> <span class="title class_">EngineRunnable</span>.EngineRunnableManager &#123;</span><br><span class="line">    <span class="comment">// 用于向主线程发送消息</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Handler</span> <span class="variable">MAIN_THREAD_HANDLER</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Handler</span>(Looper.getMainLooper(), <span class="keyword">new</span> <span class="title class_">MainThreadCallback</span>());</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onResourceReady</span><span class="params">(<span class="keyword">final</span> Resource&lt;?&gt; resource)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.resource = resource;</span><br><span class="line">        MAIN_THREAD_HANDLER.obtainMessage(MSG_COMPLETE, <span class="built_in">this</span>).sendToTarget();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">MainThreadCallback</span> <span class="keyword">implements</span> <span class="title class_">Handler</span>.Callback &#123;</span><br><span class="line"></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="keyword">public</span> <span class="type">boolean</span> <span class="title function_">handleMessage</span><span class="params">(Message message)</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (MSG_COMPLETE == message.what || MSG_EXCEPTION == message.what) &#123;</span><br><span class="line">                <span class="type">EngineJob</span> <span class="variable">job</span> <span class="operator">=</span> (EngineJob) message.obj;</span><br><span class="line">                <span class="keyword">if</span> (MSG_COMPLETE == message.what) &#123;</span><br><span class="line">                    <span class="comment">// 资源加载成功</span></span><br><span class="line">                    job.handleResultOnMainThread();</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    job.handleExceptionOnMainThread();</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>在主线程上处理结果：首先告知<code>Engine</code>资源加载完毕，接着告知所有<code>ResourceCallback</code>，并返回一个含有资源的包装类<code>EngineResource</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">handleResultOnMainThread</span><span class="params">()</span> &#123;</span><br><span class="line">    </span><br><span class="line">    engineResource = engineResourceFactory.build(resource, isCacheable);</span><br><span class="line">    hasResource = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Hold on to resource for duration of request so we don&#x27;t recycle it in the middle of notifying if it</span></span><br><span class="line">    <span class="comment">// synchronously released by one of the callbacks.</span></span><br><span class="line">    engineResource.acquire();</span><br><span class="line">    listener.onEngineJobComplete(key, engineResource);</span><br><span class="line">    <span class="comment">// 回调接口在Engine中添加</span></span><br><span class="line">    <span class="keyword">for</span> (ResourceCallback cb : cbs) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!isInIgnoredCallbacks(cb)) &#123;</span><br><span class="line">            engineResource.acquire();</span><br><span class="line">            cb.onResourceReady(engineResource);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// Our request is complete, so we can release the resource.</span></span><br><span class="line">    engineResource.release();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>回忆下最开始调用<code>Engine.decode()</code>的地方<code>GenericRequest</code>，可以看到，<code>ResourceCallback</code>的源头在<code>GenericRequest</code>：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@SuppressWarnings(&quot;unchecked&quot;)</span></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onResourceReady</span><span class="params">(Resource&lt;?&gt; resource)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (resource == <span class="literal">null</span>) &#123;</span><br><span class="line">        onException(<span class="keyword">new</span> <span class="title class_">Exception</span>(<span class="string">&quot;Expected to receive a Resource&lt;R&gt; with an object of &quot;</span> + transcodeClass</span><br><span class="line">                + <span class="string">&quot; inside, but instead got null.&quot;</span>));</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    ....</span><br><span class="line">    onResourceReady(resource, (R) received);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">onResourceReady</span><span class="params">(Resource&lt;?&gt; resource, R result)</span> &#123;</span><br><span class="line">    <span class="comment">// We must call isFirstReadyResource before setting status.</span></span><br><span class="line">    <span class="type">boolean</span> <span class="variable">isFirstResource</span> <span class="operator">=</span> isFirstReadyResource();</span><br><span class="line">    status = Status.COMPLETE;</span><br><span class="line">    <span class="built_in">this</span>.resource = resource;</span><br><span class="line">    <span class="comment">// RequestListener是用户自己定义的监听接口</span></span><br><span class="line">    <span class="keyword">if</span> (requestListener == <span class="literal">null</span> || !requestListener.onResourceReady(result, model, target, loadedFromMemoryCache,</span><br><span class="line">            isFirstResource)) &#123;</span><br><span class="line">        GlideAnimation&lt;R&gt; animation = animationFactory.build(loadedFromMemoryCache, isFirstResource);</span><br><span class="line">        <span class="comment">// 告知Target资源加载完毕</span></span><br><span class="line">        target.onResourceReady(result, animation);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    notifyLoadSuccess();</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>调用<code>ImageViewTarget.onResourceReady</code>,将资源加载到<code>ImageView</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onResourceReady</span><span class="params">(Z resource, GlideAnimation&lt;? <span class="built_in">super</span> Z&gt; glideAnimation)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (glideAnimation == <span class="literal">null</span> || !glideAnimation.animate(resource, <span class="built_in">this</span>)) &#123;</span><br><span class="line">        setResource(resource);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>至此这个图片就加载完成了。相比<code>Piccasso</code>,Glide大量使用了泛型，所以看代码可能比较费力，但是只要搞清楚各个泛型之间的关系，代码之间的逻辑就容易理清了。</p>
 
     </article>
@@ -630,7 +607,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">https://sniffer.site/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">May 30th 2017, 11:15:02 am</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">2022-03-22, 20:10:01</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -796,7 +773,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%A7%E7%94%9F%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%AF%B7%E6%B1%82"><span class="toc-number">1.</span> <span class="toc-text">产生图片加载请求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD"><span class="toc-number">2.</span> <span class="toc-text">启动图片加载</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E%E7%BD%91%E7%BB%9C%E7%AB%AF%E4%B8%8B%E8%BD%BD%E5%9B%BE%E7%89%87%EF%BC%8C%E5%9B%9E%E8%B0%83%E8%BF%94%E5%9B%9E%E7%BB%93%E6%9E%9C"><span class="toc-number">3.</span> <span class="toc-text">从网络端下载图片，回调返回结果</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%A7%E7%94%9F%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%AF%B7%E6%B1%82"><span class="toc-number">1.</span> <span class="toc-text">产生图片加载请求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD"><span class="toc-number">2.</span> <span class="toc-text">启动图片加载</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E%E7%BD%91%E7%BB%9C%E7%AB%AF%E4%B8%8B%E8%BD%BD%E5%9B%BE%E7%89%87%E5%9B%9E%E8%B0%83%E8%BF%94%E5%9B%9E%E7%BB%93%E6%9E%9C"><span class="toc-number">3.</span> <span class="toc-text">从网络端下载图片，回调返回结果</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1445,7 +1422,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2896,7 +2884,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2914,6 +2902,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3772,44 +3766,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3827,14 +3796,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3847,14 +3821,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3865,11 +3839,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3887,14 +3856,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3910,6 +3874,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3942,31 +3916,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3975,6 +3924,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3997,19 +3951,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4025,6 +3969,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4052,14 +4031,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4072,39 +4051,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4115,16 +4084,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4152,6 +4111,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4167,9 +4151,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4187,41 +4181,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4232,14 +4191,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4267,16 +4231,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4297,9 +4251,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4317,24 +4281,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4342,24 +4306,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4372,9 +4346,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4397,9 +4376,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4422,6 +4401,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4437,14 +4426,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4455,6 +4444,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4472,41 +4481,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4520,6 +4494,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4542,11 +4531,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4562,16 +4546,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4585,6 +4559,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4607,16 +4596,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4632,24 +4611,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4660,6 +4624,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4702,6 +4681,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4717,14 +4716,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4745,21 +4739,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4827,19 +4806,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4857,6 +4826,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4872,16 +4866,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4890,6 +4874,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4912,21 +4911,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4945,16 +4929,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4982,11 +4956,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -5007,14 +4976,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5042,19 +5026,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5067,6 +5046,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5075,6 +5059,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5087,6 +5081,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5108,6 +5107,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5118,19 +5122,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5138,14 +5132,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5163,14 +5157,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5186,11 +5180,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

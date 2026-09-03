@@ -26,22 +26,13 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="QNX最初是Gordon Bell与Dan Dodge两人在1980年代初期创建的一个实时微内核操作系统(RTOS(Real-Time Operating System), 后来被黑莓(BlackBerry)公司收购，因此也叫做Blackberry QNX系统。QNX被世人熟知还是因为其高安全性、QNX hypervisor等特性在汽车领域的广泛应用。">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-sys-architecture.jpg">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx_qvm_arch.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_lahavline.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-process-schedule.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-hyp-ipa-pa.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_pdev_passthru.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_vdev_paravirt.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/gic_handling_process.png">
 <meta property="article:published_time" content="2023-08-09T07:33:40.000Z">
-<meta property="article:modified_time" content="2023-08-10T04:34:45.997Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.678Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="虚拟化">
 <meta property="article:tag" content="virtualization">
 <meta property="article:tag" content="QNX">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-sys-architecture.jpg">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -534,68 +525,116 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/QNX"><code>QNX</code></a>最初是<code>Gordon Bell</code>与<code>Dan Dodge</code>两人在1980年代初期创建的一个实时微内核操作系统(<code>RTOS(Real-Time Operating System</code>), 后来被黑莓(<code>BlackBerry</code>)公司收购，因此也叫做<code>Blackberry QNX</code>系统。<code>QNX</code>被世人熟知还是因为其高安全性、<code>QNX hypervisor</code>等特性在汽车领域的广泛应用。</p>
+        <p><a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/QNX"><code>QNX</code></a>最初是<code>Gordon Bell</code>与<code>Dan Dodge</code>两人在1980年代初期创建的一个实时微内核操作系统(<code>RTOS(Real-Time Operating System</code>),
+后来被黑莓(<code>BlackBerry</code>)公司收购，因此也叫做<code>Blackberry QNX</code>系统。<code>QNX</code>被世人熟知还是因为其高安全性、<code>QNX hypervisor</code>等特性在汽车领域的广泛应用。</p>
 <span id="more"></span>
-
 <p>这篇文章，我们就来看看<code>QNX</code>虚拟化平台的基本架构与实现原理，着重会介绍虚拟化方案:</p>
 <ul>
 <li>介绍<code>QNX</code>以及虚拟化平台的基本概念与架构</li>
 <li>介绍QNX虚拟化的实现方法，包括<code>CPU</code>虚拟化，内存虚拟化，设备虚拟化等</li>
 </ul>
-<h2 id="QNX虚拟化平台的架构组成"><a href="#QNX虚拟化平台的架构组成" class="headerlink" title="QNX虚拟化平台的架构组成"></a><strong>QNX虚拟化平台的架构组成</strong></h2><p><code>QNX</code>系统是一个微内核(<code>microkernel</code>)的类<code>UNIX</code>的实时操作系统，支持<code>x86/ARM/PowerPC/MIPS</code>等多个芯片架构，可以应用到从小型的嵌入式硬件到大型的分布式系统中。总结来说，主要有如下几个特点:</p>
+<h2
+id="qnx虚拟化平台的架构组成"><strong>QNX虚拟化平台的架构组成</strong></h2>
+<p><code>QNX</code>系统是一个微内核(<code>microkernel</code>)的类<code>UNIX</code>的实时操作系统，支持<code>x86/ARM/PowerPC/MIPS</code>等多个芯片架构，可以应用到从小型的嵌入式硬件到大型的分布式系统中。总结来说，主要有如下几个特点:</p>
 <ul>
-<li>微内核的实时操作系统: 与Linux这样的宏内核(<code>Monolithic</code>)操作系统不同的是，QNX采用的微内核的实现。内核只实现了很少一部分功能，比如进程管理与进程通讯，进程同步与调度等，其他的如文件系统，设备驱动以及网络协议栈都在用户空间中实现。这么做一个明显的好处是，内核不会设备驱动或者网络协议栈等异常崩溃而卡死，从而提升了系统的稳定性与可用性；进程的上下文切换效率更高，因而实时性更好。</li>
-<li>支持<code>POSIX</code>接口: 与大部分<code>UNIX</code>的操作系统类似，<code>QNX</code>支持<code>POSIX</code>标准接口，这样其他很多比如在<code>Linux</code>上写的程序就可以直接移植到<code>QNX</code>上，减少了开发成本。</li>
-<li>系统级别的HA(<code>High Availability</code>)框架： <code>QNX</code>专门提供了一套高可用的开发框架，可以用于进程的快速恢复，确保系统业务功能的高可用性。</li>
-<li>多个行业安全认证: <code>QNX</code>代码经过多个行业安全标准，如通信行业的<code>FIPS 140-2</code>, 工控行业的<code>IEC 61508</code>, 汽车电子领域的<code>ISO 26262</code>等等，从代码级别上提升了系统的安全性。</li>
+<li>微内核的实时操作系统:
+与Linux这样的宏内核(<code>Monolithic</code>)操作系统不同的是，QNX采用的微内核的实现。内核只实现了很少一部分功能，比如进程管理与进程通讯，进程同步与调度等，其他的如文件系统，设备驱动以及网络协议栈都在用户空间中实现。这么做一个明显的好处是，内核不会设备驱动或者网络协议栈等异常崩溃而卡死，从而提升了系统的稳定性与可用性；进程的上下文切换效率更高，因而实时性更好。</li>
+<li>支持<code>POSIX</code>接口:
+与大部分<code>UNIX</code>的操作系统类似，<code>QNX</code>支持<code>POSIX</code>标准接口，这样其他很多比如在<code>Linux</code>上写的程序就可以直接移植到<code>QNX</code>上，减少了开发成本。</li>
+<li>系统级别的HA(<code>High Availability</code>)框架：
+<code>QNX</code>专门提供了一套高可用的开发框架，可以用于进程的快速恢复，确保系统业务功能的高可用性。</li>
+<li>多个行业安全认证:
+<code>QNX</code>代码经过多个行业安全标准，如通信行业的<code>FIPS 140-2</code>,
+工控行业的<code>IEC 61508</code>,
+汽车电子领域的<code>ISO 26262</code>等等，从代码级别上提升了系统的安全性。</li>
 <li>支持多个硬件平台：支持市面上大部分<code>SoC</code>供应商如<code>AMD</code>、<code>Intel</code>、<code>Nvidia</code>、<code>NXP</code>、<code>Qualcomm</code>的芯片</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-sys-architecture.jpg" alt="QNX RTOS"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-sys-architecture.jpg"
+alt="QNX RTOS" /></p>
 <p>如上图所示，是<code>QNX</code>系统的一个架构简图，可以看到，内核为所有进程通讯提供了一个软总线(<code>software bus</code>),进程之间的通讯都是通过这条软总线传递消息。内核只是实现了诸如线程管理、消息传递、发送信号、中断处理、并发同步等功能，其他的如显示驱动，文件系统，网络协议栈、字符设备等统一在用户空间实现。</p>
-<p><code>QNX</code>在原有系统上进行了虚拟化扩展，支持了<code>hypervisor</code>功能；在<code>hypervisor</code>的基础上，<code>QVM</code>(<code>QNX Virtual Machine</code>)支持运行如<code>Linux</code>、<code>Android</code>、<code>QNX</code>等<code>Guest</code>操作系统。目前常见的汽车座舱芯片如<code>Renesas R-Car H3</code>, 高通<code>820A</code>、<code>8155</code>以及<code>NXP i.MX 8</code>等都支持<code>QNX</code>虚拟化方案。</p>
+<p><code>QNX</code>在原有系统上进行了虚拟化扩展，支持了<code>hypervisor</code>功能；在<code>hypervisor</code>的基础上，<code>QVM</code>(<code>QNX Virtual Machine</code>)支持运行如<code>Linux</code>、<code>Android</code>、<code>QNX</code>等<code>Guest</code>操作系统。目前常见的汽车座舱芯片如<code>Renesas R-Car H3</code>,
+高通<code>820A</code>、<code>8155</code>以及<code>NXP i.MX 8</code>等都支持<code>QNX</code>虚拟化方案。</p>
 <p>下图是<code>QNX</code>虚拟化平台的一个框架简图，每个运行的客户操作系统(<code>Guest OS</code>)都对应个<code>QVM</code>进程；客户操作系统可以通过虚拟设备或者<code>pass-through</code>的方式访问控制硬件。实际上，对<code>QNX</code>来说，客户操作系统并不一定运行在虚拟的环境，而是大部分时候都直接在物理<code>CPU</code>上执行指令，只有当需要访问一些特权指令或者无法访问的内存时，<code>hypervisor</code>才会介入，执行虚拟化相关的指令，让虚拟机退出。</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx_qvm_arch.png" alt="QNX hypervisor architecture"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx_qvm_arch.png"
+alt="QNX hypervisor architecture" /></p>
 <p>以单个<code>CPU</code>的执行流程为例，当<code>hypervisor</code>陷入到虚拟化相关的指令后，首先会尝试保存当前虚拟机的上下文信息，此时虚拟机退出，由<code>hypervisor</code>完成必要的工作后再恢复虚拟机的上下文，重新执行虚拟机被打断的流程(具体路程参考下图):</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_lahavline.png" alt="The lahav line"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_lahavline.png"
+alt="The lahav line" /></p>
 <p>接下来我们就具体来看看<code>QNX</code>是如何实现<code>CPU</code>、内存、<code>I/O</code>设备以及中断是如何处理的。</p>
-<h2 id="QNX虚拟化实现"><a href="#QNX虚拟化实现" class="headerlink" title="QNX虚拟化实现"></a><strong>QNX虚拟化实现</strong></h2><h3 id="CPU的虚拟化"><a href="#CPU的虚拟化" class="headerlink" title="CPU的虚拟化"></a><strong>CPU的虚拟化</strong></h3><p>虚拟机上的进程的调度实际是以虚拟<code>CPU</code>(vCPU)为基础进行的，每个虚拟机在启动时，可以配置<code>vCPU</code>的数量;<code>vCPU</code>的调度是由在<code>hypervisor</code>中的调度线程负责执行的。一个物理<code>CPU</code>可能对应着多个<code>vCPU</code>；类似的，一个<code>vCPU</code>也可以选择在多个物理<code>CPU</code>上电调度执行。需要注意的是，虚拟机中的线程优先级与宿主机中<code>QNX</code>的线程优先级没有关系，具体何时执行哪个<code>vCPU</code>完全是由<code>hypervisor</code>中的调度线程的优先级决定的: 两个<code>vCPU</code>竞争物理<code>CPU</code>时，对应的<code>hypervisor</code>调度线程的优先级更高的任务获得对应的物理<code>CPU</code>执行权。</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-process-schedule.png" alt="QNX虚拟化中进程的调度"></p>
-<p>虚拟机的线程调度到物理<code>CPU</code>的过程类似与普通操作系统中进程上下文切换的过程: 在虚拟机上需要保存当前线程的上下文信息，接着通过一个虚拟指令陷入(<code>trap</code>, 这个跟<code>Linux</code>下的系统调用从用户空间切换到内核空间的过程很类似)到<code>hypervisor</code>中，然后由<code>hypervisor</code>最终完成整个调度上下文的状态保存与切换。当一个客户虚拟机中发生如<code>QNX</code>的中断，虚拟设备访问(不一定放弃<code>CPU</code>的控制权)，虚拟时钟到期等事件时，虚拟机就会让出当前<code>CPU</code>的控制权。</p>
-<h3 id="内存虚拟化"><a href="#内存虚拟化" class="headerlink" title="内存虚拟化"></a><strong>内存虚拟化</strong></h3><p><code>QNX</code>中使用<a target="_blank" rel="noopener" href="https://developer.arm.com/documentation/102142/0100/Stage-2-translation"><code>stage 2 translation</code>(二阶转换)</a>来完成内存的虚拟化，虚拟机看到的<code>物理内存</code>实际上是<code>QNX</code>宿主系统管理的非连续虚拟内存而已：二阶内存转换就是在正常的<code>VA-&gt;PA</code>之间增加一个地址转换过程<code>IPA(Intermediate Physical Address)</code>，于是虚拟机的内存访问就变成了<code>VA-&gt;IPA-&gt;PA</code>这样一个二阶段的过程。</p>
+<h2 id="qnx虚拟化实现"><strong>QNX虚拟化实现</strong></h2>
+<h3 id="cpu的虚拟化"><strong>CPU的虚拟化</strong></h3>
+<p>虚拟机上的进程的调度实际是以虚拟<code>CPU</code>(vCPU)为基础进行的，每个虚拟机在启动时，可以配置<code>vCPU</code>的数量;<code>vCPU</code>的调度是由在<code>hypervisor</code>中的调度线程负责执行的。一个物理<code>CPU</code>可能对应着多个<code>vCPU</code>；类似的，一个<code>vCPU</code>也可以选择在多个物理<code>CPU</code>上电调度执行。需要注意的是，虚拟机中的线程优先级与宿主机中<code>QNX</code>的线程优先级没有关系，具体何时执行哪个<code>vCPU</code>完全是由<code>hypervisor</code>中的调度线程的优先级决定的:
+两个<code>vCPU</code>竞争物理<code>CPU</code>时，对应的<code>hypervisor</code>调度线程的优先级更高的任务获得对应的物理<code>CPU</code>执行权。</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-process-schedule.png"
+alt="QNX虚拟化中进程的调度" /></p>
+<p>虚拟机的线程调度到物理<code>CPU</code>的过程类似与普通操作系统中进程上下文切换的过程:
+在虚拟机上需要保存当前线程的上下文信息，接着通过一个虚拟指令陷入(<code>trap</code>,
+这个跟<code>Linux</code>下的系统调用从用户空间切换到内核空间的过程很类似)到<code>hypervisor</code>中，然后由<code>hypervisor</code>最终完成整个调度上下文的状态保存与切换。当一个客户虚拟机中发生如<code>QNX</code>的中断，虚拟设备访问(不一定放弃<code>CPU</code>的控制权)，虚拟时钟到期等事件时，虚拟机就会让出当前<code>CPU</code>的控制权。</p>
+<h3 id="内存虚拟化"><strong>内存虚拟化</strong></h3>
+<p><code>QNX</code>中使用<a
+target="_blank" rel="noopener" href="https://developer.arm.com/documentation/102142/0100/Stage-2-translation"><code>stage 2 translation</code>(二阶转换)</a>来完成内存的虚拟化，虚拟机看到的<code>物理内存</code>实际上是<code>QNX</code>宿主系统管理的非连续虚拟内存而已：二阶内存转换就是在正常的<code>VA-&gt;PA</code>之间增加一个地址转换过程<code>IPA(Intermediate Physical Address)</code>，于是虚拟机的内存访问就变成了<code>VA-&gt;IPA-&gt;PA</code>这样一个二阶段的过程。</p>
 <ul>
 <li>阶段1的内存地址转换<code>VA-&gt;IPA</code>由虚拟机来控制完成</li>
 <li>阶段2的内存地址转换<code>IPA-&gt;PA</code>由<code>QNX</code>宿主机系统来完成</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-hyp-ipa-pa.png" alt="QNX内存虚拟化"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qnx-hyp-ipa-pa.png"
+alt="QNX内存虚拟化" /></p>
 <p>由于增加了中间地址的转换层<code>IPA</code>，这样虚拟机与<code>QNX</code>宿主机之间的内存空间就完全隔离了，虚拟机只能看到<code>QNX</code>宿主机分配好的内存，无法访问其他虚拟机或者宿主机的内存空间。除此之外，<code>QNX</code>还提供了额外的内存访问方式:</p>
 <ul>
-<li><code>Pass-through memory</code>:直通内存允许虚拟机将某些设备直接映射到某个内存区域，然后直接访问这个物理设备；直通模式下的设备只有该虚拟机才能访问，在性能上比虚拟的设备会更高。有关直通设备的详细信息可以参考<a target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/index.html#com.qnx.doc.hypervisor.user/topic/virt/pdevs.html">直通设备</a></li>
-<li><code>Shared Memory</code>: 共享内存允许不同虚拟机共享同一块物理内存，通过该内存区域进行数据交互</li>
+<li><code>Pass-through memory</code>:直通内存允许虚拟机将某些设备直接映射到某个内存区域，然后直接访问这个物理设备；直通模式下的设备只有该虚拟机才能访问，在性能上比虚拟的设备会更高。有关直通设备的详细信息可以参考<a
+target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/index.html#com.qnx.doc.hypervisor.user/topic/virt/pdevs.html">直通设备</a></li>
+<li><code>Shared Memory</code>:
+共享内存允许不同虚拟机共享同一块物理内存，通过该内存区域进行数据交互</li>
 </ul>
-<h3 id="I-x2F-O设备虚拟化"><a href="#I-x2F-O设备虚拟化" class="headerlink" title="I&#x2F;O设备虚拟化"></a><strong>I&#x2F;O设备虚拟化</strong></h3><p>在<code>QNX</code>中，物理设备可以由宿主机或者虚拟机独占，也可以由虚拟机与宿主机之间共享。虚拟机要访问物理设备，可以通过直通或者虚拟化的方式实现:</p>
+<h3 id="io设备虚拟化"><strong>I/O设备虚拟化</strong></h3>
+<p>在<code>QNX</code>中，物理设备可以由宿主机或者虚拟机独占，也可以由虚拟机与宿主机之间共享。虚拟机要访问物理设备，可以通过直通或者虚拟化的方式实现:</p>
 <ul>
-<li><code>Pass-through device</code>: 直通设备的访问完全由虚拟机控制，驱动也在虚拟机中实现， 而<code>hypervisor</code>只是负责识别、传递来自设备的中断，传递来自虚拟机发送过来的信号。</li>
+<li><code>Pass-through device</code>:
+直通设备的访问完全由虚拟机控制，驱动也在虚拟机中实现，
+而<code>hypervisor</code>只是负责识别、传递来自设备的中断，传递来自虚拟机发送过来的信号。</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_pdev_passthru.png" alt="pass-through device"></p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_pdev_passthru.png"
+alt="pass-through device" /></p>
 <ul>
-<li><code>Virtual Devices</code>: 虚拟设备<code>vdev</code>可以是一个物理设备的模拟，也可以只是提供了一个类似物理设备功能的模拟设备。与直通设备类似，虚拟机要使用虚拟设备也需要提供驱动。目前<code>QNX hypervisor</code>提供了两种形式的虚拟设备-一个是模拟(<code>Emulation</code>)设备，一个是半虚拟化设备(<code>para-virtualized</code>， 见下图)。<code>QNX</code>中很多设备都是通过半虚拟化提供给虚拟机的，如输入设备、虚拟网卡都是通过半虚拟化方式<code>virtio</code>实现的，后面我们会专门用一篇文章来分析下<code>virtio</code>的虚拟化设备怎样的工作原理。</li>
+<li><code>Virtual Devices</code>:
+虚拟设备<code>vdev</code>可以是一个物理设备的模拟，也可以只是提供了一个类似物理设备功能的模拟设备。与直通设备类似，虚拟机要使用虚拟设备也需要提供驱动。目前<code>QNX hypervisor</code>提供了两种形式的虚拟设备-一个是模拟(<code>Emulation</code>)设备，一个是半虚拟化设备(<code>para-virtualized</code>，
+见下图)。<code>QNX</code>中很多设备都是通过半虚拟化提供给虚拟机的，如输入设备、虚拟网卡都是通过半虚拟化方式<code>virtio</code>实现的，后面我们会专门用一篇文章来分析下<code>virtio</code>的虚拟化设备怎样的工作原理。</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_vdev_paravirt.png" alt="Para-virtualized devices"></p>
-<p>更多有关<code>QNX</code>支持的虚拟设备的可以参考<a target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/index.html#com.qnx.doc.hypervisor.user/topic/vdev_ref/vdev_ref.html">vdev references</a>。</p>
-<h3 id="虚拟机的中断处理流程"><a href="#虚拟机的中断处理流程" class="headerlink" title="虚拟机的中断处理流程"></a><strong>虚拟机的中断处理流程</strong></h3><p>每个中断都有一个中断号，如果设备需要处理中断，需要通过<code>vdev</code>或者<code>pass</code>直通的方式传递给虚拟机:</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/qvm_vdev_paravirt.png"
+alt="Para-virtualized devices" /></p>
+<p>更多有关<code>QNX</code>支持的虚拟设备的可以参考<a
+target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/index.html#com.qnx.doc.hypervisor.user/topic/vdev_ref/vdev_ref.html">vdev
+references</a>。</p>
+<h3 id="虚拟机的中断处理流程"><strong>虚拟机的中断处理流程</strong></h3>
+<p>每个中断都有一个中断号，如果设备需要处理中断，需要通过<code>vdev</code>或者<code>pass</code>直通的方式传递给虚拟机:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">//vdev </span></span><br><span class="line">vdev vdev-virtio-i2c.so loc <span class="number">0x1cd00000</span> intr gic:<span class="number">104</span> verbose <span class="number">3</span> device i2c5</span><br><span class="line"></span><br><span class="line"><span class="comment">// pass through</span></span><br><span class="line">pass intr gic:<span class="number">183</span>=<span class="number">183</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>当一个中断发生时，如下图所示一般分为两种情况:</p>
 <ul>
 <li>如果当前中断发生的<code>CPU</code>执行是虚拟机线程，则首先虚拟机的线程退出，将中断丢给<code>hypervisor</code>处理，并切换到宿主机，由<code>QNX</code>判断该中断属于虚拟机还是宿主机:如果中断属于宿主机<code>QNX</code>，则由其处理中断即可；如果是属于虚拟机的中断，则需要通过<code>hypervisor</code>发送一个中断信号给虚拟机，然后交由虚拟机处理</li>
 <li>如果当前中断发生的<code>CPU</code>执行的是宿主机<code>QNX</code>线程，<code>QNX</code>判断是虚拟机的线程则按照前述的步骤交由虚拟机处理。</li>
 </ul>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/gic_handling_process.png" alt="GIC handling process"></p>
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/gic_handling_process.png"
+alt="GIC handling process" /></p>
+<h2 id="参考资料"><strong>参考资料</strong></h2>
+<ul>
 <li><a target="_blank" rel="noopener" href="http://www.qnx.com/developers/docs/">QNX 系统资料</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/index.html#com.qnx.doc.hypervisor.nav/topic/bookset.html">QNX hypervisor</a></li>
-<li><a target="_blank" rel="noopener" href="https://developer.arm.com/documentation/102142/0100/Overview">ARM virtualization文档</a></li>
-<li>hardware and software support for virtualization(Edouard Bugnion, Jason Nieh, and Dan Tsafrir)</li>
+<li><a
+target="_blank" rel="noopener" href="https://www.qnx.com/developers/docs/7.0.0/index.html#com.qnx.doc.hypervisor.nav/topic/bookset.html">QNX
+hypervisor</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://developer.arm.com/documentation/102142/0100/Overview">ARM
+virtualization文档</a></li>
+<li>hardware and software support for virtualization(Edouard Bugnion,
+Jason Nieh, and Dan Tsafrir)</li>
 </ul>
 
     </article>
@@ -605,7 +644,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">https://sniffer.site/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">August 9th 2023, 3:33:40 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">2023-08-10, 12:34:45</a>
+            <p>更新日期：<a href="https://sniffer.site/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -771,7 +810,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#QNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%9A%84%E6%9E%B6%E6%9E%84%E7%BB%84%E6%88%90"><span class="toc-number">1.</span> <span class="toc-text">QNX虚拟化平台的架构组成</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#QNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">QNX虚拟化实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#CPU%E7%9A%84%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="toc-number">2.1.</span> <span class="toc-text">CPU的虚拟化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E5%AD%98%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="toc-number">2.2.</span> <span class="toc-text">内存虚拟化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#I-x2F-O%E8%AE%BE%E5%A4%87%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="toc-number">2.3.</span> <span class="toc-text">I&#x2F;O设备虚拟化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E4%B8%AD%E6%96%AD%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B"><span class="toc-number">2.4.</span> <span class="toc-text">虚拟机的中断处理流程</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">3.</span> <span class="toc-text">参考资料</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#qnx%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%9A%84%E6%9E%B6%E6%9E%84%E7%BB%84%E6%88%90"><span class="toc-number">1.</span> <span class="toc-text">QNX虚拟化平台的架构组成</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#qnx%E8%99%9A%E6%8B%9F%E5%8C%96%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">QNX虚拟化实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#cpu%E7%9A%84%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="toc-number">2.1.</span> <span class="toc-text">CPU的虚拟化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E5%AD%98%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="toc-number">2.2.</span> <span class="toc-text">内存虚拟化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#io%E8%AE%BE%E5%A4%87%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="toc-number">2.3.</span> <span class="toc-text">I&#x2F;O设备虚拟化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E4%B8%AD%E6%96%AD%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B"><span class="toc-number">2.4.</span> <span class="toc-text">虚拟机的中断处理流程</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">3.</span> <span class="toc-text">参考资料</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1420,7 +1459,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2871,7 +2921,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2889,6 +2939,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3747,44 +3803,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3802,14 +3833,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3822,14 +3858,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3840,11 +3876,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3862,14 +3893,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3885,6 +3911,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3917,31 +3953,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3950,6 +3961,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3972,19 +3988,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4000,6 +4006,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4027,14 +4068,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4047,39 +4088,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4090,16 +4121,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4127,6 +4148,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4142,9 +4188,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4162,41 +4218,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4207,14 +4228,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4242,16 +4268,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4272,9 +4288,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4292,24 +4318,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4317,24 +4343,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4347,9 +4383,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4372,9 +4413,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4397,6 +4438,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4412,14 +4463,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4430,6 +4481,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4447,41 +4518,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4495,6 +4531,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4517,11 +4568,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4537,16 +4583,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4560,6 +4596,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4582,16 +4633,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4607,24 +4648,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4635,6 +4661,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4677,6 +4718,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4692,14 +4753,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4720,21 +4776,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4802,19 +4843,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4832,6 +4863,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4847,16 +4903,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4865,6 +4911,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4887,21 +4948,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4920,16 +4966,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4957,11 +4993,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4982,14 +5013,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5017,19 +5063,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5042,6 +5083,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5050,6 +5096,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5062,6 +5118,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5083,6 +5144,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5093,19 +5159,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5113,14 +5169,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5138,14 +5194,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5161,11 +5217,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

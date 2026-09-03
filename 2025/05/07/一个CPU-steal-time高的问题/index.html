@@ -26,17 +26,13 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="前两天碰到一个基于QNX的虚拟化平台上的项目问题，同事反馈系统很卡，点击页面明显有延迟，卡顿严重。用top看了下Android系统的负载，还有20%左右的空闲，其他的如用户态、内核态以及中断的占用都比较正常，唯独有一个%host的占用特别高，最高能占到60%以上。这个host的占用是什么意思了？这篇文章，我们就基于这个问题，来详细阐述分析下虚拟化平台中host占用高的问题以及在虚拟化平台KVM是如">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/android-steal-time-high-0.png">
-<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/deep-seek-steal-time-explanation.png">
-<meta property="og:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/android-steal-time-high-1.png">
 <meta property="article:published_time" content="2025-05-07T03:51:49.000Z">
-<meta property="article:modified_time" content="2025-05-20T05:46:51.600Z">
+<meta property="article:modified_time" content="2026-09-03T05:13:01.410Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Linux">
 <meta property="article:tag" content="Hypervisor">
 <meta property="article:tag" content="CPU steal-time">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://md-files.oss-cn-shenzhen.aliyuncs.com/android-steal-time-high-0.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -529,78 +525,89 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>前两天碰到一个基于<code>QNX</code>的虚拟化平台上的项目问题，同事反馈系统很卡，点击页面明显有延迟，卡顿严重。用<code>top</code>看了下<code>Android</code>系统的负载，还有<code>20%</code>左右的空闲，其他的如用户态、内核态以及中断的占用都比较正常，唯独有一个<code>%host</code>的占用特别高，最高能占到<code>60%</code>以上。这个<code>host</code>的占用是什么意思了？这篇文章，我们就基于这个问题，来详细阐述分析下虚拟化平台中<code>host</code>占用高的问题以及在虚拟化平台<code>KVM</code>是如何计算<code>host</code>占用的。  <span id="more"></span></p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">800%cpu  45%user   4%<span class="built_in">nice</span>  126%sys 141%idle   3%iow  41%irq   16%sirq   425%host</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="问题定位与排查"><a href="#问题定位与排查" class="headerlink" title="问题定位与排查"></a><strong>问题定位与排查</strong></h2><p>通过<code>adb shell</code>进到设备里<code>top</code>看下系统整体状态，可以发现系统内存还有不少空间，CPU的空闲只有不到<code>30%</code>，占大头的就是<code>%host</code>这一部分。</p>
-<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/android-steal-time-high-0.png" alt="top-steal-time-hight"></p>
-<p>先尝试用<code>DeepSeek</code>问了下，<code>top</code>指令中的<code>host</code>占用到底是什么意思？ <code>DeepSeek</code>很快给出了答案:</p>
-<blockquote><p>在Linux的top命令中，”host的CPU占用”（通常对应%host或st字段）是虚拟化环境特有的性能指标，用于反映​​虚拟机被宿主机（Hypervisor）抢占的CPU时间百分比</p>
+        <p>前两天碰到一个基于<code>QNX</code>的虚拟化平台上的项目问题，同事反馈系统很卡，点击页面明显有延迟，卡顿严重。用<code>top</code>看了下<code>Android</code>系统的负载，还有<code>20%</code>左右的空闲，其他的如用户态、内核态以及中断的占用都比较正常，唯独有一个<code>%host</code>的占用特别高，最高能占到<code>60%</code>以上。这个<code>host</code>的占用是什么意思了？这篇文章，我们就基于这个问题，来详细阐述分析下虚拟化平台中<code>host</code>占用高的问题以及在虚拟化平台<code>KVM</code>是如何计算<code>host</code>占用的。
+<span id="more"></span></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">800%cpu  45%user   4%<span class="built_in">nice</span>  126%sys 141%idle   3%iow  41%irq   16%sirq   425%host</span><br></pre></td></tr></table></figure>
+<h2 id="问题定位与排查">问题定位与排查</h2>
+<p>通过<code>adb shell</code>进到设备里<code>top</code>看下系统整体状态，可以发现系统内存还有不少空间，CPU的空闲只有不到<code>30%</code>，占大头的就是<code>%host</code>这一部分。</p>
+<p><img
+src="https://md-files.oss-cn-shenzhen.aliyuncs.com/android-steal-time-high-0.png"
+alt="android-steal-time-high-0" /></p>
+<p>先尝试用<code>DeepSeek</code>问了下，<code>top</code>指令中的<code>host</code>占用到底是什么意思？
+<code>DeepSeek</code>很快给出了答案:</p>
+<blockquote>
+<p>在Linux的top命令中，”host的CPU占用”（通常对应%host或st字段）是虚拟化环境特有的性能指标，用于反映​​虚拟机被宿主机（Hypervisor）抢占的CPU时间百分比</p>
 </blockquote>
-
-<p>就是说，<code>host</code>过高，可能是由于虚拟化平台中宿主机有异常，比如处于高负载，CPU配置不合理（给guest系统的资源太少），导致了客户机<code>Android</code>系统一直无法抢占到CPU，处于挂起等待的状态。那么，究竟如何排查这类问题了？接着问下<code>DeepSeek</code>： 如何排查steal CPU占用过高的问题，<code>DeepSeek</code>给出了一些可能的解释：</p>
-<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/deep-seek-steal-time-explanation.png" alt="deep-seek CPU steal-time reason"></p>
-<p>顺着这个思路，进入设备继续查看，通过<code>mpstat -P ALL</code>查看整体的负载，观察到类似的情况, <code>%steal</code>这一栏显示，<code>Android</code>相当一部分负载都来自于等待宿主机上；这里多个核的<code>%steal</code>占比加起来就对应<code>top</code>中的<code>%host</code>：</p>
-<p><img src="https://md-files.oss-cn-shenzhen.aliyuncs.com/android-steal-time-high-1.png" alt="cpu steal-time high of mpstat"></p>
+<p>就是说，<code>host</code>过高，可能是由于虚拟化平台中宿主机有异常，比如处于高负载，CPU配置不合理（给guest系统的资源太少），导致了客户机<code>Android</code>系统一直无法抢占到CPU，处于挂起等待的状态。那么，究竟如何排查这类问题了？接着问下<code>DeepSeek</code>：
+如何排查steal
+CPU占用过高的问题，<code>DeepSeek</code>给出了一些可能的解释：</p>
+<p><img
+src="https://md-files.oss-cn-shenzhen.aliyuncs.com/deep-seek-steal-time-explanation.png"
+alt="deep-seek-steal-time-explanation" /></p>
+<p>顺着这个思路，进入设备继续查看，通过<code>mpstat -P ALL</code>查看整体的负载，观察到类似的情况,
+<code>%steal</code>这一栏显示，<code>Android</code>相当一部分负载都来自于等待宿主机上；这里多个核的<code>%steal</code>占比加起来就对应<code>top</code>中的<code>%host</code>：</p>
+<p><img
+src="https://md-files.oss-cn-shenzhen.aliyuncs.com/android-steal-time-high-1.png"
+alt="android-steal-time-high-1" /></p>
 <p>基于这些数据，我们推测很可能宿主机<code>QNX</code>侧有问题（之前的版本没有异常），拉着开发人员对齐了下，确认了虚拟机上的<code>CPU</code>分配没有太大问题（系统只有一个客户机<code>Android</code>，可以访问所有的物理CPU），那么基本可以排除资源不足引起的问题；是不是最近有什么修改引入了这个问题？</p>
-<p>开发反馈只有两个修改点： 一个是更新了车控相关的信号，一个是在<code>QNX</code>上新增了一个<code>PPS</code>节点。更新车控信号矩阵不应该对系统负载有太大的影响，而且从已有的数据看，<code>Android</code>的各个进程的负载并不高，况且在台架上也没有太多的车控信号需要传输，因此可以排除。那么，很可能是新增<code>PPS</code>节点导致了<code>QNX</code>侧的负载过高，从而引起<code>Android</code>侧无法拿到CPU。最后，开发排查了相关的进程，发现是某个<code>PPS</code>节点的配置异常，有一个进程在高频的写数据导致<code>QNX</code>侧的负载太高（<code>QNX</code>的<code>idle</code>已经接近0），因而客户机<code>Android</code>无法拿到足够的CPU资源。</p>
+<p>开发反馈只有两个修改点：
+一个是更新了车控相关的信号，一个是在<code>QNX</code>上新增了一个<code>PPS</code>节点。更新车控信号矩阵不应该对系统负载有太大的影响，而且从已有的数据看，<code>Android</code>的各个进程的负载并不高，况且在台架上也没有太多的车控信号需要传输，因此可以排除。那么，很可能是新增<code>PPS</code>节点导致了<code>QNX</code>侧的负载过高，从而引起<code>Android</code>侧无法拿到CPU。最后，开发排查了相关的进程，发现是某个<code>PPS</code>节点的配置异常，有一个进程在高频的写数据导致<code>QNX</code>侧的负载太高（<code>QNX</code>的<code>idle</code>已经接近0），因而客户机<code>Android</code>无法拿到足够的CPU资源。</p>
 <blockquote>
 <p>PPS(Persistent Publish-Subscribe)是QNX用于跨进程通讯的一种协议</p>
 </blockquote>
 <p>问题到这里也算告一段落。但是，为了对这类问题有更多的了解，后续碰到相似问题时时能够快速的定位分析，还是决定要深入代码层面来了解下虚拟化平台中<code>steal time</code>究竟是怎么来计算的。</p>
-<h2 id="虚拟化中的CPU-steal-time"><a href="#虚拟化中的CPU-steal-time" class="headerlink" title="虚拟化中的CPU steal-time"></a><strong>虚拟化中的CPU steal-time</strong></h2><p>既然是‘偷来的时间’（<code>steal-time</code>），那么就说明不是客户机自己执行指令导致的CPU占用，而是等待宿主机分配资源所消耗的时间，此时宿主机可能是在处理其他客户机的请求，也有可能是在忙着处理内部的事务。</p>
-<blockquote><p>Steal time is the percentage of time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor (or host itself).</p>
+<h2 id="虚拟化中的cpu-steal-time">虚拟化中的CPU steal-time</h2>
+<p>既然是‘偷来的时间’（<code>steal-time</code>），那么就说明不是客户机自己执行指令导致的CPU占用，而是等待宿主机分配资源所消耗的时间，此时宿主机可能是在处理其他客户机的请求，也有可能是在忙着处理内部的事务。</p>
+<blockquote>
+<p>Steal time is the percentage of time a virtual CPU waits for a real
+CPU while the hypervisor is servicing another virtual processor (or host
+itself).</p>
 </blockquote>
-
 <p>无论是<code>top</code>指令中展示的<code>%host</code>，还是<code>mpstat</code>中的<code>%steal</code>都是通过内核的<code>/proc/stat</code>获取到的CPU占用数据。查看<code>Android</code>的源码<code>external/toybox/toys/posix/ps.c</code>，CPU的<code>steal-time</code>就是<code>/proc/stat</code>的最后一列数据。我们继续查看下内核的代码。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">top_common</span><span class="params">(</span></span><br><span class="line"><span class="params">  <span class="type">int</span> (*filter)(<span class="type">long</span> <span class="type">long</span> *oslot, <span class="type">long</span> <span class="type">long</span> *nslot, <span class="type">int</span> milis))</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="type">long</span> <span class="type">long</span> timeout = <span class="number">0</span>, now, stats[<span class="number">16</span>];</span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">proclist</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">procpid</span> **<span class="title">tb</span>;</span></span><br><span class="line">    <span class="type">int</span> count;</span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> whence;</span><br><span class="line">  &#125; plist[<span class="number">2</span>], *plold, *plnew, old, new, mix;</span><br><span class="line">  <span class="type">char</span> scratch[<span class="number">16</span>], *pos, *cpufields[] = &#123;<span class="string">&quot;user&quot;</span>, <span class="string">&quot;nice&quot;</span>, <span class="string">&quot;sys&quot;</span>, <span class="string">&quot;idle&quot;</span>,</span><br><span class="line">    <span class="string">&quot;iow&quot;</span>, <span class="string">&quot;irq&quot;</span>, <span class="string">&quot;sirq&quot;</span>, <span class="string">&quot;host&quot;</span>&#125;; <span class="comment">// 通过这显示CPU占用</span></span><br><span class="line">  ....</span><br><span class="line"></span><br><span class="line">  <span class="built_in">memset</span>(plist, <span class="number">0</span>, <span class="keyword">sizeof</span>(plist));</span><br><span class="line">  <span class="built_in">memset</span>(stats, <span class="number">0</span>, <span class="keyword">sizeof</span>(stats));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">do</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//读取CPU占用数据，最后一列就是steal-time</span></span><br><span class="line">    <span class="keyword">if</span> (readfile(<span class="string">&quot;/proc/stat&quot;</span>, pos = toybuf, <span class="keyword">sizeof</span>(toybuf))) &#123;</span><br><span class="line">      <span class="type">long</span> <span class="type">long</span> *st = stats+<span class="number">8</span>*(tock&amp;<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">      <span class="comment">// user nice system idle iowait irq softirq host</span></span><br><span class="line">      <span class="built_in">sscanf</span>(pos, <span class="string">&quot;cpu %lld %lld %lld %lld %lld %lld %lld %lld&quot;</span>,</span><br><span class="line">        st, st+<span class="number">1</span>, st+<span class="number">2</span>, st+<span class="number">3</span>, st+<span class="number">4</span>, st+<span class="number">5</span>, st+<span class="number">6</span>, st+<span class="number">7</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line">  &#125; <span class="keyword">while</span> (!done);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!FLAG(b)) tty_reset();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">top_common</span><span class="params">(</span></span><br><span class="line"><span class="params">  <span class="type">int</span> (*filter)(<span class="type">long</span> <span class="type">long</span> *oslot, <span class="type">long</span> <span class="type">long</span> *nslot, <span class="type">int</span> milis))</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="type">long</span> <span class="type">long</span> timeout = <span class="number">0</span>, now, stats[<span class="number">16</span>];</span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">proclist</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">procpid</span> **<span class="title">tb</span>;</span></span><br><span class="line">    <span class="type">int</span> count;</span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> whence;</span><br><span class="line">  &#125; plist[<span class="number">2</span>], *plold, *plnew, old, new, mix;</span><br><span class="line">  <span class="type">char</span> scratch[<span class="number">16</span>], *pos, *cpufields[] = &#123;<span class="string">&quot;user&quot;</span>, <span class="string">&quot;nice&quot;</span>, <span class="string">&quot;sys&quot;</span>, <span class="string">&quot;idle&quot;</span>,</span><br><span class="line">    <span class="string">&quot;iow&quot;</span>, <span class="string">&quot;irq&quot;</span>, <span class="string">&quot;sirq&quot;</span>, <span class="string">&quot;host&quot;</span>&#125;; <span class="comment">// 通过这显示CPU占用</span></span><br><span class="line">  ....</span><br><span class="line"></span><br><span class="line">  <span class="built_in">memset</span>(plist, <span class="number">0</span>, <span class="keyword">sizeof</span>(plist));</span><br><span class="line">  <span class="built_in">memset</span>(stats, <span class="number">0</span>, <span class="keyword">sizeof</span>(stats));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">do</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//读取CPU占用数据，最后一列就是steal-time</span></span><br><span class="line">    <span class="keyword">if</span> (readfile(<span class="string">&quot;/proc/stat&quot;</span>, pos = toybuf, <span class="keyword">sizeof</span>(toybuf))) &#123;</span><br><span class="line">      <span class="type">long</span> <span class="type">long</span> *st = stats+<span class="number">8</span>*(tock&amp;<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">      <span class="comment">// user nice system idle iowait irq softirq host</span></span><br><span class="line">      <span class="built_in">sscanf</span>(pos, <span class="string">&quot;cpu %lld %lld %lld %lld %lld %lld %lld %lld&quot;</span>,</span><br><span class="line">        st, st+<span class="number">1</span>, st+<span class="number">2</span>, st+<span class="number">3</span>, st+<span class="number">4</span>, st+<span class="number">5</span>, st+<span class="number">6</span>, st+<span class="number">7</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line">  &#125; <span class="keyword">while</span> (!done);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!FLAG(b)) tty_reset();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>内核中对应<code>/proc/stat</code>的状态显示在<code>fs/proc/stat.c</code>中实现的，可以看到<code>steal-time</code>的计算是通过一个<code>per-cpu</code>结构体变量<code>kernel_cpustat</code>中的<code>cpustat</code>数组对应的<code>CPUTIME_STEAL</code>索引获取到：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">show_stat</span><span class="params">(<span class="keyword">struct</span> seq_file *p, <span class="type">void</span> *v)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> i, j;</span><br><span class="line">	u64 user, nice, system, idle, iowait, irq, softirq, steal;</span><br><span class="line">	u64 guest, guest_nice;</span><br><span class="line">	u64 sum = <span class="number">0</span>;</span><br><span class="line">	u64 sum_softirq = <span class="number">0</span>;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> per_softirq_sums[NR_SOFTIRQS] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">timespec64</span> <span class="title">boottime</span>;</span></span><br><span class="line"></span><br><span class="line">	user = nice = system = idle = iowait =</span><br><span class="line">		irq = softirq = steal = <span class="number">0</span>;</span><br><span class="line">	guest = guest_nice = <span class="number">0</span>;</span><br><span class="line">	getboottime64(&amp;boottime);</span><br><span class="line"></span><br><span class="line">	for_each_possible_cpu(i) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">kernel_cpustat</span> <span class="title">kcpustat</span>;</span></span><br><span class="line">		u64 *cpustat = kcpustat.cpustat;</span><br><span class="line"></span><br><span class="line">		kcpustat_cpu_fetch(&amp;kcpustat, i);</span><br><span class="line"></span><br><span class="line">		user		+= cpustat[CPUTIME_USER];</span><br><span class="line">		nice		+= cpustat[CPUTIME_NICE];</span><br><span class="line">		system		+= cpustat[CPUTIME_SYSTEM];</span><br><span class="line">		idle		+= get_idle_time(&amp;kcpustat, i);</span><br><span class="line">		iowait		+= get_iowait_time(&amp;kcpustat, i);</span><br><span class="line">		irq		+= cpustat[CPUTIME_IRQ];</span><br><span class="line">		softirq		+= cpustat[CPUTIME_SOFTIRQ];</span><br><span class="line">		<span class="comment">//获取steal-time</span></span><br><span class="line">		steal		+= cpustat[CPUTIME_STEAL];</span><br><span class="line">		guest		+= cpustat[CPUTIME_GUEST];</span><br><span class="line">		guest_nice	+= cpustat[CPUTIME_GUEST_NICE];</span><br><span class="line">		sum		+= kstat_cpu_irqs_sum(i);</span><br><span class="line">		sum		+= arch_irq_stat_cpu(i);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; NR_SOFTIRQS; j++) &#123;</span><br><span class="line">			<span class="type">unsigned</span> <span class="type">int</span> softirq_stat = kstat_softirqs_cpu(j, i);</span><br><span class="line"></span><br><span class="line">			per_softirq_sums[j] += softirq_stat;</span><br><span class="line">			sum_softirq += softirq_stat;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	sum += arch_irq_stat();</span><br><span class="line"></span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot;cpu  &quot;</span>, <span class="type">nsec_to_clock_t</span>(user));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(nice));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(system));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(idle));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(iowait));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(irq));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(softirq));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(steal));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest_nice));</span><br><span class="line">	seq_putc(p, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line"></span><br><span class="line">	for_each_online_cpu(i) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">kernel_cpustat</span> <span class="title">kcpustat</span>;</span></span><br><span class="line">		u64 *cpustat = kcpustat.cpustat;</span><br><span class="line"></span><br><span class="line">		kcpustat_cpu_fetch(&amp;kcpustat, i);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* Copy values here to work around gcc-2.95.3, gcc-2.96 */</span></span><br><span class="line">		user		= cpustat[CPUTIME_USER];</span><br><span class="line">		nice		= cpustat[CPUTIME_NICE];</span><br><span class="line">		system		= cpustat[CPUTIME_SYSTEM];</span><br><span class="line">		idle		= get_idle_time(&amp;kcpustat, i);</span><br><span class="line">		iowait		= get_iowait_time(&amp;kcpustat, i);</span><br><span class="line">		irq		= cpustat[CPUTIME_IRQ];</span><br><span class="line">		softirq		= cpustat[CPUTIME_SOFTIRQ];</span><br><span class="line">		steal		= cpustat[CPUTIME_STEAL];</span><br><span class="line">		guest		= cpustat[CPUTIME_GUEST];</span><br><span class="line">		guest_nice	= cpustat[CPUTIME_GUEST_NICE];</span><br><span class="line">		seq_printf(p, <span class="string">&quot;cpu%d&quot;</span>, i);</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(user));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(nice));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(system));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(idle));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(iowait));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(irq));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(softirq));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(steal));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest_nice));</span><br><span class="line">		seq_putc(p, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot;intr &quot;</span>, (<span class="type">unsigned</span> <span class="type">long</span> <span class="type">long</span>)sum);</span><br><span class="line"></span><br><span class="line">	show_all_irqs(p);</span><br><span class="line"></span><br><span class="line">	seq_printf(p,</span><br><span class="line">		<span class="string">&quot;\nctxt %llu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;btime %llu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;processes %lu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;procs_running %lu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;procs_blocked %lu\n&quot;</span>,</span><br><span class="line">		nr_context_switches(),</span><br><span class="line">		(<span class="type">unsigned</span> <span class="type">long</span> <span class="type">long</span>)boottime.tv_sec,</span><br><span class="line">		total_forks,</span><br><span class="line">		nr_running(),</span><br><span class="line">		nr_iowait());</span><br><span class="line"></span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot;softirq &quot;</span>, (<span class="type">unsigned</span> <span class="type">long</span> <span class="type">long</span>)sum_softirq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; NR_SOFTIRQS; i++)</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, per_softirq_sums[i]);</span><br><span class="line">	seq_putc(p, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">show_stat</span><span class="params">(<span class="keyword">struct</span> seq_file *p, <span class="type">void</span> *v)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> i, j;</span><br><span class="line">	u64 user, nice, system, idle, iowait, irq, softirq, steal;</span><br><span class="line">	u64 guest, guest_nice;</span><br><span class="line">	u64 sum = <span class="number">0</span>;</span><br><span class="line">	u64 sum_softirq = <span class="number">0</span>;</span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> per_softirq_sums[NR_SOFTIRQS] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">timespec64</span> <span class="title">boottime</span>;</span></span><br><span class="line"></span><br><span class="line">	user = nice = system = idle = iowait =</span><br><span class="line">		irq = softirq = steal = <span class="number">0</span>;</span><br><span class="line">	guest = guest_nice = <span class="number">0</span>;</span><br><span class="line">	getboottime64(&amp;boottime);</span><br><span class="line"></span><br><span class="line">	for_each_possible_cpu(i) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">kernel_cpustat</span> <span class="title">kcpustat</span>;</span></span><br><span class="line">		u64 *cpustat = kcpustat.cpustat;</span><br><span class="line"></span><br><span class="line">		kcpustat_cpu_fetch(&amp;kcpustat, i);</span><br><span class="line"></span><br><span class="line">		user		+= cpustat[CPUTIME_USER];</span><br><span class="line">		nice		+= cpustat[CPUTIME_NICE];</span><br><span class="line">		system		+= cpustat[CPUTIME_SYSTEM];</span><br><span class="line">		idle		+= get_idle_time(&amp;kcpustat, i);</span><br><span class="line">		iowait		+= get_iowait_time(&amp;kcpustat, i);</span><br><span class="line">		irq		+= cpustat[CPUTIME_IRQ];</span><br><span class="line">		softirq		+= cpustat[CPUTIME_SOFTIRQ];</span><br><span class="line">		<span class="comment">//获取steal-time</span></span><br><span class="line">		steal		+= cpustat[CPUTIME_STEAL];</span><br><span class="line">		guest		+= cpustat[CPUTIME_GUEST];</span><br><span class="line">		guest_nice	+= cpustat[CPUTIME_GUEST_NICE];</span><br><span class="line">		sum		+= kstat_cpu_irqs_sum(i);</span><br><span class="line">		sum		+= arch_irq_stat_cpu(i);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; NR_SOFTIRQS; j++) &#123;</span><br><span class="line">			<span class="type">unsigned</span> <span class="type">int</span> softirq_stat = kstat_softirqs_cpu(j, i);</span><br><span class="line"></span><br><span class="line">			per_softirq_sums[j] += softirq_stat;</span><br><span class="line">			sum_softirq += softirq_stat;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	sum += arch_irq_stat();</span><br><span class="line"></span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot;cpu  &quot;</span>, <span class="type">nsec_to_clock_t</span>(user));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(nice));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(system));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(idle));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(iowait));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(irq));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(softirq));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(steal));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest));</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest_nice));</span><br><span class="line">	seq_putc(p, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line"></span><br><span class="line">	for_each_online_cpu(i) &#123;</span><br><span class="line">		<span class="class"><span class="keyword">struct</span> <span class="title">kernel_cpustat</span> <span class="title">kcpustat</span>;</span></span><br><span class="line">		u64 *cpustat = kcpustat.cpustat;</span><br><span class="line"></span><br><span class="line">		kcpustat_cpu_fetch(&amp;kcpustat, i);</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* Copy values here to work around gcc-2.95.3, gcc-2.96 */</span></span><br><span class="line">		user		= cpustat[CPUTIME_USER];</span><br><span class="line">		nice		= cpustat[CPUTIME_NICE];</span><br><span class="line">		system		= cpustat[CPUTIME_SYSTEM];</span><br><span class="line">		idle		= get_idle_time(&amp;kcpustat, i);</span><br><span class="line">		iowait		= get_iowait_time(&amp;kcpustat, i);</span><br><span class="line">		irq		= cpustat[CPUTIME_IRQ];</span><br><span class="line">		softirq		= cpustat[CPUTIME_SOFTIRQ];</span><br><span class="line">		steal		= cpustat[CPUTIME_STEAL];</span><br><span class="line">		guest		= cpustat[CPUTIME_GUEST];</span><br><span class="line">		guest_nice	= cpustat[CPUTIME_GUEST_NICE];</span><br><span class="line">		seq_printf(p, <span class="string">&quot;cpu%d&quot;</span>, i);</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(user));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(nice));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(system));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(idle));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(iowait));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(irq));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(softirq));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(steal));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest));</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, <span class="type">nsec_to_clock_t</span>(guest_nice));</span><br><span class="line">		seq_putc(p, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot;intr &quot;</span>, (<span class="type">unsigned</span> <span class="type">long</span> <span class="type">long</span>)sum);</span><br><span class="line"></span><br><span class="line">	show_all_irqs(p);</span><br><span class="line"></span><br><span class="line">	seq_printf(p,</span><br><span class="line">		<span class="string">&quot;\nctxt %llu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;btime %llu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;processes %lu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;procs_running %lu\n&quot;</span></span><br><span class="line">		<span class="string">&quot;procs_blocked %lu\n&quot;</span>,</span><br><span class="line">		nr_context_switches(),</span><br><span class="line">		(<span class="type">unsigned</span> <span class="type">long</span> <span class="type">long</span>)boottime.tv_sec,</span><br><span class="line">		total_forks,</span><br><span class="line">		nr_running(),</span><br><span class="line">		nr_iowait());</span><br><span class="line"></span><br><span class="line">	seq_put_decimal_ull(p, <span class="string">&quot;softirq &quot;</span>, (<span class="type">unsigned</span> <span class="type">long</span> <span class="type">long</span>)sum_softirq);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; NR_SOFTIRQS; i++)</span><br><span class="line">		seq_put_decimal_ull(p, <span class="string">&quot; &quot;</span>, per_softirq_sums[i]);</span><br><span class="line">	seq_putc(p, <span class="string">&#x27;\n&#x27;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>内核中统计各个维度的CPU占用数据在<code>kernel/sched/cputime.c</code>统一实现了相关的接口，只有开启了内核配置<code>CONFIG_PARAVIRT</code>的虚拟化平台中才会计算<code>steam-time</code>时间，其他的则直接返回<code>0</code>：通过函数<code>paravirt_steal_clock</code>获取对应CPU的客户机系统的<code>steal</code>时间。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * When a guest is interrupted for a longer amount of time, missed clock</span></span><br><span class="line"><span class="comment"> * ticks are not redelivered later. Due to that, this function may on</span></span><br><span class="line"><span class="comment"> * occasion account more time than the calling functions think elapsed.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> __always_inline u64 <span class="title function_">steal_account_process_time</span><span class="params">(u64 maxtime)</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PARAVIRT</span></span><br><span class="line">	<span class="keyword">if</span> (static_key_false(&amp;paravirt_steal_enabled)) &#123;</span><br><span class="line">		u64 steal;</span><br><span class="line"></span><br><span class="line">		steal = paravirt_steal_clock(smp_processor_id());</span><br><span class="line">		steal -= this_rq()-&gt;prev_steal_time;</span><br><span class="line">		steal = min(steal, maxtime);</span><br><span class="line">		account_steal_time(steal);</span><br><span class="line">		this_rq()-&gt;prev_steal_time += steal;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">return</span> steal;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Account for involuntary wait time.</span></span><br><span class="line"><span class="comment"> * @cputime: the CPU time spent in involuntary wait</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">account_steal_time</span><span class="params">(u64 cputime)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 *cpustat = kcpustat_this_cpu-&gt;cpustat;</span><br><span class="line"></span><br><span class="line">	cpustat[CPUTIME_STEAL] += cputime;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * When a guest is interrupted for a longer amount of time, missed clock</span></span><br><span class="line"><span class="comment"> * ticks are not redelivered later. Due to that, this function may on</span></span><br><span class="line"><span class="comment"> * occasion account more time than the calling functions think elapsed.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">static</span> __always_inline u64 <span class="title function_">steal_account_process_time</span><span class="params">(u64 maxtime)</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PARAVIRT</span></span><br><span class="line">	<span class="keyword">if</span> (static_key_false(&amp;paravirt_steal_enabled)) &#123;</span><br><span class="line">		u64 steal;</span><br><span class="line"></span><br><span class="line">		steal = paravirt_steal_clock(smp_processor_id());</span><br><span class="line">		steal -= this_rq()-&gt;prev_steal_time;</span><br><span class="line">		steal = min(steal, maxtime);</span><br><span class="line">		account_steal_time(steal);</span><br><span class="line">		this_rq()-&gt;prev_steal_time += steal;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">return</span> steal;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Account for involuntary wait time.</span></span><br><span class="line"><span class="comment"> * @cputime: the CPU time spent in involuntary wait</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="type">void</span> <span class="title function_">account_steal_time</span><span class="params">(u64 cputime)</span></span><br><span class="line">&#123;</span><br><span class="line">	u64 *cpustat = kcpustat_this_cpu-&gt;cpustat;</span><br><span class="line"></span><br><span class="line">	cpustat[CPUTIME_STEAL] += cputime;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>函数<code>paravirt_steal_clock</code>在<code>arch/arm64/include/asm/paravirt.h</code>中定义，最终实际是通过一个结构体<code>pv_time_ops</code>中的函数<code>steal_clock</code>调用获取客户机的<code>steal</code>时间。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PARAVIRT</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">pv_time_ops</span> &#123;</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> <span class="title function_">long</span> <span class="params">(*steal_clock)</span><span class="params">(<span class="type">int</span> cpu)</span>;  <span class="comment">//获取steal时间的真正函数</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">paravirt_patch_template</span> &#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pv_time_ops</span> <span class="title">time</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="class"><span class="keyword">struct</span> <span class="title">paravirt_patch_template</span> <span class="title">pv_ops</span>;</span></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> u64 <span class="title function_">paravirt_steal_clock</span><span class="params">(<span class="type">int</span> cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> pv_ops.time.steal_clock(cpu);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> __init <span class="title function_">pv_time_init</span><span class="params">(<span class="type">void</span>)</span>;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> pv_time_init() do &#123;&#125; while (0)</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span> <span class="comment">// CONFIG_PARAVIRT</span></span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">ifdef</span> CONFIG_PARAVIRT</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">pv_time_ops</span> &#123;</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> <span class="title function_">long</span> <span class="params">(*steal_clock)</span><span class="params">(<span class="type">int</span> cpu)</span>;  <span class="comment">//获取steal时间的真正函数</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">paravirt_patch_template</span> &#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pv_time_ops</span> <span class="title">time</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="class"><span class="keyword">struct</span> <span class="title">paravirt_patch_template</span> <span class="title">pv_ops</span>;</span></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> u64 <span class="title function_">paravirt_steal_clock</span><span class="params">(<span class="type">int</span> cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">return</span> pv_ops.time.steal_clock(cpu);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> __init <span class="title function_">pv_time_init</span><span class="params">(<span class="type">void</span>)</span>;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> pv_time_init() do &#123;&#125; while (0)</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span> <span class="comment">// CONFIG_PARAVIRT</span></span></span><br></pre></td></tr></table></figure>
 <p>对于虚拟化平台来说，系统在初始化的时候，会通过<code>pv_time_init</code>函数对<code>pv_ops</code>进行初始化设置(<code>arch/arm64/kernel/paravirt.c</code>)：</p>
 <ul>
-<li><code>pv_time_init_stolen_time</code>: 初始化存放<code>steal</code>时间相关的变量内存区域（用于宿主机<code>hypervisor</code>与客户机进行数据共享）</li>
-<li><code>pv_ops.time.steal_clock</code>: 对提供给外部获取<code>steal-time</code>的接口进行赋值</li>
+<li><p><code>pv_time_init_stolen_time</code>:
+初始化存放<code>steal</code>时间相关的变量内存区域（用于宿主机<code>hypervisor</code>与客户机进行数据共享）</p></li>
+<li><p><code>pv_ops.time.steal_clock</code>:
+对提供给外部获取<code>steal-time</code>的接口进行赋值</p></li>
 </ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> __init <span class="title function_">pv_time_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!has_pv_steal_clock())</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	ret = pv_time_init_stolen_time();</span><br><span class="line">	<span class="keyword">if</span> (ret)</span><br><span class="line">		<span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">	pv_ops.time.steal_clock = pv_steal_clock;</span><br><span class="line"></span><br><span class="line">	static_key_slow_inc(&amp;paravirt_steal_enabled);</span><br><span class="line">	<span class="keyword">if</span> (steal_acc)</span><br><span class="line">		static_key_slow_inc(&amp;paravirt_steal_rq_enabled);</span><br><span class="line"></span><br><span class="line">	pr_info(<span class="string">&quot;using stolen time PV\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> __init <span class="title function_">pv_time_init</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!has_pv_steal_clock())</span><br><span class="line">		<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">	ret = pv_time_init_stolen_time();</span><br><span class="line">	<span class="keyword">if</span> (ret)</span><br><span class="line">		<span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">	pv_ops.time.steal_clock = pv_steal_clock;</span><br><span class="line"></span><br><span class="line">	static_key_slow_inc(&amp;paravirt_steal_enabled);</span><br><span class="line">	<span class="keyword">if</span> (steal_acc)</span><br><span class="line">		static_key_slow_inc(&amp;paravirt_steal_rq_enabled);</span><br><span class="line"></span><br><span class="line">	pr_info(<span class="string">&quot;using stolen time PV\n&quot;</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>函数<code>pv_time_init_stolen_time</code>注册一个<code>CPU</code>热插拔的回调函数，等<code>CPU</code>状态变为<code>online</code>收到回调后，调用<code>stolen_time_cpu_online</code>函数，初始化<code>steal-time</code>相关的配置：</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> __init <span class="title function_">pv_time_init_stolen_time</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN,</span><br><span class="line">				<span class="string">&quot;hypervisor/arm/pvtime:online&quot;</span>,</span><br><span class="line">				stolen_time_cpu_online,</span><br><span class="line">				stolen_time_cpu_down_prepare);</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">return</span> ret;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> __init <span class="title function_">pv_time_init_stolen_time</span><span class="params">(<span class="type">void</span>)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN,</span><br><span class="line">				<span class="string">&quot;hypervisor/arm/pvtime:online&quot;</span>,</span><br><span class="line">				stolen_time_cpu_online,</span><br><span class="line">				stolen_time_cpu_down_prepare);</span><br><span class="line">	<span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">		<span class="keyword">return</span> ret;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>可以看到，<code>stolen_time_cpu_online</code>主要用于客户机与<code>hypervisor</code>协商一块固定的内存区域用于交换<code>steal-time</code>的时间，主要有几个步骤：</p>
 <ul>
-<li>首先通过一个<code>HVC</code>异常陷入指令(用于切换不同的Exception Level-EL)，让客户机从EL1(内核态)进入到EL2(虚拟机态)，获取到宿主机用于保存<code>steal-time</code>的内存地址，并通过<code>arm_smccc_res</code>返回给客户机</li>
-<li>内核将拿到的地址映射到一块内存，这样在内核中就可以通过函数访问到这块内存区域，从而读取到<code>steam-time</code></li>
+<li><p>首先通过一个<code>HVC</code>异常陷入指令(用于切换不同的Exception
+Level-EL)，让客户机从EL1(内核态)进入到EL2(虚拟机态)，获取到宿主机用于保存<code>steal-time</code>的内存地址，并通过<code>arm_smccc_res</code>返回给客户机</p></li>
+<li><p>内核将拿到的地址映射到一块内存，这样在内核中就可以通过函数访问到这块内存区域，从而读取到<code>steam-time</code></p></li>
 </ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">stolen_time_cpu_online</span><span class="params">(<span class="type">unsigned</span> <span class="type">int</span> cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pv_time_stolen_time_region</span> *<span class="title">reg</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">arm_smccc_res</span> <span class="title">res</span>;</span></span><br><span class="line"></span><br><span class="line">	reg = this_cpu_ptr(&amp;stolen_time_region);</span><br><span class="line"></span><br><span class="line">	arm_smccc_1_1_invoke(ARM_SMCCC_HV_PV_TIME_ST, &amp;res);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (res.a0 == SMCCC_RET_NOT_SUPPORTED)</span><br><span class="line">		<span class="keyword">return</span> -EINVAL;</span><br><span class="line"></span><br><span class="line">	reg-&gt;kaddr = memremap(res.a0,</span><br><span class="line">			      <span class="keyword">sizeof</span>(<span class="keyword">struct</span> pvclock_vcpu_stolen_time),</span><br><span class="line">			      MEMREMAP_WB);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!reg-&gt;kaddr) &#123;</span><br><span class="line">		pr_warn(<span class="string">&quot;Failed to map stolen time data structure\n&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (le32_to_cpu(reg-&gt;kaddr-&gt;revision) != <span class="number">0</span> ||</span><br><span class="line">	    le32_to_cpu(reg-&gt;kaddr-&gt;attributes) != <span class="number">0</span>) &#123;</span><br><span class="line">		pr_warn_once(<span class="string">&quot;Unexpected revision or attributes in stolen time data\n&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> -ENXIO;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span> <span class="title function_">stolen_time_cpu_online</span><span class="params">(<span class="type">unsigned</span> <span class="type">int</span> cpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pv_time_stolen_time_region</span> *<span class="title">reg</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">arm_smccc_res</span> <span class="title">res</span>;</span></span><br><span class="line"></span><br><span class="line">	reg = this_cpu_ptr(&amp;stolen_time_region);</span><br><span class="line"></span><br><span class="line">	arm_smccc_1_1_invoke(ARM_SMCCC_HV_PV_TIME_ST, &amp;res);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (res.a0 == SMCCC_RET_NOT_SUPPORTED)</span><br><span class="line">		<span class="keyword">return</span> -EINVAL;</span><br><span class="line"></span><br><span class="line">	reg-&gt;kaddr = memremap(res.a0,</span><br><span class="line">			      <span class="keyword">sizeof</span>(<span class="keyword">struct</span> pvclock_vcpu_stolen_time),</span><br><span class="line">			      MEMREMAP_WB);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (!reg-&gt;kaddr) &#123;</span><br><span class="line">		pr_warn(<span class="string">&quot;Failed to map stolen time data structure\n&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (le32_to_cpu(reg-&gt;kaddr-&gt;revision) != <span class="number">0</span> ||</span><br><span class="line">	    le32_to_cpu(reg-&gt;kaddr-&gt;attributes) != <span class="number">0</span>) &#123;</span><br><span class="line">		pr_warn_once(<span class="string">&quot;Unexpected revision or attributes in stolen time data\n&quot;</span>);</span><br><span class="line">		<span class="keyword">return</span> -ENXIO;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>这里以Linux的虚拟化方案<code>KVM（Kernel-based Virtual Machine）</code>为例来说明，在虚拟机层面如何处理<code>steal-time</code>的计算，并给到客户机系统的。在<code>KVM</code>接收到<code>HVC</code>的指令<code>ARM_SMCCC_HV_PV_TIME_ST</code>后，最终会调用对应的异常处理函数<code>kvm_hvc_call_handler</code>（<code>arch/arm64/kvm/hypercalls.c</code>）:</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">kvm_hvc_call_handler</span><span class="params">(<span class="keyword">struct</span> kvm_vcpu *vcpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	u32 func_id = smccc_get_function(vcpu);</span><br><span class="line">	<span class="type">long</span> val = SMCCC_RET_NOT_SUPPORTED;</span><br><span class="line">	u32 feature;</span><br><span class="line">	<span class="type">gpa_t</span> gpa;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">switch</span> (func_id) &#123;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_VERSION_FUNC_ID:</span><br><span class="line">		val = ARM_SMCCC_VERSION_1_1;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_ARCH_FEATURES_FUNC_ID:</span><br><span class="line">		feature = smccc_get_arg1(vcpu);</span><br><span class="line">		<span class="keyword">switch</span> (feature) &#123;</span><br><span class="line">		<span class="keyword">case</span> ARM_SMCCC_ARCH_WORKAROUND_1:</span><br><span class="line">			<span class="keyword">switch</span> (arm64_get_spectre_v2_state()) &#123;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_VULNERABLE:</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_MITIGATED:</span><br><span class="line">				val = SMCCC_RET_SUCCESS;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_UNAFFECTED:</span><br><span class="line">				val = SMCCC_ARCH_WORKAROUND_RET_UNAFFECTED;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> ARM_SMCCC_ARCH_WORKAROUND_2:</span><br><span class="line">			<span class="keyword">switch</span> (arm64_get_spectre_v4_state()) &#123;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_VULNERABLE:</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_MITIGATED:</span><br><span class="line">				<span class="comment">/*</span></span><br><span class="line"><span class="comment">				 * SSBS everywhere: Indicate no firmware</span></span><br><span class="line"><span class="comment">				 * support, as the SSBS support will be</span></span><br><span class="line"><span class="comment">				 * indicated to the guest and the default is</span></span><br><span class="line"><span class="comment">				 * safe.</span></span><br><span class="line"><span class="comment">				 *</span></span><br><span class="line"><span class="comment">				 * Otherwise, expose a permanent mitigation</span></span><br><span class="line"><span class="comment">				 * to the guest, and hide SSBS so that the</span></span><br><span class="line"><span class="comment">				 * guest stays protected.</span></span><br><span class="line"><span class="comment">				 */</span></span><br><span class="line">				<span class="keyword">if</span> (cpus_have_final_cap(ARM64_SSBS))</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">				fallthrough;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_UNAFFECTED:</span><br><span class="line">				val = SMCCC_RET_NOT_REQUIRED;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> ARM_SMCCC_HV_PV_TIME_FEATURES:</span><br><span class="line">			val = SMCCC_RET_SUCCESS;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_HV_PV_TIME_FEATURES:</span><br><span class="line">		val = kvm_hypercall_pv_features(vcpu);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_HV_PV_TIME_ST:</span><br><span class="line">		gpa = kvm_init_stolen_time(vcpu);</span><br><span class="line">		<span class="keyword">if</span> (gpa != GPA_INVALID)</span><br><span class="line">			val = gpa;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">default</span>:</span><br><span class="line">		<span class="keyword">return</span> kvm_psci_call(vcpu);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	smccc_set_retval(vcpu, val, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">kvm_hvc_call_handler</span><span class="params">(<span class="keyword">struct</span> kvm_vcpu *vcpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	u32 func_id = smccc_get_function(vcpu);</span><br><span class="line">	<span class="type">long</span> val = SMCCC_RET_NOT_SUPPORTED;</span><br><span class="line">	u32 feature;</span><br><span class="line">	<span class="type">gpa_t</span> gpa;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">switch</span> (func_id) &#123;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_VERSION_FUNC_ID:</span><br><span class="line">		val = ARM_SMCCC_VERSION_1_1;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_ARCH_FEATURES_FUNC_ID:</span><br><span class="line">		feature = smccc_get_arg1(vcpu);</span><br><span class="line">		<span class="keyword">switch</span> (feature) &#123;</span><br><span class="line">		<span class="keyword">case</span> ARM_SMCCC_ARCH_WORKAROUND_1:</span><br><span class="line">			<span class="keyword">switch</span> (arm64_get_spectre_v2_state()) &#123;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_VULNERABLE:</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_MITIGATED:</span><br><span class="line">				val = SMCCC_RET_SUCCESS;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_UNAFFECTED:</span><br><span class="line">				val = SMCCC_ARCH_WORKAROUND_RET_UNAFFECTED;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> ARM_SMCCC_ARCH_WORKAROUND_2:</span><br><span class="line">			<span class="keyword">switch</span> (arm64_get_spectre_v4_state()) &#123;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_VULNERABLE:</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_MITIGATED:</span><br><span class="line">				<span class="comment">/*</span></span><br><span class="line"><span class="comment">				 * SSBS everywhere: Indicate no firmware</span></span><br><span class="line"><span class="comment">				 * support, as the SSBS support will be</span></span><br><span class="line"><span class="comment">				 * indicated to the guest and the default is</span></span><br><span class="line"><span class="comment">				 * safe.</span></span><br><span class="line"><span class="comment">				 *</span></span><br><span class="line"><span class="comment">				 * Otherwise, expose a permanent mitigation</span></span><br><span class="line"><span class="comment">				 * to the guest, and hide SSBS so that the</span></span><br><span class="line"><span class="comment">				 * guest stays protected.</span></span><br><span class="line"><span class="comment">				 */</span></span><br><span class="line">				<span class="keyword">if</span> (cpus_have_final_cap(ARM64_SSBS))</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">				fallthrough;</span><br><span class="line">			<span class="keyword">case</span> SPECTRE_UNAFFECTED:</span><br><span class="line">				val = SMCCC_RET_NOT_REQUIRED;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> ARM_SMCCC_HV_PV_TIME_FEATURES:</span><br><span class="line">			val = SMCCC_RET_SUCCESS;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_HV_PV_TIME_FEATURES:</span><br><span class="line">		val = kvm_hypercall_pv_features(vcpu);</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">case</span> ARM_SMCCC_HV_PV_TIME_ST:</span><br><span class="line">		gpa = kvm_init_stolen_time(vcpu);</span><br><span class="line">		<span class="keyword">if</span> (gpa != GPA_INVALID)</span><br><span class="line">			val = gpa;</span><br><span class="line">		<span class="keyword">break</span>;</span><br><span class="line">	<span class="keyword">default</span>:</span><br><span class="line">		<span class="keyword">return</span> kvm_psci_call(vcpu);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	smccc_set_retval(vcpu, val, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">	<span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>可以看到，在这里虚拟机<code>hypervisor</code>会调用<code>kvm_init_stolen_time</code>来初始化<code>steam-time</code>相关的配置：</p>
 <ul>
-<li>通过客户机对应的<code>vcpu</code>结构体<code>kvm_vcpu</code>获取到<code>steal</code>变量的基地址<code>base</code>（对应客户机的物理地址）</li>
-<li>通过<code>kvm_write_guest</code>将一个<code>pvclock_vcpu_stolen_time</code>初始化值写入到<code>base</code>地址，正是在这个结构体中保存了客户机的<code>steal-time</code></li>
+<li><p>通过客户机对应的<code>vcpu</code>结构体<code>kvm_vcpu</code>获取到<code>steal</code>变量的基地址<code>base</code>（对应客户机的物理地址）</p></li>
+<li><p>通过<code>kvm_write_guest</code>将一个<code>pvclock_vcpu_stolen_time</code>初始化值写入到<code>base</code>地址，正是在这个结构体中保存了客户机的<code>steal-time</code></p></li>
 </ul>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">gpa_t</span> <span class="title function_">kvm_init_stolen_time</span><span class="params">(<span class="keyword">struct</span> kvm_vcpu *vcpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pvclock_vcpu_stolen_time</span> <span class="title">init_values</span> =</span> &#123;&#125;;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">kvm</span> *<span class="title">kvm</span> =</span> vcpu-&gt;kvm;</span><br><span class="line">	u64 base = vcpu-&gt;arch.steal.base;</span><br><span class="line">	<span class="type">int</span> idx;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (base == GPA_INVALID)</span><br><span class="line">		<span class="keyword">return</span> base;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Start counting stolen time from the time the guest requests</span></span><br><span class="line"><span class="comment">	 * the feature enabled.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	vcpu-&gt;arch.steal.last_steal = current-&gt;sched_info.run_delay;</span><br><span class="line"></span><br><span class="line">	idx = srcu_read_lock(&amp;kvm-&gt;srcu);</span><br><span class="line">	kvm_write_guest(kvm, base, &amp;init_values, <span class="keyword">sizeof</span>(init_values));</span><br><span class="line">	srcu_read_unlock(&amp;kvm-&gt;srcu, idx);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> base;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">gpa_t</span> <span class="title function_">kvm_init_stolen_time</span><span class="params">(<span class="keyword">struct</span> kvm_vcpu *vcpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pvclock_vcpu_stolen_time</span> <span class="title">init_values</span> =</span> &#123;&#125;;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">kvm</span> *<span class="title">kvm</span> =</span> vcpu-&gt;kvm;</span><br><span class="line">	u64 base = vcpu-&gt;arch.steal.base;</span><br><span class="line">	<span class="type">int</span> idx;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (base == GPA_INVALID)</span><br><span class="line">		<span class="keyword">return</span> base;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Start counting stolen time from the time the guest requests</span></span><br><span class="line"><span class="comment">	 * the feature enabled.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	vcpu-&gt;arch.steal.last_steal = current-&gt;sched_info.run_delay;</span><br><span class="line"></span><br><span class="line">	idx = srcu_read_lock(&amp;kvm-&gt;srcu);</span><br><span class="line">	kvm_write_guest(kvm, base, &amp;init_values, <span class="keyword">sizeof</span>(init_values));</span><br><span class="line">	srcu_read_unlock(&amp;kvm-&gt;srcu, idx);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> base;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>最后，<code>KVM</code>运行的时候，监听一个进程上下文切换的事件，在<code>vcpu</code>进程切换时主动调用<code>kvm_update_stolen_time</code>更新<code>steal-time</code>，从这里我们也可以看到，客户机的<code>steal-time</code>实际读取的是调度器的统计数据<code>run_delay</code>，就是<code>vcpu</code>调度的延迟-在调度队列里等待的时间。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">kvm_update_stolen_time</span><span class="params">(<span class="keyword">struct</span> kvm_vcpu *vcpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">kvm</span> *<span class="title">kvm</span> =</span> vcpu-&gt;kvm;</span><br><span class="line">	u64 base = vcpu-&gt;arch.steal.base;</span><br><span class="line">	u64 last_steal = vcpu-&gt;arch.steal.last_steal;</span><br><span class="line">	u64 offset = offsetof(<span class="keyword">struct</span> pvclock_vcpu_stolen_time, stolen_time);</span><br><span class="line">	u64 steal = <span class="number">0</span>;</span><br><span class="line">	<span class="type">int</span> idx;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (base == GPA_INVALID)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	idx = srcu_read_lock(&amp;kvm-&gt;srcu);</span><br><span class="line">	<span class="keyword">if</span> (!kvm_get_guest(kvm, base + offset, steal)) &#123;</span><br><span class="line">		steal = le64_to_cpu(steal);</span><br><span class="line">		vcpu-&gt;arch.steal.last_steal = READ_ONCE(current-&gt;sched_info.run_delay);</span><br><span class="line">		steal += vcpu-&gt;arch.steal.last_steal - last_steal;</span><br><span class="line">		kvm_put_guest(kvm, base + offset, cpu_to_le64(steal));</span><br><span class="line">	&#125;</span><br><span class="line">	srcu_read_unlock(&amp;kvm-&gt;srcu, idx);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h2><p>这篇文章，我们基于一个虚拟化项目的CPU占用高的问题，分析了排查的手段与思路；以<code>KVM</code>为例，深入分析了虚拟化平台<code>CPU steal-time</code>的计算与更新流程，这样在后续碰到类似的问题时，可以更加得心应手了。在平常的项目实践中，遇到了一些疑难问题，如果有知识盲点，花点时间深入研究下背后的原理与机制，学习的效果比单纯的理论研究要好很多。</p>
-<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="https://developer.arm.com/documentation/102412/0103/Exception-types/Synchronous-exceptions">https://developer.arm.com/documentation/102412/0103/Exception-types/Synchronous-exceptions</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.redhat.com/en/topics/virtualization/what-is-KVM">https://www.redhat.com/en/topics/virtualization/what-is-KVM</a></li>
-<li><a target="_blank" rel="noopener" href="https://ubuntu.com/blog/kvm-hyphervisor">https://ubuntu.com/blog/kvm-hyphervisor</a></li>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">kvm_update_stolen_time</span><span class="params">(<span class="keyword">struct</span> kvm_vcpu *vcpu)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">kvm</span> *<span class="title">kvm</span> =</span> vcpu-&gt;kvm;</span><br><span class="line">	u64 base = vcpu-&gt;arch.steal.base;</span><br><span class="line">	u64 last_steal = vcpu-&gt;arch.steal.last_steal;</span><br><span class="line">	u64 offset = offsetof(<span class="keyword">struct</span> pvclock_vcpu_stolen_time, stolen_time);</span><br><span class="line">	u64 steal = <span class="number">0</span>;</span><br><span class="line">	<span class="type">int</span> idx;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (base == GPA_INVALID)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	idx = srcu_read_lock(&amp;kvm-&gt;srcu);</span><br><span class="line">	<span class="keyword">if</span> (!kvm_get_guest(kvm, base + offset, steal)) &#123;</span><br><span class="line">		steal = le64_to_cpu(steal);</span><br><span class="line">		vcpu-&gt;arch.steal.last_steal = READ_ONCE(current-&gt;sched_info.run_delay);</span><br><span class="line">		steal += vcpu-&gt;arch.steal.last_steal - last_steal;</span><br><span class="line">		kvm_put_guest(kvm, base + offset, cpu_to_le64(steal));</span><br><span class="line">	&#125;</span><br><span class="line">	srcu_read_unlock(&amp;kvm-&gt;srcu, idx);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="总结">总结</h2>
+<p>这篇文章，我们基于一个虚拟化项目的CPU占用高的问题，分析了排查的手段与思路；以<code>KVM</code>为例，深入分析了虚拟化平台<code>CPU steal-time</code>的计算与更新流程，这样在后续碰到类似的问题时，可以更加得心应手了。在平常的项目实践中，遇到了一些疑难问题，如果有知识盲点，花点时间深入研究下背后的原理与机制，学习的效果比单纯的理论研究要好很多。</p>
+<h2 id="参考资料">参考资料</h2>
+<ul>
+<li><p><a
+target="_blank" rel="noopener" href="https://developer.arm.com/documentation/102412/0103/Exception-types/Synchronous-exceptions">https://developer.arm.com/documentation/102412/0103/Exception-types/Synchronous-exceptions</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://www.redhat.com/en/topics/virtualization/what-is-KVM">https://www.redhat.com/en/topics/virtualization/what-is-KVM</a></p></li>
+<li><p><a
+target="_blank" rel="noopener" href="https://ubuntu.com/blog/kvm-hyphervisor">https://ubuntu.com/blog/kvm-hyphervisor</a></p></li>
 </ul>
 
     </article>
@@ -610,7 +617,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">https://sniffer.site/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">May 7th 2025, 11:51:49 am</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">2025-05-20, 13:46:51</a>
+            <p>更新日期：<a href="https://sniffer.site/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">2026-09-03, 13:13:01</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -776,7 +783,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E5%AE%9A%E4%BD%8D%E4%B8%8E%E6%8E%92%E6%9F%A5"><span class="toc-number">1.</span> <span class="toc-text">问题定位与排查</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B8%AD%E7%9A%84CPU-steal-time"><span class="toc-number">2.</span> <span class="toc-text">虚拟化中的CPU steal-time</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E5%AE%9A%E4%BD%8D%E4%B8%8E%E6%8E%92%E6%9F%A5"><span class="toc-number">1.</span> <span class="toc-text">问题定位与排查</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B8%AD%E7%9A%84cpu-steal-time"><span class="toc-number">2.</span> <span class="toc-text">虚拟化中的CPU steal-time</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1425,7 +1432,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2876,7 +2894,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2894,6 +2912,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3752,44 +3776,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3807,14 +3806,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3827,14 +3831,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3845,11 +3849,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3867,14 +3866,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3890,6 +3884,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3922,31 +3926,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3955,6 +3934,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3977,19 +3961,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4005,6 +3979,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4032,14 +4041,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4052,39 +4061,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4095,16 +4094,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4132,6 +4121,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4147,9 +4161,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4167,41 +4191,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4212,14 +4201,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4247,16 +4241,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4277,9 +4261,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4297,24 +4291,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4322,24 +4316,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4352,9 +4356,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4377,9 +4386,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4402,6 +4411,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4417,14 +4436,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4435,6 +4454,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4452,41 +4491,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4500,6 +4504,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4522,11 +4541,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4542,16 +4556,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4565,6 +4569,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4587,16 +4606,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4612,24 +4621,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4640,6 +4634,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4682,6 +4691,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4697,14 +4726,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4725,21 +4749,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4807,19 +4816,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4837,6 +4836,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4852,16 +4876,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4870,6 +4884,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4892,21 +4921,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4925,16 +4939,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4962,11 +4966,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4987,14 +4986,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5022,19 +5036,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5047,6 +5056,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5055,6 +5069,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5067,6 +5091,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5088,6 +5117,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5098,19 +5132,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5118,14 +5142,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5143,14 +5167,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5166,11 +5190,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

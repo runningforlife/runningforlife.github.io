@@ -26,19 +26,15 @@
 <meta property="og:site_name" content="JasonWang&#39;s Blog">
 <meta property="og:description" content="最近了解Linux的性能优化时, 接触到了BPF(Berkeley Packet Filter)。很有意思也很强大的功能;想把学到的一些基本原理与知识记录下来, 算是一个初步的总结. 这篇文章主要从如下几个方面介绍下BPF:  BPF的原理 什么是eBPF 如何在Linux中使用BPF  用过tcpdump的同学应该都了解pcap, 实际上pcap就是基于BPF来实现网络数据包的过滤的. tcpd">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/tcpdump%E5%8E%9F%E7%90%86.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/how_bpf_works.png">
-<meta property="og:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ebpf_architecture.png">
 <meta property="article:published_time" content="2019-11-07T11:35:03.000Z">
-<meta property="article:modified_time" content="2023-02-06T12:17:56.704Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.704Z">
 <meta property="article:author" content="Jason Wang">
-<meta property="article:tag" content="性能优化">
 <meta property="article:tag" content="Berkeley Packet Filters">
 <meta property="article:tag" content="extended Berkeley Packet Filters">
+<meta property="article:tag" content="性能优化">
 <meta property="article:tag" content="BPF">
 <meta property="article:tag" content="eBPF">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/tcpdump%E5%8E%9F%E7%90%86.png">
     <meta http-equiv="Cache-control" content="no-cache">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <link rel="icon" href="/assets/favicon.ico">
@@ -359,11 +355,11 @@
                     <div class= post-intro-tags >
     
     
-        <a class="post-tag" href="javascript:void(0);" data-tags="性能优化">性能优化</a>
-    
         <a class="post-tag" href="javascript:void(0);" data-tags="Berkeley Packet Filters">Berkeley Packet Filters</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="extended Berkeley Packet Filters">extended Berkeley Packet Filters</a>
+    
+        <a class="post-tag" href="javascript:void(0);" data-tags="性能优化">性能优化</a>
     
         <a class="post-tag" href="javascript:void(0);" data-tags="BPF">BPF</a>
     
@@ -535,79 +531,174 @@
             <div class="container container-unloaded">
                 <main class="main post-page">
     <article class="article-entry">
-        <p>最近了解Linux的性能优化时, 接触到了BPF(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Berkeley_Packet_Filter">Berkeley Packet Filter</a>)。很有意思也很强大的功能;想把学到的一些基本原理与知识记录下来, 算是一个初步的总结. 这篇文章主要从如下几个方面介绍下BPF:</p>
+        <p>最近了解Linux的性能优化时, 接触到了BPF(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Berkeley_Packet_Filter">Berkeley
+Packet
+Filter</a>)。很有意思也很强大的功能;想把学到的一些基本原理与知识记录下来,
+算是一个初步的总结. 这篇文章主要从如下几个方面介绍下BPF:</p>
 <ul>
 <li>BPF的原理</li>
 <li>什么是eBPF</li>
 <li>如何在Linux中使用BPF</li>
 </ul>
-<p>用过<code>tcpdump</code>的同学应该都了解<code>pcap</code>, 实际上<code>pcap</code>就是基于BPF来实现网络数据包的过滤的. <code>tcpdump</code>的原理如下图所示: <code>tcpdump</code>将包过滤的表达式, 如查看某个网口所有udp包, 输入<code>tcpdump -n -i eth0 udp</code>, 这个表达式通过PCAP库编译成伪机器字节码后, 通过系统调用发送给内核(内核中有对应的机器码解释器)解释执行, 这样只要系统有udp包, 内核都会过滤出来转发给用户进程<code>tcpdump</code>:</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/tcpdump%E5%8E%9F%E7%90%86.png" alt="how tcpdump works"></p>
+<p>用过<code>tcpdump</code>的同学应该都了解<code>pcap</code>,
+实际上<code>pcap</code>就是基于BPF来实现网络数据包的过滤的.
+<code>tcpdump</code>的原理如下图所示:
+<code>tcpdump</code>将包过滤的表达式, 如查看某个网口所有udp包,
+输入<code>tcpdump -n -i eth0 udp</code>,
+这个表达式通过PCAP库编译成伪机器字节码后,
+通过系统调用发送给内核(内核中有对应的机器码解释器)解释执行,
+这样只要系统有udp包,
+内核都会过滤出来转发给用户进程<code>tcpdump</code>:</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/tcpdump%E5%8E%9F%E7%90%86.png"
+alt="how tcpdump works" /></p>
 <span id="more"></span>
-
-<p>BPF全称Berkeley Packet Filters, 最初是Steven MaCanne, Van Jacobson在文章<a target="_blank" rel="noopener" href="http://www.tcpdump.org/papers/bpf-usenix93.pdf">‘The BSD Packet Filter: A New Architecture for User-level Packet Capture’</a>中提出的一种基于BSD Unix操作系统的包过滤器, 其原理是将包过滤的表达式编译成特定伪机器码后, 由Kernel中的虚拟机执行; 每当网卡中有数据包过来时, 将其拷贝发送给BPF模块, 由BPF根据对应的过滤条件将过滤后的包发送给用户进程:</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/how_bpf_works.png" alt="how BPF works"></p>
+<p>BPF全称Berkeley Packet Filters, 最初是Steven MaCanne, Van
+Jacobson在文章<a
+target="_blank" rel="noopener" href="http://www.tcpdump.org/papers/bpf-usenix93.pdf">‘The BSD Packet
+Filter: A New Architecture for User-level Packet
+Capture’</a>中提出的一种基于BSD Unix操作系统的包过滤器,
+其原理是将包过滤的表达式编译成特定伪机器码后, 由Kernel中的虚拟机执行;
+每当网卡中有数据包过来时, 将其拷贝发送给BPF模块,
+由BPF根据对应的过滤条件将过滤后的包发送给用户进程:</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/how_bpf_works.png"
+alt="how BPF works" /></p>
 <blockquote>
-<p>针对tcpdump, linux有专门用于包过滤的表达式, 参考<code>pcap-filter</code></p>
+<p>针对tcpdump, linux有专门用于包过滤的表达式,
+参考<code>pcap-filter</code></p>
 </blockquote>
-<p>BPF在Linux中的发展大致经历三个阶段: </p>
-<ul>
-<li>Linux 2.1.75最初的实现基于原有的socket接口, 被称为<a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/networking/filter.txt"><code>Linux Socket Filter</code></a>(LSF)</li>
-<li>Linux 3.0版本中,在BPF中加入JIT(<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Just-in-time_compilation"><code>Just-In-Time Compiler</code></a>), 提升BPF的性能与速度 </li>
-<li>Linux 3.15开始将BPF扩展成为通用的模块, BPF不仅可用于数据包过滤, 也可以用来进行内核事件跟踪&#x2F;应用性能调优&#x2F;流量控制(Traffic Control)等, 代码也统一整合到了<code>/kernel/bpf</code>, 这也是目前被称为eBPF(extended BPF)的原因, 而早前的BPF实现则被称为<code>cBPF(classic BPF)</code>.</li>
-</ul>
+<p>BPF在Linux中的发展大致经历三个阶段: - Linux
+2.1.75最初的实现基于原有的socket接口, 被称为<a
+target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/networking/filter.txt"><code>Linux Socket Filter</code></a>(LSF)
+- Linux 3.0版本中,在BPF中加入JIT(<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Just-in-time_compilation"><code>Just-In-Time Compiler</code></a>),
+提升BPF的性能与速度 - Linux 3.15开始将BPF扩展成为通用的模块,
+BPF不仅可用于数据包过滤,
+也可以用来进行内核事件跟踪/应用性能调优/流量控制(Traffic Control)等,
+代码也统一整合到了<code>/kernel/bpf</code>,
+这也是目前被称为eBPF(extended BPF)的原因,
+而早前的BPF实现则被称为<code>cBPF(classic BPF)</code>.</p>
 <p>首先来看下传统的cBPF是如何实现的.</p>
-<h2 id="cBPF"><a href="#cBPF" class="headerlink" title="cBPF"></a><strong>cBPF</strong></h2><p>BPF最初的BSD实现方案是通过打开一个字符设备<code>/dev/bpf*</code>(<code>/dev/bpf0</code>, <code>/dev/bpf1</code> etc), 再通过<code>ioctl</code>来控制该设备, 而Linux内核则基于现有的<code>socket</code>接口加入新的选项<code>SO_ATTACH_FILTER/SO_DETACH_FILTER</code>来执行系统调用, 具体的代码实现在<a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v3.10.107/source/net/core/filter.c"><code>/net/core/filter.c</code></a>. 通过一个简单的示例来看下cBPF是如何工作的.</p>
+<h2 id="cbpf"><strong>cBPF</strong></h2>
+<p>BPF最初的BSD实现方案是通过打开一个字符设备<code>/dev/bpf*</code>(<code>/dev/bpf0</code>,
+<code>/dev/bpf1</code> etc), 再通过<code>ioctl</code>来控制该设备,
+而Linux内核则基于现有的<code>socket</code>接口加入新的选项<code>SO_ATTACH_FILTER/SO_DETACH_FILTER</code>来执行系统调用,
+具体的代码实现在<a
+target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v3.10.107/source/net/core/filter.c"><code>/net/core/filter.c</code></a>.
+通过一个简单的示例来看下cBPF是如何工作的.</p>
 <ul>
-<li>首先通过<code>tcpdump</code>指令来产生数据包的过滤代码: <code>tcpdump dst port 53 -dd</code>(这里过滤所有目标端口为53的数据包)</li>
-<li>然后创建一个<code>AF_PACKET</code>(用于接收所有的数据包)的<code>socket</code>用于向kernel传递过滤代码, 并接收过滤后的数据包</li>
+<li>首先通过<code>tcpdump</code>指令来产生数据包的过滤代码:
+<code>tcpdump dst port 53 -dd</code>(这里过滤所有目标端口为53的数据包)</li>
+<li>然后创建一个<code>AF_PACKET</code>(用于接收所有的数据包)的<code>socket</code>用于向kernel传递过滤代码,
+并接收过滤后的数据包</li>
 </ul>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// tcpdump dst port 53 -dd</span></span><br><span class="line"><span class="type">static</span> <span class="keyword">struct</span> <span class="title class_">sock_filter</span> filter_code[] = &#123;</span><br><span class="line">    &#123; <span class="number">0x28</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x0000000c</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">0</span>, <span class="number">8</span>, <span class="number">0x000086dd</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x30</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00000014</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0x00000084</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0x00000006</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">0</span>, <span class="number">17</span>, <span class="number">0x00000011</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x28</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00000036</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">14</span>, <span class="number">0</span>, <span class="number">0x00000035</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x28</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00000038</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">12</span>, <span class="number">13</span>, <span class="number">0x00000035</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">0</span>, <span class="number">12</span>, <span class="number">0x00000800</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x30</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00000017</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0x00000084</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0x00000006</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">0</span>, <span class="number">8</span>, <span class="number">0x00000011</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x28</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00000014</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x45</span>, <span class="number">6</span>, <span class="number">0</span>, <span class="number">0x00001fff</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0xb1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x0000000e</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x48</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x0000000e</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0x00000035</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x48</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00000010</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x15</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0x00000035</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x6</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00040000</span> &#125;,</span><br><span class="line">    &#123; <span class="number">0x6</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0x00000000</span> &#125;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">struct</span> <span class="title class_">sock_fprog</span> bpf = &#123;</span><br><span class="line">    .len = <span class="built_in">sizeof</span>(filter_code)/(<span class="built_in">sizeof</span>(<span class="keyword">struct</span> sock_filter)),</span><br><span class="line">    .filter = filter_code,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span> *argv[])</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> sock_fd, bytes;</span><br><span class="line">    <span class="type">char</span> buf[<span class="number">4096</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">sockaddr_ll</span> addr;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">iphdr</span> *ip_header;</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> src_addr[INET_ADDRSTRLEN], dst_addr[INET_ADDRSTRLEN];</span><br><span class="line">    <span class="type">char</span> *iface_name;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (argc != <span class="number">2</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;Usage: %s iface_name\n&quot;</span>, argv[<span class="number">0</span>]);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1. create socket</span></span><br><span class="line">    sock_fd = <span class="built_in">socket</span>(AF_PACKET, SOCK_RAW, <span class="built_in">htons</span>(ETH_P_ALL));</span><br><span class="line">    <span class="keyword">if</span> (sock_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">perror</span>(<span class="string">&quot;socket created failure&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    iface_name = argv[<span class="number">1</span>];</span><br><span class="line">    <span class="built_in">memset</span>(&amp;addr, <span class="number">0</span>, <span class="built_in">sizeof</span>(addr));</span><br><span class="line">    addr.sll_ifindex = if_nametoindex(iface_name);</span><br><span class="line">    addr.sll_family = AF_PACKET;</span><br><span class="line">    addr.sll_protocol = <span class="built_in">htons</span>(ETH_P_ALL);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2. attach filter (no need to call bind)</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">setsockopt</span>(sock_fd, SOL_SOCKET, SO_ATTACH_FILTER, &amp;bpf, <span class="built_in">sizeof</span>(bpf)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">perror</span>(<span class="string">&quot;attaching filter failed&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">2</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">        bytes = <span class="built_in">recv</span>(sock_fd, buf, <span class="built_in">sizeof</span>(buf), <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (bytes &lt; <span class="number">1</span>) &#123;</span><br><span class="line">            <span class="built_in">perror</span>(<span class="string">&quot;received data failed&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ip_header = (<span class="keyword">struct</span> iphdr *) (buf + <span class="built_in">sizeof</span>(<span class="keyword">struct</span> ether_header));</span><br><span class="line">        <span class="built_in">inet_ntop</span>(AF_INET, &amp;ip_header-&gt;saddr, src_addr, <span class="built_in">sizeof</span>(src_addr));</span><br><span class="line">        <span class="built_in">inet_ntop</span>(AF_INET, &amp;ip_header-&gt;daddr, dst_addr, <span class="built_in">sizeof</span>(dst_addr));</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;IPv%d proto=%d src=%s dest=%s\n&quot;</span>, </span><br><span class="line">                ip_header-&gt;version, ip_header-&gt;protocol, src_addr, dst_addr);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>刚才说到在Linux 3.0版本中BPF加入了JIT; JIT能够提升伪机器码的执行效率. 从执行流程来说, 主要区别在于传入内核的<code>socket_filter</code>伪机器代码都会通过<code>bpf_jit_compile</code>进行优化处理, 然后再通过字节码解释器执行. 具体来说, 不同的平台<a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v3.10.107/ident/bpf_jit_compile"><code>bpf_jit_compile</code></a>的实现不一样, 内核中的代码路径位于<code>arch/&lt;platform&gt;/net/</code>, 感兴趣的可以参考这个链接<a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v3.10.107/ident/bpf_jit_compile">这里</a>看下.</p>
-<h2 id="eBPF"><a href="#eBPF" class="headerlink" title="eBPF"></a><strong>eBPF</strong></h2><p><code>eBPF</code>即<a target="_blank" rel="noopener" href="https://lwn.net/Articles/603983/"><code>extended BPF</code></a>, 顾名思义是对原有BPF进行了扩展, 这样不仅BPF可以用来过滤网络数据包(tcpdump&#x2F;XDP), 也可以用于性能分析, 将BPF代码插入到内核的跟踪点(<code>tracepoints</code>), <code>kprobes</code>, <code>perf</code>事件, 收集相应的数据.除了扩展了cBPF的功能外, eBPF另一个不同于cBPF的地方在于调用的方式: eBPF提供了一个统一的<code>bpf()</code>系统调用来执行相应的操作,同时应用与内核的数据传递也统一通过<code>map</code>这种数据结构来进行. 比如用<code>BPF_MAP_CREATE</code>命令来创建一个eBPF的map对象(不同的内核事件对应的map类型不同):</p>
+<p>刚才说到在Linux 3.0版本中BPF加入了JIT; JIT能够提升伪机器码的执行效率.
+从执行流程来说,
+主要区别在于传入内核的<code>socket_filter</code>伪机器代码都会通过<code>bpf_jit_compile</code>进行优化处理,
+然后再通过字节码解释器执行. 具体来说, 不同的平台<a
+target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v3.10.107/ident/bpf_jit_compile"><code>bpf_jit_compile</code></a>的实现不一样,
+内核中的代码路径位于<code>arch/&lt;platform&gt;/net/</code>,
+感兴趣的可以参考这个链接<a
+target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/v3.10.107/ident/bpf_jit_compile">这里</a>看下.</p>
+<h2 id="ebpf"><strong>eBPF</strong></h2>
+<p><code>eBPF</code>即<a
+target="_blank" rel="noopener" href="https://lwn.net/Articles/603983/"><code>extended BPF</code></a>,
+顾名思义是对原有BPF进行了扩展,
+这样不仅BPF可以用来过滤网络数据包(tcpdump/XDP), 也可以用于性能分析,
+将BPF代码插入到内核的跟踪点(<code>tracepoints</code>),
+<code>kprobes</code>, <code>perf</code>事件,
+收集相应的数据.除了扩展了cBPF的功能外,
+eBPF另一个不同于cBPF的地方在于调用的方式:
+eBPF提供了一个统一的<code>bpf()</code>系统调用来执行相应的操作,同时应用与内核的数据传递也统一通过<code>map</code>这种数据结构来进行.
+比如用<code>BPF_MAP_CREATE</code>命令来创建一个eBPF的map对象(不同的内核事件对应的map类型不同):</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">bpf</span><span class="params">(<span class="type">int</span> cmd, <span class="keyword">union</span> bpf_attr *attr, <span class="type">unsigned</span> <span class="type">int</span> size)</span></span></span><br><span class="line"><span class="function"></span></span><br></pre></td></tr></table></figure>
-
-<p>我们可以通过<a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/bpf.2.html"><code>man bpf</code></a>来查看<code>bpf</code>系统调用的具体用法. eBPF对于内核的开发, 以及性能分析无疑是一大利器, 先通过具体的实例来看一看如何使用eBPF(Linux源码中有很多示例<a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/latest/source/samples/bpf"><code>samples/bpf</code></a>):</p>
+<p>我们可以通过<a
+target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/bpf.2.html"><code>man bpf</code></a>来查看<code>bpf</code>系统调用的具体用法.
+eBPF对于内核的开发, 以及性能分析无疑是一大利器,
+先通过具体的实例来看一看如何使用eBPF(Linux源码中有很多示例<a
+target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/latest/source/samples/bpf"><code>samples/bpf</code></a>):</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">test_sock</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">int</span> sock = <span class="number">-1</span>, map_fd, prog_fd, i, key;</span><br><span class="line">  <span class="type">long</span> <span class="type">long</span> value = <span class="number">0</span>, tcp_cnt, udp_cnt, icmp_cnt;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 创建一个bpf的array map用于保存结果</span></span><br><span class="line">  map_fd = <span class="built_in">bpf_create_map</span>(BPF_MAP_TYPE_ARRAY, <span class="built_in">sizeof</span>(key), <span class="built_in">sizeof</span>(value), <span class="number">256</span>);</span><br><span class="line">  <span class="keyword">if</span> (map_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;failed to create map &#x27;%s&#x27;\n&quot;</span>, <span class="built_in">strerror</span>(errno));</span><br><span class="line">    <span class="keyword">goto</span> cleanup;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// eBPF对应的伪机器码</span></span><br><span class="line">  <span class="keyword">struct</span> <span class="title class_">bpf_insn</span> prog[] = &#123;</span><br><span class="line">    <span class="built_in">BPF_MOV64_REG</span>(BPF_REG_6, BPF_REG_1),</span><br><span class="line">    <span class="built_in">BPF_LD_ABS</span>(BPF_B, ETH_HLEN + <span class="built_in">offsetof</span>(<span class="keyword">struct</span> iphdr, protocol) <span class="comment">/* R0 = ip-&gt;proto */</span>),</span><br><span class="line">    <span class="built_in">BPF_STX_MEM</span>(BPF_W, BPF_REG_10, BPF_REG_0, <span class="number">-4</span>), <span class="comment">/* *(u32 *)(fp - 4) = r0 */</span></span><br><span class="line">    <span class="built_in">BPF_MOV64_REG</span>(BPF_REG_2, BPF_REG_10),</span><br><span class="line">    <span class="built_in">BPF_ALU64_IMM</span>(BPF_ADD, BPF_REG_2, <span class="number">-4</span>), <span class="comment">/* r2 = fp - 4 */</span></span><br><span class="line">    <span class="built_in">BPF_LD_MAP_FD</span>(BPF_REG_1, map_fd),</span><br><span class="line">    <span class="built_in">BPF_RAW_INSN</span>(BPF_JMP | BPF_CALL, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, BPF_FUNC_map_lookup_elem),</span><br><span class="line">    <span class="built_in">BPF_JMP_IMM</span>(BPF_JEQ, BPF_REG_0, <span class="number">0</span>, <span class="number">2</span>),</span><br><span class="line">    <span class="built_in">BPF_MOV64_IMM</span>(BPF_REG_1, <span class="number">1</span>), <span class="comment">/* r1 = 1 */</span></span><br><span class="line">    <span class="built_in">BPF_RAW_INSN</span>(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, <span class="number">0</span>, <span class="number">0</span>), <span class="comment">/* xadd r0 += r1 */</span></span><br><span class="line">    <span class="built_in">BPF_MOV64_IMM</span>(BPF_REG_0, <span class="number">0</span>), <span class="comment">/* r0 = 0 */</span></span><br><span class="line">    <span class="built_in">BPF_EXIT_INSN</span>(),</span><br><span class="line">  &#125;;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 加载eBPF伪机器码到内核</span></span><br><span class="line">  prog_fd = <span class="built_in">bpf_prog_load</span>(BPF_PROG_TYPE_SOCKET_FILTER, prog, <span class="built_in">sizeof</span>(prog),</span><br><span class="line">        <span class="string">&quot;GPL&quot;</span>, <span class="number">0</span>);</span><br><span class="line">  <span class="keyword">if</span> (prog_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;failed to load prog &#x27;%s&#x27;\n&quot;</span>, <span class="built_in">strerror</span>(errno));</span><br><span class="line">    <span class="keyword">goto</span> cleanup;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  sock = <span class="built_in">open_raw_sock</span>(<span class="string">&quot;lo&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 将该eBPF的伪代码绑定到某个socket上</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">setsockopt</span>(sock, SOL_SOCKET, SO_ATTACH_BPF, &amp;prog_fd,</span><br><span class="line">          <span class="built_in">sizeof</span>(prog_fd)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;setsockopt %s\n&quot;</span>, <span class="built_in">strerror</span>(errno));</span><br><span class="line">    <span class="keyword">goto</span> cleanup;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 查询过滤得到的结果</span></span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">10</span>; i++) &#123;</span><br><span class="line">    key = IPPROTO_TCP;</span><br><span class="line">    <span class="built_in">assert</span>(<span class="built_in">bpf_lookup_elem</span>(map_fd, &amp;key, &amp;tcp_cnt) == <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    key = IPPROTO_UDP;</span><br><span class="line">    <span class="built_in">assert</span>(<span class="built_in">bpf_lookup_elem</span>(map_fd, &amp;key, &amp;udp_cnt) == <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    key = IPPROTO_ICMP;</span><br><span class="line">    <span class="built_in">assert</span>(<span class="built_in">bpf_lookup_elem</span>(map_fd, &amp;key, &amp;icmp_cnt) == <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;TCP %lld UDP %lld ICMP %lld packets\n&quot;</span>,</span><br><span class="line">          tcp_cnt, udp_cnt, icmp_cnt);</span><br><span class="line">    <span class="built_in">sleep</span>(<span class="number">1</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">cleanup:</span><br><span class="line">  <span class="comment">/* maps, programs, raw sockets will auto cleanup on process exit */</span></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>可以看到,对于eBPF而言, 大概有如下几个执行步骤:</p>
 <ul>
 <li>编写ePBF伪机器代码</li>
 <li>调用<code>bpf</code>创建对应的map对象, 并将伪机器码加载到内核</li>
-<li>内核对加载得到伪机器码进行优化&#x2F;校验, 验证其是否合法(是否有非法指令, 加载的程序是否兼容<code>GPL</code>兼容协议等)</li>
+<li>内核对加载得到伪机器码进行优化/校验, 验证其是否合法(是否有非法指令,
+加载的程序是否兼容<code>GPL</code>兼容协议等)</li>
 <li>用户程序通过<code>bpf</code>的接口读取内核事件的结果</li>
 </ul>
-<p>这个例子用的是类似汇编语言的方式来实现eBPF伪机器代码, 这个对于非专业的开发者来说实在有点痛苦. 那么, 能否通过其他高级语言来编写eBPF的代码了? 这就要用到专门的编译器<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/LLVM"><code>LLVM</code>(Lower Level Virtual Machine)</a>了.通过<code>LLVM</code>, 我们只需要将需要执行的eBPF代码用C语言编写好后, 将其编译成<code>elf</code>格式的镜像(image)文件, 然后通过<code>libelf</code>库加载解析后, 装载到内核中执行. 如果去看<a target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/latest/source/samples/bpf"><code>samples/bpf</code></a>中的其他示例, 都是通过类似的方式实现的.</p>
-<p>了解了eBPF大致的执行流程, 我们一起来看下eBPF原理的框架简图(eBPF涉及的内核知识比较多, 刚开始建立一个整体的框架有助于理解):</p>
-<p><img src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ebpf_architecture.png" alt="eBPF architecture"></p>
-<h2 id="BCC"><a href="#BCC" class="headerlink" title="BCC"></a><strong>BCC</strong></h2><p>即使有现成的编译工具LLVM, 有加载解析elf的库, 但对大部分开发者来说, 日常并没有太多时间精力一步步来开发这些eBPF工具与代码. 于是, 一些大牛们便搞出了一套<a target="_blank" rel="noopener" href="https://github.com/iovisor/bcc">BCC(BPF Compilation Collection)</a>的eBPF工具集合, 这个工具集合把所有eBPF内核代码编写&#x2F;编译以及错误处理的流程都封装好了, 使用时只需通过python&#x2F;Lua等脚本语言进行调用,这里从BCC的示例中选出一个简单的例子, 可以看到BCC极大的简化了eBPF的开发与使用流程:</p>
+<p>这个例子用的是类似汇编语言的方式来实现eBPF伪机器代码,
+这个对于非专业的开发者来说实在有点痛苦. 那么,
+能否通过其他高级语言来编写eBPF的代码了? 这就要用到专门的编译器<a
+target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/LLVM"><code>LLVM</code>(Lower Level
+Virtual Machine)</a>了.通过<code>LLVM</code>,
+我们只需要将需要执行的eBPF代码用C语言编写好后,
+将其编译成<code>elf</code>格式的镜像(image)文件,
+然后通过<code>libelf</code>库加载解析后, 装载到内核中执行. 如果去看<a
+target="_blank" rel="noopener" href="https://elixir.bootlin.com/linux/latest/source/samples/bpf"><code>samples/bpf</code></a>中的其他示例,
+都是通过类似的方式实现的.</p>
+<p>了解了eBPF大致的执行流程,
+我们一起来看下eBPF原理的框架简图(eBPF涉及的内核知识比较多,
+刚开始建立一个整体的框架有助于理解):</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/ebpf_architecture.png"
+alt="eBPF architecture" /></p>
+<h2 id="bcc"><strong>BCC</strong></h2>
+<p>即使有现成的编译工具LLVM, 有加载解析elf的库, 但对大部分开发者来说,
+日常并没有太多时间精力一步步来开发这些eBPF工具与代码. 于是,
+一些大牛们便搞出了一套<a target="_blank" rel="noopener" href="https://github.com/iovisor/bcc">BCC(BPF
+Compilation Collection)</a>的eBPF工具集合,
+这个工具集合把所有eBPF内核代码编写/编译以及错误处理的流程都封装好了,
+使用时只需通过python/Lua等脚本语言进行调用,这里从BCC的示例中选出一个简单的例子,
+可以看到BCC极大的简化了eBPF的开发与使用流程:</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">#!/usr/bin/python</span></span><br><span class="line"><span class="comment"># Copyright (c) PLUMgrid, Inc.</span></span><br><span class="line"><span class="comment"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;)</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># run in project examples directory with:</span></span><br><span class="line"><span class="comment"># sudo ./hello_world.py&quot;</span></span><br><span class="line"><span class="comment"># see trace_fields.py for a longer example</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> bcc <span class="keyword">import</span> BPF</span><br><span class="line"></span><br><span class="line"><span class="comment"># 每当发生`clone`系统调用时, 该脚本都会打印`hello world`</span></span><br><span class="line"><span class="comment"># This may not work for 4.17 on x64, you need replace kprobe__sys_clone with kprobe____x64_sys_clone</span></span><br><span class="line">BPF(text=<span class="string">&#x27;int kprobe__sys_clone(void *ctx) &#123; bpf_trace_printk(&quot;Hello, World!\\n&quot;); return 0; &#125;&#x27;</span>).trace_print()</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>如果Linux内核版本在4.4以上(如Ubuntu 16.04等), 可以通过如下指令安装BCC使用:</p>
+<p>如果Linux内核版本在4.4以上(如Ubuntu 16.04等),
+可以通过如下指令安装BCC使用:</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># echo &quot;deb [trusted=yes] https://repo.iovisor.org/apt/xenial xenial-nightly main&quot; | \</span></span><br><span class="line">    sudo <span class="built_in">tee</span> /etc/apt/sources.list.d/iovisor.list</span><br><span class="line"><span class="comment"># sudo apt-get update</span></span><br><span class="line"><span class="comment"># sudo apt-get install bpfcc-tools	# or the old package name: bcc-tools</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<p>相应的, BCC的工具会安装到<code>/usr/share/bcc/tools</code>下面.更多BCC功能的解锁说明可以参考<a target="_blank" rel="noopener" href="http://www.brendangregg.com/ebpf.html">Brendan D.Gregg性能优化大牛的eBPF介绍</a>以及BCC的[官网]<a target="_blank" rel="noopener" href="https://github.com/iovisor/bcc">https://github.com/iovisor/bcc</a>). 安装完成后, 无论是对CPU, 内存, 磁盘I&#x2F;O还是网络数据的传输都可以利用这一套工具进行监控了.</p>
+<p>相应的,
+BCC的工具会安装到<code>/usr/share/bcc/tools</code>下面.更多BCC功能的解锁说明可以参考<a
+target="_blank" rel="noopener" href="http://www.brendangregg.com/ebpf.html">Brendan
+D.Gregg性能优化大牛的eBPF介绍</a>以及BCC的[官网]https://github.com/iovisor/bcc).
+安装完成后, 无论是对CPU, 内存,
+磁盘I/O还是网络数据的传输都可以利用这一套工具进行监控了.</p>
 <p>BPF相关的内核代码路径主要有如下几个，感兴趣的可以自行研究下:</p>
 <ul>
-<li><code>kernel/bpf/</code>: BPF核心代码，系统调用、trace跟踪、数据结构、程序校验等在这里实现</li>
+<li><code>kernel/bpf/</code>:
+BPF核心代码，系统调用、trace跟踪、数据结构、程序校验等在这里实现</li>
 <li><code>net/core/filter.c</code>: socket过滤的BPF功能</li>
 <li><code>kernel/trace/bpf_trace.c</code>: trace相关功能的BPF入口</li>
 </ul>
-<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a><strong>参考文献</strong></h2><ul>
-<li><a target="_blank" rel="noopener" href="http://www.brendangregg.com/blog/2019-01-01/learn-ebpf-tracing.html">Breadan Gregg大牛的博客, 性能优化的大牛</a></li>
-<li><a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/bpf.2.html">BPF系统调用的说明</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/linux/l-lo-eBPF-history/index.html">BPF的很详尽的介绍资料</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/networking/filter.txt">Linux BPF实现的说明</a></li>
+<h2 id="参考文献"><strong>参考文献</strong></h2>
+<ul>
+<li><a
+target="_blank" rel="noopener" href="http://www.brendangregg.com/blog/2019-01-01/learn-ebpf-tracing.html">Breadan
+Gregg大牛的博客, 性能优化的大牛</a></li>
+<li><a
+target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/bpf.2.html">BPF系统调用的说明</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/cn/linux/l-lo-eBPF-history/index.html">BPF的很详尽的介绍资料</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/networking/filter.txt">Linux
+BPF实现的说明</a></li>
 <li><a target="_blank" rel="noopener" href="https://llvm.org/">LLVM开源项目的官网</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/iovisor/bcc">BCC Github主页, 如何使用&#x2F;安装&#x2F;开发资料很全面</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/iovisor/bcc">BCC Github主页,
+如何使用/安装/开发资料很全面</a></li>
 <li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/742082/">BCC入门级介绍</a></li>
-<li><a target="_blank" rel="noopener" href="https://github.com/zoidbergwill/awesome-ebpf">收集了很多eBPF相关的资料</a></li>
-<li><a target="_blank" rel="noopener" href="https://qmonnet.github.io/whirl-offload/2016/09/01/dive-into-bpf/">BPF资料合集</a></li>
-<li><a target="_blank" rel="noopener" href="https://blogs.oracle.com/linux/notes-on-bpf-1">Oracle技术博客上有关BPF的系列文章</a></li>
-<li><a target="_blank" rel="noopener" href="https://lwn.net/Articles/740157/">LWN上有关eBPF的介绍</a></li>
-<li><a target="_blank" rel="noopener" href="https://www.ferrisellis.com/content/ebpf_past_present_future/">eBPF past&#x2F;present&#x2F;future</a></li>
-<li><a target="_blank" rel="noopener" href="https://docs.cilium.io/en/latest/bpf/">eBPF &amp; XDP</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://github.com/zoidbergwill/awesome-ebpf">收集了很多eBPF相关的资料</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://qmonnet.github.io/whirl-offload/2016/09/01/dive-into-bpf/">BPF资料合集</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://blogs.oracle.com/linux/notes-on-bpf-1">Oracle技术博客上有关BPF的系列文章</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://lwn.net/Articles/740157/">LWN上有关eBPF的介绍</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.ferrisellis.com/content/ebpf_past_present_future/">eBPF
+past/present/future</a></li>
+<li><a target="_blank" rel="noopener" href="https://docs.cilium.io/en/latest/bpf/">eBPF &amp;
+XDP</a></li>
 </ul>
 
     </article>
@@ -617,7 +708,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/">https://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/">November 7th 2019, 7:35:03 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/">2023-02-06, 20:17:56</a>
+            <p>更新日期：<a href="https://sniffer.site/2019/11/07/BPF%E4%B8%8EeBPF/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -783,7 +874,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#cBPF"><span class="toc-number">1.</span> <span class="toc-text">cBPF</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#eBPF"><span class="toc-number">2.</span> <span class="toc-text">eBPF</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#BCC"><span class="toc-number">3.</span> <span class="toc-text">BCC</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">4.</span> <span class="toc-text">参考文献</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#cbpf"><span class="toc-number">1.</span> <span class="toc-text">cBPF</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ebpf"><span class="toc-number">2.</span> <span class="toc-text">eBPF</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#bcc"><span class="toc-number">3.</span> <span class="toc-text">BCC</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE"><span class="toc-number">4.</span> <span class="toc-text">参考文献</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1432,7 +1523,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2883,7 +2985,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2901,6 +3003,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3759,44 +3867,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3814,14 +3897,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3834,14 +3922,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3852,11 +3940,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3874,14 +3957,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3897,6 +3975,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3929,31 +4017,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3962,6 +4025,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3984,19 +4052,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -4012,6 +4070,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4039,14 +4132,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4059,39 +4152,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4102,16 +4185,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4139,6 +4212,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4154,9 +4252,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4174,41 +4282,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4219,14 +4292,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4254,16 +4332,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4284,9 +4352,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4304,24 +4382,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4329,24 +4407,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4359,9 +4447,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4384,9 +4477,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4409,6 +4502,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4424,14 +4527,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4442,6 +4545,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4459,41 +4582,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4507,6 +4595,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4529,11 +4632,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4549,16 +4647,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4572,6 +4660,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4594,16 +4697,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4619,24 +4712,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4647,6 +4725,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4689,6 +4782,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4704,14 +4817,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4732,21 +4840,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4814,19 +4907,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4844,6 +4927,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4859,16 +4967,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4877,6 +4975,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4899,21 +5012,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4932,16 +5030,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4969,11 +5057,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4994,14 +5077,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5029,19 +5127,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5054,6 +5147,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5062,6 +5160,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5074,6 +5182,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5095,6 +5208,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5105,19 +5223,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5125,14 +5233,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5150,14 +5258,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5173,11 +5281,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">

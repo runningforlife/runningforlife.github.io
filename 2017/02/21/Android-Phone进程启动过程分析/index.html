@@ -27,7 +27,7 @@
 <meta property="og:description" content="之前解决一个开机搜网慢的问题时，发现由于Phone进程起来以后才会主动连接RILD,因而在一定程度上Phone进程启动的时间会影响网络状态注册的快慢。适当的将Phone进程提前，可以将网络注册时间提前一点，让状态栏中信号显示的时间提前。那么，Android中作为系统的核心进程之一，Phone进程是如何启动的了？  本文参考代码为Android NN7.0, RIL运行机制请参考: Android">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2017-02-21T08:07:00.000Z">
-<meta property="article:modified_time" content="2021-09-14T06:04:20.383Z">
+<meta property="article:modified_time" content="2026-08-23T10:32:21.689Z">
 <meta property="article:author" content="Jason Wang">
 <meta property="article:tag" content="Phone进程">
 <meta property="article:tag" content="Telephony">
@@ -524,70 +524,73 @@
     <article class="article-entry">
         <p>之前解决一个开机搜网慢的问题时，发现由于Phone进程起来以后才会主动连接RILD,因而在一定程度上Phone进程启动的时间会影响网络状态注册的快慢。适当的将Phone进程提前，可以将网络注册时间提前一点，让状态栏中信号显示的时间提前。那么，Android中作为系统的核心进程之一，Phone进程是如何启动的了？</p>
 <blockquote>
-<p>本文参考代码为Android NN7.0, RIL运行机制请参考: <a href="http://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android RIL概述</a></p>
+<p>本文参考代码为Android NN7.0, RIL运行机制请参考: <a
+href="http://sniffer.site/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android
+RIL概述</a></p>
 </blockquote>
 <span id="more"></span>
-
 <p>Telephony最开始创建的是<code>PhoneFactory</code>对象，直接搜索源码，可以看到在<code>PhoneGlobals.java</code>创建时，会调用<code>PhoneFactory</code>对Telephony进行初始化操作:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Global state for the telephony subsystem when running in the primary</span></span><br><span class="line"><span class="comment"> * phone process.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">PhoneGlobals</span> <span class="keyword">extends</span> <span class="title class_">ContextWrapper</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onCreate</span><span class="params">()</span> &#123;</span><br><span class="line">        Log.v(LOG_TAG, <span class="string">&quot;!@Boot_SVC : PhoneApp OnCrate&quot;</span>);</span><br><span class="line">        <span class="comment">// CallManager为空</span></span><br><span class="line">        <span class="keyword">if</span> (mCM == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="comment">// Initialize the telephony framework</span></span><br><span class="line">            PhoneFactory.makeDefaultPhones(<span class="built_in">this</span>);</span><br><span class="line">            <span class="comment">// 创建CallManager实例</span></span><br><span class="line">            mCM = CallManager.getInstance();</span><br><span class="line">            <span class="keyword">for</span> (Phone phone : PhoneFactory.getPhones()) &#123;</span><br><span class="line">                mCM.registerPhone(phone);</span><br><span class="line">            &#125;</span><br><span class="line">            ....</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>那么，<code>PhoneGlobals</code>又是在哪里创建的了？再次搜索代码，可以看到在同一文件目录下，有一个<code>PhoneApp.java</code>文件:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"> <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onCreate</span><span class="params">()</span> &#123;</span><br><span class="line">     Log.d(<span class="string">&quot;PhoneApp&quot;</span>, <span class="string">&quot;onCreate&quot;</span>);</span><br><span class="line">    </span><br><span class="line">     <span class="keyword">if</span> (UserHandle.myUserId() == <span class="number">0</span>) &#123;</span><br><span class="line">         <span class="comment">// 创建PhoneGlobals实例</span></span><br><span class="line">         mPhoneGlobals = <span class="keyword">new</span> <span class="title class_">PhoneGlobals</span>(<span class="built_in">this</span>);</span><br><span class="line">         mPhoneGlobals.onCreate();</span><br><span class="line">    </span><br><span class="line">         mTelephonyGlobals = <span class="keyword">new</span> <span class="title class_">TelephonyGlobals</span>(<span class="built_in">this</span>);</span><br><span class="line">         mTelephonyGlobals.onCreate();</span><br><span class="line">     &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">         Log.d(<span class="string">&quot;PhoneApp&quot;</span>, <span class="string">&quot;Phone app is created as userid not 0, there&#x27;s no PhoneApp() Instance&quot;</span>);</span><br><span class="line">     &#125;</span><br><span class="line">     ....</span><br><span class="line"> &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>那么，<code>PhoneApp</code>这个类又是什么时候创建的？我们知道，每一个Android应用都有一个<code>Application</code>与之对应，它是在应用启动过程中创建的，但是在这里搜索所有的源码，也无法看到<code>PhoneApp</code>创建的地方。联想到应用的启动过程，APP的启动的入口是<code>ActivityThread</code>,那么对于任何<code>PhoneApp</code>这样的系统应用来说，启动的入口也应该是<code>ActivityThread</code>。不妨继续看看代码。</p>
-<p>打开Phone进程所在的源码路径: <code>/android/applications/sources/services/Telephony/</code>,查看应用对应的<code>AndroidManefest.xml</code>文件:</p>
+<p>打开Phone进程所在的源码路径:
+<code>/android/applications/sources/services/Telephony/</code>,查看应用对应的<code>AndroidManefest.xml</code>文件:</p>
 <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">manifest</span> <span class="attr">xmlns:android</span>=<span class="string">&quot;http://schemas.android.com/apk/res/android&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">xmlns:androidprv</span>=<span class="string">&quot;http://schemas.android.com/apk/prv/res/android&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">package</span>=<span class="string">&quot;com.android.phone&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:versionCode</span>=<span class="string">&quot;1&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:versionName</span>=<span class="string">&quot;1.0.0&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">coreApp</span>=<span class="string">&quot;true&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:sharedUserId</span>=<span class="string">&quot;android.uid.phone&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:sharedUserLabel</span>=<span class="string">&quot;@string/phoneAppLabel&quot;</span> &gt;</span></span><br><span class="line">        .....</span><br><span class="line">    <span class="tag">&lt;<span class="name">application</span> <span class="attr">android:name</span>=<span class="string">&quot;PhoneApp&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:persistent</span>=<span class="string">&quot;true&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:hardwareAccelerated</span>=<span class="string">&quot;true&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:label</span>=<span class="string">&quot;@string/phoneAppLabel&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:icon</span>=<span class="string">&quot;@mipmap/ic_launcher_phone&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:allowBackup</span>=<span class="string">&quot;false&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:supportsRtl</span>=<span class="string">&quot;true&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:usesCleartextTraffic</span>=<span class="string">&quot;true&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:defaultToDeviceProtectedStorage</span>=<span class="string">&quot;true&quot;</span></span></span><br><span class="line"><span class="tag">        <span class="attr">android:directBootAware</span>=<span class="string">&quot;true&quot;</span>&gt;</span></span><br><span class="line">        ....</span><br><span class="line">    <span class="tag">&lt;/<span class="name">application</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">manifest</span>&gt;</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-
-<p>在<code>application</code>标签下面，可以看到<code>android:persistent=&quot;true&quot;</code>这个属性值，看一看官方的文档怎么解释的：</p>
+<p>在<code>application</code>标签下面，可以看到<code>android:persistent="true"</code>这个属性值，看一看官方的文档怎么解释的：</p>
 <blockquote>
 <p><strong>android:persistent</strong></p>
 </blockquote>
 <blockquote>
-<p>Whether or not the application should remain running at all times — “true” if it should, and “false” if not. The default value is “false”. Applications should not normally set this flag; persistence mode is intended only for certain system applications.</p>
+<p>Whether or not the application should remain running at all times —
+“true” if it should, and “false” if not. The default value is “false”.
+Applications should not normally set this flag; persistence mode is
+intended only for certain system applications.</p>
 </blockquote>
 <p>由此可见，Phone应用是系统常驻进程，一旦起来后就会一直运行，不会被杀死（除非Phone进程自己发生了的运行时错误而崩溃）。对于这类常驻进程，<code>ActivityManagerService</code>(以下简称AMS)会在初始化完成后，主动启动。在<code>SystemServer</code>初始化完系统的核心服务后，会调用AMS的<code>systemReady(Runnable r)</code>函数。</p>
-<h2 id="ActivityManagerService-java"><a href="#ActivityManagerService-java" class="headerlink" title="ActivityManagerService.java"></a><strong>ActivityManagerService.java</strong></h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">systemReady</span><span class="params">(<span class="keyword">final</span> Runnable goingCallback)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">    </span><br><span class="line">             <span class="comment">// Only start up encryption-aware persistent apps; once user is</span></span><br><span class="line">            <span class="comment">// unlocked we&#x27;ll come back around and start unaware apps</span></span><br><span class="line">            <span class="comment">// 正是在这里，phone进程被创建</span></span><br><span class="line">            startPersistentApps(PackageManager.MATCH_DIRECT_BOOT_AWARE);</span><br><span class="line">    </span><br><span class="line">            <span class="comment">// Start up initial activity.</span></span><br><span class="line">            mBooting = <span class="literal">true</span>;</span><br><span class="line">            <span class="comment">// Enable home activity for system user, so that the system can always boot</span></span><br><span class="line">            <span class="keyword">if</span> (UserManager.isSplitSystemUser()) &#123;</span><br><span class="line">                <span class="type">ComponentName</span> <span class="variable">cName</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ComponentName</span>(mContext, SystemUserHomeActivity.class);</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    AppGlobals.getPackageManager().setComponentEnabledSetting(cName,</span><br><span class="line">                            PackageManager.COMPONENT_ENABLED_STATE_ENABLED, <span class="number">0</span>,</span><br><span class="line">                            UserHandle.USER_SYSTEM);</span><br><span class="line">                &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> e.rethrowAsRuntimeException();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            startHomeActivityLocked(currentUserId, <span class="string">&quot;systemReady&quot;</span>);</span><br><span class="line">    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
+<h2
+id="activitymanagerservice.java"><strong>ActivityManagerService.java</strong></h2>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">systemReady</span><span class="params">(<span class="keyword">final</span> Runnable goingCallback)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">    </span><br><span class="line">             <span class="comment">// Only start up encryption-aware persistent apps; once user is</span></span><br><span class="line">            <span class="comment">// unlocked we&#x27;ll come back around and start unaware apps</span></span><br><span class="line">            <span class="comment">// 正是在这里，phone进程被创建</span></span><br><span class="line">            startPersistentApps(PackageManager.MATCH_DIRECT_BOOT_AWARE);</span><br><span class="line">    </span><br><span class="line">            <span class="comment">// Start up initial activity.</span></span><br><span class="line">            mBooting = <span class="literal">true</span>;</span><br><span class="line">            <span class="comment">// Enable home activity for system user, so that the system can always boot</span></span><br><span class="line">            <span class="keyword">if</span> (UserManager.isSplitSystemUser()) &#123;</span><br><span class="line">                <span class="type">ComponentName</span> <span class="variable">cName</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ComponentName</span>(mContext, SystemUserHomeActivity.class);</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    AppGlobals.getPackageManager().setComponentEnabledSetting(cName,</span><br><span class="line">                            PackageManager.COMPONENT_ENABLED_STATE_ENABLED, <span class="number">0</span>,</span><br><span class="line">                            UserHandle.USER_SYSTEM);</span><br><span class="line">                &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> e.rethrowAsRuntimeException();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            startHomeActivityLocked(currentUserId, <span class="string">&quot;systemReady&quot;</span>);</span><br><span class="line">    </span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 <p>启动所有<code>PackageManager.MATCH_DIRECT_BOOT_AWARE</code>标志为<code>true</code>的应用:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">startPersistentApps</span><span class="params">(<span class="type">int</span> matchFlags)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="built_in">this</span>) &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">//获取系统所有常驻应用程序信息</span></span><br><span class="line">            <span class="keyword">final</span> List&lt;ApplicationInfo&gt; apps = AppGlobals.getPackageManager()</span><br><span class="line">                    .getPersistentApplications(STOCK_PM_FLAGS | matchFlags).getList();</span><br><span class="line">            <span class="keyword">for</span> (ApplicationInfo app : apps) &#123;</span><br><span class="line">                <span class="keyword">if</span> (!<span class="string">&quot;android&quot;</span>.equals(app.packageName)) &#123;</span><br><span class="line">                    <span class="comment">//加载应用</span></span><br><span class="line">                    addAppLocked(app, <span class="literal">false</span>, <span class="literal">null</span> <span class="comment">/* ABI override */</span>);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (RemoteException ex) &#123;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//添加应用程序进程到LRU列表中，并创建进程</span></span><br><span class="line"><span class="keyword">final</span> ProcessRecord <span class="title function_">addAppLocked</span><span class="params">(ApplicationInfo info, <span class="type">boolean</span> isolated,</span></span><br><span class="line"><span class="params">        String abiOverride)</span> &#123;</span><br><span class="line">    ProcessRecord app;</span><br><span class="line">    <span class="keyword">if</span> (!isolated) &#123;</span><br><span class="line">        app = getProcessRecordLocked(info.processName, info.uid, <span class="literal">true</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        app = <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 没有进程记录，因此创建一个进程记录</span></span><br><span class="line">    <span class="keyword">if</span> (app == <span class="literal">null</span>) &#123;</span><br><span class="line">        app = newProcessRecordLocked(info, <span class="literal">null</span>, isolated, <span class="number">0</span>);</span><br><span class="line">        updateLruProcessLocked(app, <span class="literal">false</span>, <span class="literal">null</span>);</span><br><span class="line">        updateOomAdjLocked();</span><br><span class="line">    &#125;</span><br><span class="line">    ....</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((info.flags &amp; PERSISTENT_MASK) == PERSISTENT_MASK) &#123;</span><br><span class="line">        app.persistent = <span class="literal">true</span>;</span><br><span class="line">        app.maxAdj = ProcessList.PERSISTENT_PROC_ADJ;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// Start the process.  It will either succeed and return a result containing</span></span><br><span class="line">    <span class="comment">// the PID of the new process, or else throw a RuntimeException.</span></span><br><span class="line">    <span class="type">boolean</span> <span class="variable">isActivityProcess</span> <span class="operator">=</span> (entryPoint == <span class="literal">null</span>);</span><br><span class="line">    <span class="comment">// 进程入口为ActivityThread</span></span><br><span class="line">    <span class="keyword">if</span> (entryPoint == <span class="literal">null</span>) entryPoint = <span class="string">&quot;android.app.ActivityThread&quot;</span>;        </span><br><span class="line"></span><br><span class="line">    <span class="comment">//启动应用进程</span></span><br><span class="line">    <span class="keyword">if</span> (app.thread == <span class="literal">null</span> &amp;&amp; mPersistentStartingProcesses.indexOf(app) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        mPersistentStartingProcesses.add(app);</span><br><span class="line">        startProcessLocked(app, <span class="string">&quot;added application&quot;</span>, app.processName, abiOverride,</span><br><span class="line">                <span class="literal">null</span> <span class="comment">/* entryPoint */</span>, <span class="literal">null</span> <span class="comment">/* entryPointArgs */</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> app;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>准备创建应用进程:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">startProcessLocked</span><span class="params">(ProcessRecord app, String hostingType,</span></span><br><span class="line"><span class="params">        String hostingNameStr, String abiOverride, String entryPoint, String[] entryPointArgs)</span> &#123;</span><br><span class="line"></span><br><span class="line">        Process.<span class="type">ProcessStartResult</span> <span class="variable">startResult</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        ....</span><br><span class="line"></span><br><span class="line">        startResult = Process.start(entryPoint,</span><br><span class="line">        app.processName, uid, uid, gids, debugFlags, mountExternal,</span><br><span class="line">        app.info.targetSdkVersion, aasaSeInfo != <span class="literal">null</span> ? <span class="keyword">new</span> <span class="title class_">String</span>(aasaSeInfo) : app.info.seinfo, <span class="comment">//AASA--4 : changed orginal : only &quot;app.info.seinfo&quot;</span></span><br><span class="line">        app.info.category, app.info.accessInfo,</span><br><span class="line">        requiredAbi, instructionSet,</span><br><span class="line">        app.info.dataDir, mountKnoxPoint, entryPointArgs);</span><br><span class="line"></span><br><span class="line">        ....</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="Process-java"><a href="#Process-java" class="headerlink" title="Process.java"></a><strong>Process.java</strong></h2><p>调用<code>Process.start()</code>，创建一个新的进程, Telephony服务以及RIL相关代码都运行在此进程中：</p>
+<h2 id="process.java"><strong>Process.java</strong></h2>
+<p>调用<code>Process.start()</code>，创建一个新的进程,
+Telephony服务以及RIL相关代码都运行在此进程中：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> ProcessStartResult <span class="title function_">start</span><span class="params">(<span class="keyword">final</span> String processClass,</span></span><br><span class="line"><span class="params">                              <span class="keyword">final</span> String niceName,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> uid, <span class="type">int</span> gid, <span class="type">int</span>[] gids,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> debugFlags, <span class="type">int</span> mountExternal,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> targetSdkVersion,</span></span><br><span class="line"><span class="params">                              String seInfo,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> category,</span></span><br><span class="line"><span class="params">                              <span class="type">int</span> accessInfo,</span></span><br><span class="line"><span class="params">                              String abi,</span></span><br><span class="line"><span class="params">                              String instructionSet,</span></span><br><span class="line"><span class="params">                              String appDataDir,</span></span><br><span class="line"><span class="params">                              <span class="type">boolean</span> mountKnoxPoint,</span></span><br><span class="line"><span class="params">                              String[] zygoteArgs)</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> startViaZygote(processClass, niceName, uid, gid, gids,</span><br><span class="line">                debugFlags, mountExternal, targetSdkVersion, seInfo, category, accessInfo,</span><br><span class="line">                abi, instructionSet, appDataDir, mountKnoxPoint, zygoteArgs);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (ZygoteStartFailedEx ex) &#123;</span><br><span class="line">        Log.e(LOG_TAG,</span><br><span class="line">                <span class="string">&quot;Starting VM process through Zygote failed&quot;</span>);</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(</span><br><span class="line">                <span class="string">&quot;Starting VM process through Zygote failed&quot;</span>, ex);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>发送消息到zygote服务进程的socket端口，请求创建新的进程:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> ProcessStartResult <span class="title function_">startViaZygote</span><span class="params">(<span class="keyword">final</span> String processClass,</span></span><br><span class="line"><span class="params">                                 <span class="keyword">final</span> String niceName,</span></span><br><span class="line"><span class="params">                                 <span class="keyword">final</span> <span class="type">int</span> uid, <span class="keyword">final</span> <span class="type">int</span> gid,</span></span><br><span class="line"><span class="params">                                 <span class="keyword">final</span> <span class="type">int</span>[] gids,</span></span><br><span class="line"><span class="params">                                 <span class="type">int</span> debugFlags, <span class="type">int</span> mountExternal,</span></span><br><span class="line"><span class="params">                                 <span class="type">int</span> targetSdkVersion,</span></span><br><span class="line"><span class="params">                                 String seInfo,</span></span><br><span class="line"><span class="params">                                 <span class="type">int</span> category,</span></span><br><span class="line"><span class="params">                                 <span class="type">int</span> accessInfo,</span></span><br><span class="line"><span class="params">                                 String abi,</span></span><br><span class="line"><span class="params">                                 String instructionSet,</span></span><br><span class="line"><span class="params">                                 String appDataDir,</span></span><br><span class="line"><span class="params">                                 <span class="type">boolean</span> mountKnoxPoint,</span></span><br><span class="line"><span class="params">                                 String[] extraArgs)</span></span><br><span class="line">                                 <span class="keyword">throws</span> ZygoteStartFailedEx &#123;</span><br><span class="line">       <span class="keyword">synchronized</span>(Process.class) &#123;</span><br><span class="line">           ArrayList&lt;String&gt; argsForZygote = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;String&gt;();</span><br><span class="line"></span><br><span class="line">           <span class="comment">// --runtime-args, --setuid=, --setgid=,</span></span><br><span class="line">           <span class="comment">// and --setgroups= must go first</span></span><br><span class="line">           argsForZygote.add(<span class="string">&quot;--runtime-args&quot;</span>);</span><br><span class="line">           argsForZygote.add(<span class="string">&quot;--setuid=&quot;</span> + uid);</span><br><span class="line">           argsForZygote.add(<span class="string">&quot;--setgid=&quot;</span> + gid);</span><br><span class="line">           ....</span><br><span class="line">           <span class="keyword">if</span> (appDataDir != <span class="literal">null</span>) &#123;</span><br><span class="line">               argsForZygote.add(<span class="string">&quot;--app-data-dir=&quot;</span> + appDataDir);</span><br><span class="line">           &#125;</span><br><span class="line">           ....</span><br><span class="line">           argsForZygote.add(processClass);</span><br><span class="line"></span><br><span class="line">           <span class="keyword">if</span> (extraArgs != <span class="literal">null</span>) &#123;</span><br><span class="line">               <span class="keyword">for</span> (String arg : extraArgs) &#123;</span><br><span class="line">                   argsForZygote.add(arg);</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line"></span><br><span class="line">           <span class="comment">//发送消息到zygote的socket端口，请求创建新的进程</span></span><br><span class="line">           <span class="keyword">if</span> (Zygote.isEnhancedZygoteASLREnabled) &#123;</span><br><span class="line">               ....</span><br><span class="line">               <span class="keyword">return</span> zygoteSendArgsAndGetResult(openZygoteSocketIfNeeded(abi), argsForZygote);</span><br><span class="line">               <span class="comment">// End of isEnhancedZygoteASLREnabled case</span></span><br><span class="line">           &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">               <span class="comment">// Original case</span></span><br><span class="line">               <span class="keyword">return</span> zygoteSendArgsAndGetResult(openZygoteSocketIfNeeded(abi), argsForZygote);</span><br><span class="line">           &#125;</span><br><span class="line">       &#125;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="ZygoteConnection-java"><a href="#ZygoteConnection-java" class="headerlink" title="ZygoteConnection.java"></a><strong>ZygoteConnection.java</strong></h2><p>zygote进程接收到AMS的请求后，由<code>ZygoteConnection</code>负责处理请求：</p>
+<h2
+id="zygoteconnection.java"><strong>ZygoteConnection.java</strong></h2>
+<p>zygote进程接收到AMS的请求后，由<code>ZygoteConnection</code>负责处理请求：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">boolean</span> <span class="title function_">runOnce</span><span class="params">()</span> <span class="keyword">throws</span> ZygoteInit.MethodAndArgsCaller &#123;</span><br><span class="line"></span><br><span class="line">    String args[];</span><br><span class="line">    <span class="type">Arguments</span> <span class="variable">parsedArgs</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    FileDescriptor[] descriptors;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 从socket中读取参数</span></span><br><span class="line">        args = readArgumentList();</span><br><span class="line">        descriptors = mSocket.getAncillaryFileDescriptors();</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IOException ex) &#123;</span><br><span class="line">        Log.w(TAG, <span class="string">&quot;IOException on command socket &quot;</span> + ex.getMessage());</span><br><span class="line">        closeSocket();</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (args == <span class="literal">null</span>) &#123;</span><br><span class="line">        <span class="comment">// EOF reached.</span></span><br><span class="line">        closeSocket();</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> <span class="variable">pid</span> <span class="operator">=</span> -<span class="number">1</span>;</span><br><span class="line">    <span class="type">FileDescriptor</span> <span class="variable">childPipeFd</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    <span class="type">FileDescriptor</span> <span class="variable">serverPipeFd</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        parsedArgs = <span class="keyword">new</span> <span class="title class_">Arguments</span>(args);</span><br><span class="line">        <span class="comment">//Zygote调用本地方法创建进程</span></span><br><span class="line">        pid = Zygote.forkAndSpecialize(parsedArgs.uid, parsedArgs.gid, parsedArgs.gids,</span><br><span class="line">                parsedArgs.debugFlags, rlimits, parsedArgs.mountExternal, parsedArgs.seInfo, parsedArgs.category, parsedArgs.accessInfo,</span><br><span class="line">                parsedArgs.niceName, fdsToClose, parsedArgs.instructionSet,</span><br><span class="line">                parsedArgs.appDataDir, parsedArgs.mountKnoxPoint);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (ErrnoException ex) &#123;</span><br><span class="line">        logAndPrintError(newStderr, <span class="string">&quot;Exception creating pipe&quot;</span>, ex);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (IllegalArgumentException ex) &#123;</span><br><span class="line">        logAndPrintError(newStderr, <span class="string">&quot;Invalid zygote arguments&quot;</span>, ex);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (ZygoteSecurityException ex) &#123;</span><br><span class="line">        logAndPrintError(newStderr,</span><br><span class="line">                <span class="string">&quot;Zygote security policy prevents request: &quot;</span>, ex);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (pid == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">// in child</span></span><br><span class="line">            IoUtils.closeQuietly(serverPipeFd);</span><br><span class="line">            serverPipeFd = <span class="literal">null</span>;</span><br><span class="line">            handleChildProc(parsedArgs, descriptors, childPipeFd, newStderr);</span><br><span class="line"></span><br><span class="line">            <span class="comment">// should never get here, the child is expected to either</span></span><br><span class="line">            <span class="comment">// throw ZygoteInit.MethodAndArgsCaller or exec().</span></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// in parent...pid of &lt; 0 means failure</span></span><br><span class="line">            IoUtils.closeQuietly(childPipeFd);</span><br><span class="line">            childPipeFd = <span class="literal">null</span>;</span><br><span class="line">            <span class="keyword">return</span> handleParentProc(pid, descriptors, serverPipeFd, parsedArgs);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        IoUtils.closeQuietly(childPipeFd);</span><br><span class="line">        IoUtils.closeQuietly(serverPipeFd);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="ZygoteInit-java"><a href="#ZygoteInit-java" class="headerlink" title="ZygoteInit.java"></a><strong>ZygoteInit.java</strong></h2><p>至此phone进程已经创建完成了，但实际上PhoneApp的代码还没有加载。继续看，在启动的进程里，调用<code>ZygoteInit.zygoteInit</code>来加载phoneApp的代码:</p>
+<h2 id="zygoteinit.java"><strong>ZygoteInit.java</strong></h2>
+<p>至此phone进程已经创建完成了，但实际上PhoneApp的代码还没有加载。继续看，在启动的进程里，调用<code>ZygoteInit.zygoteInit</code>来加载phoneApp的代码:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">handleChildProc</span><span class="params">(Arguments parsedArgs,</span></span><br><span class="line"><span class="params">            FileDescriptor[] descriptors, FileDescriptor pipeFd, PrintStream newStderr)</span></span><br><span class="line">            <span class="keyword">throws</span> Zygote.MethodAndArgsCaller &#123;</span><br><span class="line">        <span class="comment">/**</span></span><br><span class="line"><span class="comment">         * By the time we get here, the native code has closed the two actual Zygote</span></span><br><span class="line"><span class="comment">         * socket connections, and substituted /dev/null in their place.  The LocalSocket</span></span><br><span class="line"><span class="comment">         * objects still need to be closed properly.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        closeSocket();</span><br><span class="line">        <span class="keyword">if</span> (descriptors != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                Os.dup2(descriptors[<span class="number">0</span>], STDIN_FILENO);</span><br><span class="line">                Os.dup2(descriptors[<span class="number">1</span>], STDOUT_FILENO);</span><br><span class="line">                Os.dup2(descriptors[<span class="number">2</span>], STDERR_FILENO);</span><br><span class="line"></span><br><span class="line">                <span class="keyword">for</span> (FileDescriptor fd: descriptors) &#123;</span><br><span class="line">                    IoUtils.closeQuietly(fd);</span><br><span class="line">                &#125;</span><br><span class="line">                newStderr = System.err;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (ErrnoException ex) &#123;</span><br><span class="line">                Log.e(TAG, <span class="string">&quot;Error reopening stdio&quot;</span>, ex);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (parsedArgs.niceName != <span class="literal">null</span>) &#123;</span><br><span class="line">            Process.setArgV0(parsedArgs.niceName);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// End of the postFork event.</span></span><br><span class="line">        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);</span><br><span class="line">        <span class="comment">// 这里没有指定invokewith参数</span></span><br><span class="line">        <span class="keyword">if</span> (parsedArgs.invokeWith != <span class="literal">null</span>) &#123;</span><br><span class="line">            WrapperInit.execApplication(parsedArgs.invokeWith,</span><br><span class="line">                    parsedArgs.niceName, parsedArgs.targetSdkVersion,</span><br><span class="line">                    VMRuntime.getCurrentInstructionSet(),</span><br><span class="line">                    pipeFd, parsedArgs.remainingArgs);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">// 这里remaingArgs的第一参数是android.app.ActivityThread, 就是之前的entrypoint</span></span><br><span class="line">            RuntimeInit.zygoteInit(parsedArgs.targetSdkVersion,</span><br><span class="line">                    parsedArgs.remainingArgs, <span class="literal">null</span> <span class="comment">/* classLoader */</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="RuntimeInit-java"><a href="#RuntimeInit-java" class="headerlink" title="RuntimeInit.java"></a><strong>RuntimeInit.java</strong></h2><p>通过<code>RuntimeInit</code>来加载phone APP的代码, <code>zygoteInit</code>函数主要做三件事：</p>
+<h2 id="runtimeinit.java"><strong>RuntimeInit.java</strong></h2>
+<p>通过<code>RuntimeInit</code>来加载phone APP的代码,
+<code>zygoteInit</code>函数主要做三件事：</p>
 <ul>
-<li>做一些通用的初始化，比如设置虚拟机中线程的exception handler;设置默认时区；</li>
+<li>做一些通用的初始化，比如设置虚拟机中线程的exception
+handler;设置默认时区；</li>
 <li>完成VM本地的初始化操作；</li>
-<li>加载APP代码，也就是调用<code>ActivityThread.main</code>函数来加载整个phone APP；</li>
+<li>加载APP代码，也就是调用<code>ActivityThread.main</code>函数来加载整个phone
+APP；</li>
 </ul>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title function_">zygoteInit</span><span class="params">(<span class="type">int</span> targetSdkVersion, String[] argv, ClassLoader classLoader)</span></span><br><span class="line">        <span class="keyword">throws</span> ZygoteInit.MethodAndArgsCaller &#123;</span><br><span class="line">    <span class="keyword">if</span> (DEBUG) Slog.d(TAG, <span class="string">&quot;RuntimeInit: Starting application from zygote&quot;</span>);</span><br><span class="line"></span><br><span class="line">    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, <span class="string">&quot;RuntimeInit&quot;</span>);</span><br><span class="line">    redirectLogStreams();</span><br><span class="line"></span><br><span class="line">    commonInit();</span><br><span class="line">    nativeZygoteInit();</span><br><span class="line">    <span class="comment">// 初始化应用代码</span></span><br><span class="line">    applicationInit(targetSdkVersion, argv, classLoader);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>函数<code>applicationInit</code>通过方法<code>invokeStaticMain</code>反射调用<code>ActivityThread.main</code>:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">protected</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">applicationInit</span><span class="params">(<span class="type">int</span> targetSdkVersion, String[] argv, ClassLoader classLoader)</span></span><br><span class="line">            <span class="keyword">throws</span> Zygote.MethodAndArgsCaller &#123;</span><br><span class="line">        <span class="comment">// If the application calls System.exit(), terminate the process</span></span><br><span class="line">        <span class="comment">// immediately without running any shutdown hooks.  It is not possible to</span></span><br><span class="line">        <span class="comment">// shutdown an Android application gracefully.  Among other things, the</span></span><br><span class="line">        <span class="comment">// Android runtime shutdown hooks close the Binder driver, which can cause</span></span><br><span class="line">        <span class="comment">// leftover running threads to crash before the process actually exits.</span></span><br><span class="line">        nativeSetExitWithoutCleanup(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// We want to be fairly aggressive about heap utilization, to avoid</span></span><br><span class="line">        <span class="comment">// holding on to a lot of memory that isn&#x27;t needed.</span></span><br><span class="line">        VMRuntime.getRuntime().setTargetHeapUtilization(<span class="number">0.75f</span>);</span><br><span class="line">        VMRuntime.getRuntime().setTargetSdkVersion(targetSdkVersion);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">final</span> Arguments args;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            args = <span class="keyword">new</span> <span class="title class_">Arguments</span>(argv);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalArgumentException ex) &#123;</span><br><span class="line">            Slog.e(TAG, ex.getMessage());</span><br><span class="line">            <span class="comment">// let the process exit</span></span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// Remaining arguments are passed to the start class&#x27;s static main</span></span><br><span class="line">        invokeStaticMain(args.startClass, args.startArgs, classLoader);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p><code>invokeStaticMain</code>通过抛出一个<code>MethodAndArgsCaller</code>的异常，被<code>ZygoteInit.main</code>方法捕获后，调用<code>MethodAndArgsCaller.run</code>，至此就调用了<code>ActivityThread.main</code>方法了，还真是有点绕。</p>
-<p>| 有关zygote进程可以参考<a href="http://sniffer.site/2017/05/27/Zygote%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">http://sniffer.site/2017/05/27/Zygote%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/</a></p>
+<div
+class="line-block">有关zygote进程可以参考http://sniffer.site/2017/05/27/Zygote%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/</div>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">invokeStaticMain</span><span class="params">(String className, String[] argv, ClassLoader classLoader)</span></span><br><span class="line">            <span class="keyword">throws</span> Zygote.MethodAndArgsCaller &#123;</span><br><span class="line">        Class&lt;?&gt; cl;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            cl = Class.forName(className, <span class="literal">true</span>, classLoader);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException ex) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(</span><br><span class="line">                    <span class="string">&quot;Missing class when invoking static main &quot;</span> + className,</span><br><span class="line">                    ex);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        Method m;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            m = cl.getMethod(<span class="string">&quot;main&quot;</span>, <span class="keyword">new</span> <span class="title class_">Class</span>[] &#123; String[].class &#125;);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (NoSuchMethodException ex) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(</span><br><span class="line">                    <span class="string">&quot;Missing static main on &quot;</span> + className, ex);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (SecurityException ex) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(</span><br><span class="line">                    <span class="string">&quot;Problem getting static main on &quot;</span> + className, ex);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="type">int</span> <span class="variable">modifiers</span> <span class="operator">=</span> m.getModifiers();</span><br><span class="line">        <span class="keyword">if</span> (! (Modifier.isStatic(modifiers) &amp;&amp; Modifier.isPublic(modifiers))) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(</span><br><span class="line">                    <span class="string">&quot;Main method is not public and static on &quot;</span> + className);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">        * This throw gets caught in ZygoteInit.main(), which responds</span></span><br><span class="line"><span class="comment">        * by invoking the exception&#x27;s run() method. This arrangement</span></span><br><span class="line"><span class="comment">        * clears up all the stack frames that were required in setting</span></span><br><span class="line"><span class="comment">        * up the process.</span></span><br><span class="line"><span class="comment">        */</span></span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Zygote</span>.MethodAndArgsCaller(m, argv);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p><code>MethodAndArgsCaller</code>异常的作用是清除父进程中的一些调用堆栈，这样子进程就从<code>ActivityThread.main</code>开始了自己的堆栈调用。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">MethodAndArgsCaller</span> <span class="keyword">extends</span> <span class="title class_">Exception</span></span><br><span class="line">        <span class="keyword">implements</span> <span class="title class_">Runnable</span> &#123;</span><br><span class="line">        <span class="comment">/** method to call */</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> Method mMethod;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/** argument array */</span></span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> String[] mArgs;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="title function_">MethodAndArgsCaller</span><span class="params">(Method method, String[] args)</span> &#123;</span><br><span class="line">            mMethod = method;</span><br><span class="line">            mArgs = args;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">run</span><span class="params">()</span> &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                mMethod.invoke(<span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Object</span>[] &#123; mArgs &#125;);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (IllegalAccessException ex) &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(ex);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (InvocationTargetException ex) &#123;</span><br><span class="line">                <span class="type">Throwable</span> <span class="variable">cause</span> <span class="operator">=</span> ex.getCause();</span><br><span class="line">                <span class="keyword">if</span> (cause <span class="keyword">instanceof</span> RuntimeException) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> (RuntimeException) cause;</span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (cause <span class="keyword">instanceof</span> Error) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> (Error) cause;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(ex);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-<h2 id="ActivityThread-java"><a href="#ActivityThread-java" class="headerlink" title="ActivityThread.java"></a><strong>ActivityThread.java</strong></h2><p>到这里，<code>ActivityThread.main</code>会启动一个主线程，接着创建一个<code>ActivityThread</code>用于Phone APP与AMS进行交互。最重要的是，接着在<code>thread.attach(false);</code>这个函数里，<code>ActivityThread</code>会去创建Phone进程入口类<code>PhoneApp</code>。后续就是Phone整个框架代码的加载与初始化了。</p>
+<h2 id="activitythread.java"><strong>ActivityThread.java</strong></h2>
+<p>到这里，<code>ActivityThread.main</code>会启动一个主线程，接着创建一个<code>ActivityThread</code>用于Phone
+APP与AMS进行交互。最重要的是，接着在<code>thread.attach(false);</code>这个函数里，<code>ActivityThread</code>会去创建Phone进程入口类<code>PhoneApp</code>。后续就是Phone整个框架代码的加载与初始化了。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">    Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, <span class="string">&quot;ActivityThreadMain&quot;</span>);</span><br><span class="line">    SamplingProfilerIntegration.start();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// CloseGuard defaults to true and can be quite spammy.  We</span></span><br><span class="line">    <span class="comment">// disable it here, but selectively enable it later (via</span></span><br><span class="line">    <span class="comment">// StrictMode) on debug builds, but using DropBox, not logs.</span></span><br><span class="line">    CloseGuard.setEnabled(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    Environment.initForCurrentUser();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Set the reporter for event logging in libcore</span></span><br><span class="line">    EventLogger.setReporter(<span class="keyword">new</span> <span class="title class_">EventLoggingReporter</span>());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Make sure TrustedCertificateStore looks in the right place for CA certificates</span></span><br><span class="line">    <span class="keyword">final</span> <span class="type">File</span> <span class="variable">configDir</span> <span class="operator">=</span> Environment.getUserConfigDirectory(UserHandle.myUserId());</span><br><span class="line">    TrustedCertificateStore.setDefaultUserDirectory(configDir);</span><br><span class="line"></span><br><span class="line">    Process.setArgV0(<span class="string">&quot;&lt;pre-initialized&gt;&quot;</span>);</span><br><span class="line">    <span class="comment">// 启动主线程Looper</span></span><br><span class="line">    Looper.prepareMainLooper();</span><br><span class="line"></span><br><span class="line">    <span class="type">ActivityThread</span> <span class="variable">thread</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ActivityThread</span>();</span><br><span class="line">    thread.attach(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (sMainThreadHandler == <span class="literal">null</span>) &#123;</span><br><span class="line">        sMainThreadHandler = thread.getHandler();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">false</span>) &#123;</span><br><span class="line">        Looper.myLooper().setMessageLogging(<span class="keyword">new</span></span><br><span class="line">                <span class="title class_">LogPrinter</span>(Log.DEBUG, <span class="string">&quot;ActivityThread&quot;</span>));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// End of event ActivityThreadMain.</span></span><br><span class="line">    Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);</span><br><span class="line">    Looper.loop();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">RuntimeException</span>(<span class="string">&quot;Main thread loop unexpectedly exited&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
 <p>这样Phone进程就创建启动完成了。整个流程看下来，研究Android系统，源码是王道，但要深入理解系统背后的设计，还是需要从把基本的概念梳理清楚，才能更好的理解系统背后设计的逻辑。</p>
 
     </article>
@@ -597,7 +600,7 @@
             <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
             <!-- <p>原文链接：<a href="https://sniffer.site/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">https://sniffer.site/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/</a> -->
             <!-- <p>发表日期：<a href="https://sniffer.site/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">February 21st 2017, 4:07:00 pm</a> -->
-            <p>更新日期：<a href="https://sniffer.site/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">2021-09-14, 14:04:20</a>
+            <p>更新日期：<a href="https://sniffer.site/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">2026-08-23, 18:32:21</a>
             <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
         </div>
     
@@ -763,7 +766,7 @@
                 <div class="toc-catalog">
                     <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
                 </div>
-                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#ActivityManagerService-java"><span class="toc-number">1.</span> <span class="toc-text">ActivityManagerService.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Process-java"><span class="toc-number">2.</span> <span class="toc-text">Process.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ZygoteConnection-java"><span class="toc-number">3.</span> <span class="toc-text">ZygoteConnection.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ZygoteInit-java"><span class="toc-number">4.</span> <span class="toc-text">ZygoteInit.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RuntimeInit-java"><span class="toc-number">5.</span> <span class="toc-text">RuntimeInit.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ActivityThread-java"><span class="toc-number">6.</span> <span class="toc-text">ActivityThread.java</span></a></li></ol>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#activitymanagerservice.java"><span class="toc-number">1.</span> <span class="toc-text">ActivityManagerService.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#process.java"><span class="toc-number">2.</span> <span class="toc-text">Process.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#zygoteconnection.java"><span class="toc-number">3.</span> <span class="toc-text">ZygoteConnection.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#zygoteinit.java"><span class="toc-number">4.</span> <span class="toc-text">ZygoteInit.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#runtimeinit.java"><span class="toc-number">5.</span> <span class="toc-text">RuntimeInit.java</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#activitythread.java"><span class="toc-number">6.</span> <span class="toc-text">ActivityThread.java</span></a></li></ol>
             </div>
         
         <!-- sidebar -->
@@ -1412,7 +1415,18 @@
         
         
         
+        
+        
+        
+        
+        
     
+        
+        
+        
+        
+        
+        
         
         
         
@@ -2863,7 +2877,7 @@
     
     <div class="total-and-search">
         <div class="total-archive">
-        Total : 127
+        Total : 128
         </div>
         <!-- search  -->
         
@@ -2881,6 +2895,12 @@
             <div class="archive-year"> 2026 </div>
             <ul class="year-list">
             
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
         
         <li class="archive-post-item">
             <span class="archive-post-date">06/22</span>
@@ -3739,44 +3759,19 @@
         <div class="sidebar-panel-tags">
     <div class="sidebar-tags-name">
         
-            <span class="sidebar-tag-name" data-tags="AI">
+            <span class="sidebar-tag-name" data-tags="LLM">
                 <span class="iconfont-archer">&#xe606;</span>
-                AI
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="性能优化">
-                <span class="iconfont-archer">&#xe606;</span>
-                性能优化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="机器学习">
-                <span class="iconfont-archer">&#xe606;</span>
-                机器学习
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Kernel">
-                <span class="iconfont-archer">&#xe606;</span>
-                Kernel
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Linux">
-                <span class="iconfont-archer">&#xe606;</span>
-                Linux
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ANR">
-                <span class="iconfont-archer">&#xe606;</span>
-                ANR
+                LLM
             </span>
         
             <span class="sidebar-tag-name" data-tags="ADB">
                 <span class="iconfont-archer">&#xe606;</span>
                 ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
             </span>
         
             <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
@@ -3794,14 +3789,19 @@
                 Firm Over The Air
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Launcher">
+            <span class="sidebar-tag-name" data-tags="RIL">
                 <span class="iconfont-archer">&#xe606;</span>
-                Launcher
+                RIL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SystemServer">
+            <span class="sidebar-tag-name" data-tags="RILD">
                 <span class="iconfont-archer">&#xe606;</span>
-                SystemServer
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
             </span>
         
             <span class="sidebar-tag-name" data-tags="Phone进程">
@@ -3814,14 +3814,14 @@
                 Telephony
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RIL">
+            <span class="sidebar-tag-name" data-tags="Launcher">
                 <span class="iconfont-archer">&#xe606;</span>
-                RIL
+                Launcher
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILD">
+            <span class="sidebar-tag-name" data-tags="SystemServer">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILD
+                SystemServer
             </span>
         
             <span class="sidebar-tag-name" data-tags="netd">
@@ -3832,11 +3832,6 @@
             <span class="sidebar-tag-name" data-tags="NetworkManagerService">
                 <span class="iconfont-archer">&#xe606;</span>
                 NetworkManagerService
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="网络使用权限">
-                <span class="iconfont-archer">&#xe606;</span>
-                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="Animation">
@@ -3854,14 +3849,9 @@
                 Frame Animation
             </span>
         
-            <span class="sidebar-tag-name" data-tags="任务管理">
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
                 <span class="iconfont-archer">&#xe606;</span>
-                任务管理
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Activity">
-                <span class="iconfont-archer">&#xe606;</span>
-                Activity
+                网络使用权限
             </span>
         
             <span class="sidebar-tag-name" data-tags="PSI">
@@ -3877,6 +3867,16 @@
             <span class="sidebar-tag-name" data-tags="LMKD">
                 <span class="iconfont-archer">&#xe606;</span>
                 LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
             </span>
         
             <span class="sidebar-tag-name" data-tags="性能分析">
@@ -3909,31 +3909,6 @@
                 NTP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="TCP/IP">
-                <span class="iconfont-archer">&#xe606;</span>
-                TCP/IP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="域名解析">
-                <span class="iconfont-archer">&#xe606;</span>
-                域名解析
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Private DNS">
-                <span class="iconfont-archer">&#xe606;</span>
-                Private DNS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Crash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Crash
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 Berkeley Packet Filters
@@ -3942,6 +3917,11 @@
             <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
                 <span class="iconfont-archer">&#xe606;</span>
                 extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
             </span>
         
             <span class="sidebar-tag-name" data-tags="BPF">
@@ -3964,19 +3944,9 @@
                 IPC
             </span>
         
-            <span class="sidebar-tag-name" data-tags="CS">
+            <span class="sidebar-tag-name" data-tags="Crash">
                 <span class="iconfont-archer">&#xe606;</span>
-                CS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="PS">
-                <span class="iconfont-archer">&#xe606;</span>
-                PS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="computer network">
-                <span class="iconfont-archer">&#xe606;</span>
-                computer network
+                Crash
             </span>
         
             <span class="sidebar-tag-name" data-tags="Claude Code">
@@ -3992,6 +3962,41 @@
             <span class="sidebar-tag-name" data-tags="开发工具">
                 <span class="iconfont-archer">&#xe606;</span>
                 开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
             </span>
         
             <span class="sidebar-tag-name" data-tags="Dependency Inversion">
@@ -4019,14 +4024,14 @@
                 依赖反转
             </span>
         
-            <span class="sidebar-tag-name" data-tags="GSM">
+            <span class="sidebar-tag-name" data-tags="Glide">
                 <span class="iconfont-archer">&#xe606;</span>
-                GSM
+                Glide
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SMS">
+            <span class="sidebar-tag-name" data-tags="图片加载">
                 <span class="iconfont-archer">&#xe606;</span>
-                SMS
+                图片加载
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
@@ -4039,39 +4044,29 @@
                 Garbage Collection
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Git">
-                <span class="iconfont-archer">&#xe606;</span>
-                Git
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="GitHub">
-                <span class="iconfont-archer">&#xe606;</span>
-                GitHub
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Glide">
-                <span class="iconfont-archer">&#xe606;</span>
-                Glide
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Image Loading">
                 <span class="iconfont-archer">&#xe606;</span>
                 Image Loading
             </span>
         
-            <span class="sidebar-tag-name" data-tags="图片加载">
+            <span class="sidebar-tag-name" data-tags="DNS">
                 <span class="iconfont-archer">&#xe606;</span>
-                图片加载
+                DNS
             </span>
         
-            <span class="sidebar-tag-name" data-tags="HAL">
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
                 <span class="iconfont-archer">&#xe606;</span>
-                HAL
+                TCP/IP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="RILJ">
+            <span class="sidebar-tag-name" data-tags="域名解析">
                 <span class="iconfont-archer">&#xe606;</span>
-                RILJ
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
             </span>
         
             <span class="sidebar-tag-name" data-tags="HTTP">
@@ -4082,16 +4077,6 @@
             <span class="sidebar-tag-name" data-tags="HTTPS">
                 <span class="iconfont-archer">&#xe606;</span>
                 HTTPS
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="IPv6">
-                <span class="iconfont-archer">&#xe606;</span>
-                IPv6
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ICMP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ICMP
             </span>
         
             <span class="sidebar-tag-name" data-tags="Java">
@@ -4119,6 +4104,31 @@
                 Annotation Processor
             </span>
         
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="Atomicity">
                 <span class="iconfont-archer">&#xe606;</span>
                 Atomicity
@@ -4134,9 +4144,19 @@
                 Thread
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Lock">
+            <span class="sidebar-tag-name" data-tags="Shell">
                 <span class="iconfont-archer">&#xe606;</span>
-                Lock
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
             </span>
         
             <span class="sidebar-tag-name" data-tags="Compiling process">
@@ -4154,41 +4174,6 @@
                 class　file
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Shell">
-                <span class="iconfont-archer">&#xe606;</span>
-                Shell
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Bash">
-                <span class="iconfont-archer">&#xe606;</span>
-                Bash
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Network tools">
-                <span class="iconfont-archer">&#xe606;</span>
-                Network tools
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="ip route">
-                <span class="iconfont-archer">&#xe606;</span>
-                ip route
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="tcpdump">
-                <span class="iconfont-archer">&#xe606;</span>
-                tcpdump
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iptables">
-                <span class="iconfont-archer">&#xe606;</span>
-                iptables
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="iperf">
-                <span class="iconfont-archer">&#xe606;</span>
-                iperf
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="mutex">
                 <span class="iconfont-archer">&#xe606;</span>
                 mutex
@@ -4199,14 +4184,19 @@
                 Spin Lock
             </span>
         
-            <span class="sidebar-tag-name" data-tags="内核">
+            <span class="sidebar-tag-name" data-tags="Kernel">
                 <span class="iconfont-archer">&#xe606;</span>
-                内核
+                Kernel
             </span>
         
-            <span class="sidebar-tag-name" data-tags="模块签名">
+            <span class="sidebar-tag-name" data-tags="实时调度">
                 <span class="iconfont-archer">&#xe606;</span>
-                模块签名
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
             </span>
         
             <span class="sidebar-tag-name" data-tags="AVB">
@@ -4234,16 +4224,6 @@
                 XDP
             </span>
         
-            <span class="sidebar-tag-name" data-tags="实时调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                实时调度
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程优先级">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程优先级
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="TCP">
                 <span class="iconfont-archer">&#xe606;</span>
                 TCP
@@ -4264,9 +4244,19 @@
                 容器网络
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议栈">
+            <span class="sidebar-tag-name" data-tags="Maven">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议栈
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
             </span>
         
             <span class="sidebar-tag-name" data-tags="MAC">
@@ -4284,24 +4274,24 @@
                 车载以太网
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Maven">
-                <span class="iconfont-archer">&#xe606;</span>
-                Maven
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="构建工具">
-                <span class="iconfont-archer">&#xe606;</span>
-                构建工具
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="单元测试">
-                <span class="iconfont-archer">&#xe606;</span>
-                单元测试
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="PPP">
                 <span class="iconfont-archer">&#xe606;</span>
                 PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
             </span>
         
             <span class="sidebar-tag-name" data-tags="Recovery">
@@ -4309,24 +4299,34 @@
                 Recovery
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Picasso,">
+            <span class="sidebar-tag-name" data-tags="Network tools">
                 <span class="iconfont-archer">&#xe606;</span>
-                Picasso,
+                Network tools
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ImageLoader">
+            <span class="sidebar-tag-name" data-tags="ip route">
                 <span class="iconfont-archer">&#xe606;</span>
-                ImageLoader
+                ip route
             </span>
         
-            <span class="sidebar-tag-name" data-tags="SELinux">
+            <span class="sidebar-tag-name" data-tags="tcpdump">
                 <span class="iconfont-archer">&#xe606;</span>
-                SELinux
+                tcpdump
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Security">
+            <span class="sidebar-tag-name" data-tags="iptables">
                 <span class="iconfont-archer">&#xe606;</span>
-                Security
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
             </span>
         
             <span class="sidebar-tag-name" data-tags="三次握手">
@@ -4339,9 +4339,14 @@
                 四次挥手
             </span>
         
-            <span class="sidebar-tag-name" data-tags="网络协议">
+            <span class="sidebar-tag-name" data-tags="SELinux">
                 <span class="iconfont-archer">&#xe606;</span>
-                网络协议
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
             </span>
         
             <span class="sidebar-tag-name" data-tags="Memory Cache">
@@ -4364,9 +4369,9 @@
                 chatGPT
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LLM">
+            <span class="sidebar-tag-name" data-tags="AI">
                 <span class="iconfont-archer">&#xe606;</span>
-                LLM
+                AI
             </span>
         
             <span class="sidebar-tag-name" data-tags="AIGC">
@@ -4389,6 +4394,16 @@
                 Android应用启动
             </span>
         
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="socket programming">
                 <span class="iconfont-archer">&#xe606;</span>
                 socket programming
@@ -4404,14 +4419,14 @@
                 network programming
             </span>
         
-            <span class="sidebar-tag-name" data-tags="人类简史">
+            <span class="sidebar-tag-name" data-tags="Picasso,">
                 <span class="iconfont-archer">&#xe606;</span>
-                人类简史
+                Picasso,
             </span>
         
-            <span class="sidebar-tag-name" data-tags="历史">
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
                 <span class="iconfont-archer">&#xe606;</span>
-                历史
+                ImageLoader
             </span>
         
             <span class="sidebar-tag-name" data-tags="Effective Java">
@@ -4422,6 +4437,26 @@
             <span class="sidebar-tag-name" data-tags="Design Pattern">
                 <span class="iconfont-archer">&#xe606;</span>
                 Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
             </span>
         
             <span class="sidebar-tag-name" data-tags="通往奴役之路">
@@ -4439,41 +4474,6 @@
                 读书
             </span>
         
-            <span class="sidebar-tag-name" data-tags="ARP">
-                <span class="iconfont-archer">&#xe606;</span>
-                ARP
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
-                <span class="iconfont-archer">&#xe606;</span>
-                Address Resolution Protocol
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Media Access Control">
-                <span class="iconfont-archer">&#xe606;</span>
-                Media Access Control
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Hypervisor">
-                <span class="iconfont-archer">&#xe606;</span>
-                Hypervisor
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="CPU steal-time">
-                <span class="iconfont-archer">&#xe606;</span>
-                CPU steal-time
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="SMMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                SMMU
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="MMU">
-                <span class="iconfont-archer">&#xe606;</span>
-                MMU
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="2020">
                 <span class="iconfont-archer">&#xe606;</span>
                 2020
@@ -4487,6 +4487,21 @@
             <span class="sidebar-tag-name" data-tags="个人成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
             </span>
         
             <span class="sidebar-tag-name" data-tags="UDP">
@@ -4509,11 +4524,6 @@
                 SSL
             </span>
         
-            <span class="sidebar-tag-name" data-tags="NAPI">
-                <span class="iconfont-archer">&#xe606;</span>
-                NAPI
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="成长">
                 <span class="iconfont-archer">&#xe606;</span>
                 成长
@@ -4529,16 +4539,6 @@
                 探索
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Framework
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Wifi">
-                <span class="iconfont-archer">&#xe606;</span>
-                Wifi
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="网络性能">
                 <span class="iconfont-archer">&#xe606;</span>
                 网络性能
@@ -4552,6 +4552,21 @@
             <span class="sidebar-tag-name" data-tags="pktgen">
                 <span class="iconfont-archer">&#xe606;</span>
                 pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
             </span>
         
             <span class="sidebar-tag-name" data-tags="Halting Problem">
@@ -4574,16 +4589,6 @@
                 5G
             </span>
         
-            <span class="sidebar-tag-name" data-tags="单例模式">
-                <span class="iconfont-archer">&#xe606;</span>
-                单例模式
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="个人总结">
-                <span class="iconfont-archer">&#xe606;</span>
-                个人总结
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="SSH">
                 <span class="iconfont-archer">&#xe606;</span>
                 SSH
@@ -4599,24 +4604,9 @@
                 反向隧道
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Android studio">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android studio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="Android framework">
-                <span class="iconfont-archer">&#xe606;</span>
-                Android framework
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="cgroups">
                 <span class="iconfont-archer">&#xe606;</span>
                 cgroups
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="JNI">
@@ -4627,6 +4617,21 @@
             <span class="sidebar-tag-name" data-tags="共享库文件">
                 <span class="iconfont-archer">&#xe606;</span>
                 共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
             </span>
         
             <span class="sidebar-tag-name" data-tags="FFmpeg">
@@ -4669,6 +4674,26 @@
                 ARM嵌入式开发
             </span>
         
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="fio">
                 <span class="iconfont-archer">&#xe606;</span>
                 fio
@@ -4684,14 +4709,9 @@
                 性能工具
             </span>
         
-            <span class="sidebar-tag-name" data-tags="Qemu">
+            <span class="sidebar-tag-name" data-tags="学习资料">
                 <span class="iconfont-archer">&#xe606;</span>
-                Qemu
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="busybox">
-                <span class="iconfont-archer">&#xe606;</span>
-                busybox
+                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="Hash Function">
@@ -4712,21 +4732,6 @@
             <span class="sidebar-tag-name" data-tags="Google">
                 <span class="iconfont-archer">&#xe606;</span>
                 Google
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="英国史">
-                <span class="iconfont-archer">&#xe606;</span>
-                英国史
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="丛林法则">
-                <span class="iconfont-archer">&#xe606;</span>
-                丛林法则
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="学习资料">
-                <span class="iconfont-archer">&#xe606;</span>
-                学习资料
             </span>
         
             <span class="sidebar-tag-name" data-tags="投屏">
@@ -4794,19 +4799,9 @@
                 Ethernet
             </span>
         
-            <span class="sidebar-tag-name" data-tags="LXC">
+            <span class="sidebar-tag-name" data-tags="机器学习">
                 <span class="iconfont-archer">&#xe606;</span>
-                LXC
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="虚拟化">
-                <span class="iconfont-archer">&#xe606;</span>
-                虚拟化
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="容器">
-                <span class="iconfont-archer">&#xe606;</span>
-                容器
+                机器学习
             </span>
         
             <span class="sidebar-tag-name" data-tags="深度学习">
@@ -4824,6 +4819,31 @@
                 Machine Learning
             </span>
         
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="生命">
                 <span class="iconfont-archer">&#xe606;</span>
                 生命
@@ -4839,16 +4859,6 @@
                 时间
             </span>
         
-            <span class="sidebar-tag-name" data-tags="进程冻结">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程冻结
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="cgroup">
-                <span class="iconfont-archer">&#xe606;</span>
-                cgroup
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="哲学">
                 <span class="iconfont-archer">&#xe606;</span>
                 哲学
@@ -4857,6 +4867,21 @@
             <span class="sidebar-tag-name" data-tags="社会">
                 <span class="iconfont-archer">&#xe606;</span>
                 社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
             </span>
         
             <span class="sidebar-tag-name" data-tags="Policy Routing">
@@ -4879,21 +4904,6 @@
                 Netd
             </span>
         
-            <span class="sidebar-tag-name" data-tags="罗素">
-                <span class="iconfont-archer">&#xe606;</span>
-                罗素
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="自由，民主">
-                <span class="iconfont-archer">&#xe606;</span>
-                自由，民主
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="国家意志与权威">
-                <span class="iconfont-archer">&#xe606;</span>
-                国家意志与权威
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="拥塞控制">
                 <span class="iconfont-archer">&#xe606;</span>
                 拥塞控制
@@ -4912,16 +4922,6 @@
             <span class="sidebar-tag-name" data-tags="virtio">
                 <span class="iconfont-archer">&#xe606;</span>
                 virtio
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="大脑">
-                <span class="iconfont-archer">&#xe606;</span>
-                大脑
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="人生">
-                <span class="iconfont-archer">&#xe606;</span>
-                人生
             </span>
         
             <span class="sidebar-tag-name" data-tags="软件工程">
@@ -4949,11 +4949,6 @@
                 VLAN
             </span>
         
-            <span class="sidebar-tag-name" data-tags="流量统计">
-                <span class="iconfont-archer">&#xe606;</span>
-                流量统计
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="Process">
                 <span class="iconfont-archer">&#xe606;</span>
                 Process
@@ -4974,14 +4969,29 @@
                 康威定律
             </span>
         
-            <span class="sidebar-tag-name" data-tags="思考">
-                <span class="iconfont-archer">&#xe606;</span>
-                思考
-            </span>
-        
             <span class="sidebar-tag-name" data-tags="BUG">
                 <span class="iconfont-archer">&#xe606;</span>
                 BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
             </span>
         
             <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
@@ -5009,19 +5019,14 @@
                 追寻自我
             </span>
         
-            <span class="sidebar-tag-name" data-tags="PELT">
+            <span class="sidebar-tag-name" data-tags="英国史">
                 <span class="iconfont-archer">&#xe606;</span>
-                PELT
+                英国史
             </span>
         
-            <span class="sidebar-tag-name" data-tags="WALT">
+            <span class="sidebar-tag-name" data-tags="丛林法则">
                 <span class="iconfont-archer">&#xe606;</span>
-                WALT
-            </span>
-        
-            <span class="sidebar-tag-name" data-tags="进程调度">
-                <span class="iconfont-archer">&#xe606;</span>
-                进程调度
+                丛林法则
             </span>
         
             <span class="sidebar-tag-name" data-tags="C++">
@@ -5034,6 +5039,11 @@
                 编程语言
             </span>
         
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
             <span class="sidebar-tag-name" data-tags="DCVS">
                 <span class="iconfont-archer">&#xe606;</span>
                 DCVS
@@ -5042,6 +5052,16 @@
             <span class="sidebar-tag-name" data-tags="高通">
                 <span class="iconfont-archer">&#xe606;</span>
                 高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
             </span>
         
     </div>
@@ -5054,6 +5074,11 @@
 
         <div class="sidebar-panel-categories">
     <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
     
         <span class="sidebar-category-name" data-categories="Android">
             <span class="iconfont-archer">&#xe60a;</span>
@@ -5075,6 +5100,11 @@
             移动通讯
         </span>
     
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Software Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Software Architecture
@@ -5085,19 +5115,9 @@
             Java
         </span>
     
-        <span class="sidebar-category-name" data-categories="Git">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Git
-        </span>
-    
         <span class="sidebar-category-name" data-categories="网络协议">
             <span class="iconfont-archer">&#xe60a;</span>
             网络协议
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="汽车电子">
-            <span class="iconfont-archer">&#xe60a;</span>
-            汽车电子
         </span>
     
         <span class="sidebar-category-name" data-categories="项目构建">
@@ -5105,14 +5125,14 @@
             项目构建
         </span>
     
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
         <span class="sidebar-category-name" data-categories="Computer Architecture">
             <span class="iconfont-archer">&#xe60a;</span>
             Computer Architecture
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="人工智能">
-            <span class="iconfont-archer">&#xe60a;</span>
-            人工智能
         </span>
     
         <span class="sidebar-category-name" data-categories="读书笔记">
@@ -5130,14 +5150,14 @@
             思考
         </span>
     
-        <span class="sidebar-category-name" data-categories="Computer theory">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Computer theory
-        </span>
-    
         <span class="sidebar-category-name" data-categories="Design Pattern">
             <span class="iconfont-archer">&#xe60a;</span>
             Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
         </span>
     
         <span class="sidebar-category-name" data-categories="算法/数据结构">
@@ -5153,11 +5173,6 @@
         <span class="sidebar-category-name" data-categories="Regular Expression">
             <span class="iconfont-archer">&#xe60a;</span>
             Regular Expression
-        </span>
-    
-        <span class="sidebar-category-name" data-categories="Linux">
-            <span class="iconfont-archer">&#xe60a;</span>
-            Linux
         </span>
     
         <span class="sidebar-category-name" data-categories="Android">
