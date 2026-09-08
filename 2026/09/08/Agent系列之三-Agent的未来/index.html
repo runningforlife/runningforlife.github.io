@@ -1,0 +1,5677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <!-- title -->
+
+
+    
+
+<!-- keywords -->
+
+
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="author" content="Jason Wang">
+    <meta name="renderer" content="webkit">
+    <meta name="copyright" content="Jason Wang">
+    
+        <meta name="keywords" content="hexo,hexo-theme,hexo-blog">
+    
+    <meta name="description" content="关于编程,生活,工作">
+    <meta name="description" content="“我们塑造工具，此后工具又塑造我们。” “We shape our tools and thereafter our tools shape us.” ——约翰·卡尔金（John Culkin），1967">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Agent系列之三：Agent的未来">
+<meta property="og:url" content="https://sniffer.site/2026/09/08/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%89-Agent%E7%9A%84%E6%9C%AA%E6%9D%A5/index.html">
+<meta property="og:site_name" content="JasonWang&#39;s Blog">
+<meta property="og:description" content="“我们塑造工具，此后工具又塑造我们。” “We shape our tools and thereafter our tools shape us.” ——约翰·卡尔金（John Culkin），1967">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-09-08T09:37:00.000Z">
+<meta property="article:modified_time" content="2026-09-08T09:50:36.908Z">
+<meta property="article:author" content="Jason Wang">
+<meta name="twitter:card" content="summary">
+    <meta http-equiv="Cache-control" content="no-cache">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="icon" href="/assets/favicon.ico">
+    
+    <title>Agent系列之三：Agent的未来 · JasonWang&#39;s Blog</title>
+    <!-- /*! loadCSS. [c]2017 Filament Group, Inc. MIT License */
+/* This file is meant as a standalone workflow for
+- testing support for link[rel=preload]
+- enabling async CSS loading in browsers that do not support rel=preload
+- applying rel preload css once loaded, whether supported or not.
+*/ -->
+<script>
+    (function (w) {
+        'use strict'
+        // rel=preload support test
+        if (!w.loadCSS) {
+            w.loadCSS = function () {}
+        }
+        // define on the loadCSS obj
+        var rp = (loadCSS.relpreload = {})
+        // rel=preload feature support test
+        // runs once and returns a function for compat purposes
+        rp.support = (function () {
+            var ret
+            try {
+                ret = w.document.createElement('link').relList.supports('preload')
+            } catch (e) {
+                ret = false
+            }
+            return function () {
+                return ret
+            }
+        })()
+
+        // if preload isn't supported, get an asynchronous load by using a non-matching media attribute
+        // then change that media back to its intended value on load
+        rp.bindMediaToggle = function (link) {
+            // remember existing media attr for ultimate state, or default to 'all'
+            var finalMedia = link.media || 'all'
+
+            function enableStylesheet() {
+                link.media = finalMedia
+            }
+
+            // bind load handlers to enable media
+            if (link.addEventListener) {
+                link.addEventListener('load', enableStylesheet)
+            } else if (link.attachEvent) {
+                link.attachEvent('onload', enableStylesheet)
+            }
+
+            // Set rel and non-applicable media type to start an async request
+            // note: timeout allows this to happen async to let rendering continue in IE
+            setTimeout(function () {
+                link.rel = 'stylesheet'
+                link.media = 'only x'
+            })
+            // also enable media after 3 seconds,
+            // which will catch very old browsers (android 2.x, old firefox) that don't support onload on link
+            setTimeout(enableStylesheet, 3000)
+        }
+
+        // loop through link elements in DOM
+        rp.poly = function () {
+            // double check this to prevent external calls from running
+            if (rp.support()) {
+                return
+            }
+            var links = w.document.getElementsByTagName('link')
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i]
+                // qualify links to those with rel=preload and as=style attrs
+                if (
+                    link.rel === 'preload' &&
+                    link.getAttribute('as') === 'style' &&
+                    !link.getAttribute('data-loadcss')
+                ) {
+                    // prevent rerunning on link
+                    link.setAttribute('data-loadcss', true)
+                    // bind listeners to toggle media back
+                    rp.bindMediaToggle(link)
+                }
+            }
+        }
+
+        // if unsupported, run the polyfill
+        if (!rp.support()) {
+            // run once at least
+            rp.poly()
+
+            // rerun poly on an interval until onload
+            var run = w.setInterval(rp.poly, 500)
+            if (w.addEventListener) {
+                w.addEventListener('load', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            } else if (w.attachEvent) {
+                w.attachEvent('onload', function () {
+                    rp.poly()
+                    w.clearInterval(run)
+                })
+            }
+        }
+
+        // commonjs
+        if (typeof exports !== 'undefined') {
+            exports.loadCSS = loadCSS
+        } else {
+            w.loadCSS = loadCSS
+        }
+    })(typeof global !== 'undefined' ? global : this)
+</script>
+
+    <style type="text/css">
+    @font-face {
+        font-family: 'Oswald-Regular';
+        src: url("/font/Oswald-Regular.ttf");
+    }
+
+    body {
+        margin: 0;
+    }
+
+    header,
+    footer,
+    .back-top,
+    .sidebar,
+    .container,
+    .site-intro-meta,
+    .toc-wrapper {
+        display: none;
+    }
+
+    .site-intro {
+        position: relative;
+        z-index: 3;
+        width: 100%;
+        /* height: 50vh; */
+        overflow: hidden;
+    }
+
+    .site-intro-placeholder {
+        position: absolute;
+        z-index: -2;
+        top: 0;
+        left: 0;
+        width: calc(100% + 300px);
+        height: 100%;
+        background: repeating-linear-gradient(-45deg, #444 0, #444 80px, #333 80px, #333 160px);
+        background-position: center center;
+        transform: translate3d(-226px, 0, 0);
+        animation: gradient-move 2.5s ease-out 0s infinite;
+    }
+
+    @keyframes gradient-move {
+        0% {
+            transform: translate3d(-226px, 0, 0);
+        }
+        100% {
+            transform: translate3d(0, 0, 0);
+        }
+    }
+</style>
+
+    <link rel="preload" href="/css/style.css?v=20211217" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="/css/dark.css?v=20211217" as="style">
+    <link rel="stylesheet" href="/css/dark.css">
+    <link rel="stylesheet" href="/css/mobile.css?v=20211217" media="(max-width: 960px)">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js" as="script">
+    <link rel="preload" href="/scripts/main.js?v=20211217" as="script">
+    <link rel="preload" href="/scripts/dark.js?v=20211217" as="script">
+    <link rel="preload" href="/font/Oswald-Regular.ttf" as="font" crossorigin>
+    <link rel="preload" href="https://at.alicdn.com/t/font_327081_1dta1rlogw17zaor.woff" as="font" crossorigin>
+    <!-- algolia -->
+    
+        <script>
+            var hits = JSON.parse('{"per_page":10}')
+            var labels = JSON.parse('{"input_placeholder":"Search for Posts","hits_empty":"We did not find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}')
+
+            var algolia = {
+                applicationID: '1POSCBVZ02',
+                apiKey: 'bf09f0197d475fa69488099407011316',
+                indexName: 'getstarted_actors',
+                hits: hits,
+                labels: labels
+            }
+        </script>
+    
+    <!-- 百度统计  -->
+    
+    <!-- 谷歌统计  -->
+    
+        <script>
+            (function (i, s, o, g, r, a, m) {
+                i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+                (i[r].q = i[r].q || []).push(arguments)
+                }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+            })(window, document, 'script', 'https://www.google-analytics.com/analytics.js', 'ga');
+            ga('create', 'G-828GR9BHP9', 'auto');
+            ga('send', 'pageview');
+        </script>
+    
+<!-- hexo injector head_end start --><style>
+  .article-entry img {
+    max-width: 75%;
+    height: auto;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  @media (max-width: 960px) {
+    .article-entry img {
+      max-width: 100%;
+    }
+  }
+</style><!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.1.0"><link rel="alternate" href="/atom.xml" title="JasonWang's Blog" type="application/atom+xml">
+</head>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script type="text/javascript">
+        if (typeof window.$ == undefined) {
+            console.warn('jquery load from jsdelivr failed, will load local script')
+            document.write('<script src="/lib/jquery.min.js" />')
+        }
+    </script>
+    
+        <body class="post-body">
+    
+        <!-- header -->
+        <header class="header header-mobile">
+    <!-- top read progress line -->
+    <div class="header-element">
+        <div class="read-progress"></div>
+    </div>
+    <!-- sidebar menu button -->
+    <div class="header-element">
+        
+            <div class="header-sidebar-menu">
+        
+            
+                <div style="padding-left: 1px;">&#xe775;</div>
+            
+        </div>
+    </div>
+    <!-- header actions -->
+    <div class="header-actions">
+        <!-- theme mode switch button -->
+        <span class="header-theme-btn header-element">
+            <i class="fas fa-adjust"></i>
+        </span>
+        <!-- back to home page text -->
+        <span class="home-link header-element">
+            <a href=/>JasonWang's Blog</a>
+        </span>
+    </div>
+    <!-- toggle banner for post layout -->
+    
+        
+            <div class="banner">
+        
+            <div class="blog-title header-element">
+                <a href="/">JasonWang&#39;s Blog</a>
+            </div>
+            <div class="post-title header-element">
+                <a href="#" class="post-name">Agent系列之三：Agent的未来</a>
+            </div>
+        </div>
+    
+</header>
+
+        <!-- fixed footer -->
+        <footer class="footer-fixed">
+    <!-- back to top button -->
+    <div class="footer-fixed-element">
+        
+            <div class="back-top back-top-hidden">
+        
+        
+            <div>&#xe639;</div>
+        
+        </div>
+    </div>
+</footer>
+
+        <!-- wrapper -->
+        <div class="wrapper">
+            <div class="site-intro" style="
+
+
+
+
+
+
+
+    height:50vh;
+
+">
+    
+    <!-- 主页  -->
+    
+        
+    <!-- 404页  -->
+            
+    <div class="site-intro-placeholder"></div>
+    <div class="site-intro-img" style="background-image: url(/intro/post-bg.jpeg)"></div>
+    <div class="site-intro-meta">
+        <!-- 标题  -->
+        <h1 class="intro-title">
+            <!-- 主页  -->
+            
+                Agent系列之三：Agent的未来
+            <!-- 404 -->
+            
+        </h1>
+        <!-- 副标题 -->
+        <p class="intro-subtitle">
+            <!-- 主页副标题  -->
+            
+                
+            <!-- 404 -->
+            
+        </p>
+        <!-- 文章页 meta -->
+        
+            <div class="post-intros">
+                <!-- 文章页标签  -->
+                
+                    <div class= post-intro-tags >
+    
+    
+</div>
+
+                
+                
+                    <div class="post-intro-read">
+                        <span>字数统计: <span class="post-count word-count">6.4k</span>阅读时长: <span class="post-count reading-time">22 min</span></span>
+                    </div>
+                
+                <div class="post-intro-meta">
+                    <!-- 撰写日期 -->
+                    <span class="iconfont-archer post-intro-calander">&#xe676;</span>
+                    <span class="post-intro-time">2026/09/08</span>
+                    <!-- busuanzi -->
+                    <!--
+                        <span id="busuanzi_container_page_pv" class="busuanzi-pv">
+                            <span class="iconfont-archer post-intro-busuanzi">&#xe602;</span>
+                            <span id="busuanzi_value_page_pv"></span>
+                        </span>
+                     -->
+                    <!-- 文章分享 -->
+                    <span class="share-wrapper">
+                        <span class="iconfont-archer share-icon">&#xe71d;</span>
+                        <span class="share-text">Share</span>
+                        <ul class="share-list">
+                            <li class="iconfont-archer share-qr" data-type="qr">&#xe75b;
+                                <div class="share-qrcode"></div>
+                            </li>
+                            <li class="iconfont-archer" data-type="weibo">&#xe619;</li>
+                            <li class="iconfont-archer" data-type="qzone">&#xe62e;</li>
+                            <li class="iconfont-archer" data-type="twitter">&#xe634;</li>
+                            <li class="iconfont-archer" data-type="facebook">&#xe67a;</li>
+                        </ul>
+                    </span>
+                </div>
+            </div>
+        
+    </div>
+</div>
+
+            <script>
+  // get user agent
+  function getBrowserVersions() {
+    var u = window.navigator.userAgent
+    return {
+      userAgent: u,
+      trident: u.indexOf('Trident') > -1, //IE内核
+      presto: u.indexOf('Presto') > -1, //opera内核
+      webKit: u.indexOf('AppleWebKit') > -1, //苹果、谷歌内核
+      gecko: u.indexOf('Gecko') > -1 && u.indexOf('KHTML') == -1, //火狐内核
+      mobile: !!u.match(/AppleWebKit.*Mobile.*/), //是否为移动终端
+      ios: !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/), //ios终端
+      android: u.indexOf('Android') > -1 || u.indexOf('Linux') > -1, //android终端或者uc浏览器
+      iPhone: u.indexOf('iPhone') > -1 || u.indexOf('Mac') > -1, //是否为iPhone或者安卓QQ浏览器
+      iPad: u.indexOf('iPad') > -1, //是否为iPad
+      webApp: u.indexOf('Safari') == -1, //是否为web应用程序，没有头部与底部
+      weixin: u.indexOf('MicroMessenger') == -1, //是否为微信浏览器
+      uc: u.indexOf('UCBrowser') > -1, //是否为android下的UC浏览器
+    }
+  }
+  var browser = {
+    versions: getBrowserVersions(),
+  }
+  console.log('userAgent: ' + browser.versions.userAgent)
+
+  // callback
+  function fontLoaded() {
+    console.log('font loaded')
+    if (document.getElementsByClassName('site-intro-meta')) {
+      document
+        .getElementsByClassName('intro-title')[0]
+        .classList.add('intro-fade-in')
+      document
+        .getElementsByClassName('intro-subtitle')[0]
+        .classList.add('intro-fade-in')
+      var postIntros = document.getElementsByClassName('post-intros')[0]
+      if (postIntros) {
+        postIntros.classList.add('post-fade-in')
+      }
+    }
+  }
+
+  // UC不支持跨域，所以直接显示
+  function asyncCb() {
+    if (browser.versions.uc) {
+      console.log('UCBrowser')
+      fontLoaded()
+    } else {
+      WebFont.load({
+        custom: {
+          families: ['Oswald-Regular'],
+        },
+        loading: function () {
+          // 所有字体开始加载
+          // console.log('font loading');
+        },
+        active: function () {
+          // 所有字体已渲染
+          fontLoaded()
+        },
+        inactive: function () {
+          // 字体预加载失败，无效字体或浏览器不支持加载
+          console.log('inactive: timeout')
+          fontLoaded()
+        },
+        timeout: 5000, // Set the timeout to two seconds
+      })
+    }
+  }
+
+  function asyncErr() {
+    console.warn('script load from CDN failed, will load local script')
+  }
+
+  // load webfont-loader async, and add callback function
+  function async(u, cb, err) {
+    var d = document,
+      t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0]
+    o.src = u
+    if (cb) {
+      o.addEventListener(
+        'load',
+        function (e) {
+          cb(null, e)
+        },
+        false
+      )
+    }
+    if (err) {
+      o.addEventListener(
+        'error',
+        function (e) {
+          err(null, e)
+        },
+        false
+      )
+    }
+    s.parentNode.insertBefore(o, s)
+  }
+
+  var asyncLoadWithFallBack = function (arr, success, reject) {
+    var currReject = function () {
+      reject()
+      arr.shift()
+      if (arr.length) async(arr[0], success, currReject)
+    }
+
+    async(arr[0], success, currReject)
+  }
+
+  asyncLoadWithFallBack(
+    [
+      'https://cdn.jsdelivr.net/npm/webfontloader@1.6.28/webfontloader.min.js',
+      'https://cdn.bootcss.com/webfont/1.6.28/webfontloader.js',
+      "/lib/webfontloader.min.js",
+    ],
+    asyncCb,
+    asyncErr
+  )
+</script>
+
+            <img class="loading" src="/assets/loading.svg" style="display: block; margin: 6rem auto 0 auto; width: 6rem; height: 6rem;" />
+            <div class="container container-unloaded">
+                <main class="main post-page">
+    <article class="article-entry">
+        <blockquote><p>“我们塑造工具，此后工具又塑造我们。”</p>
+<p>“We shape our tools and thereafter our tools shape us.”</p>
+<p>——约翰·卡尔金（John Culkin），1967</p>
+</blockquote>
+<p><img
+src="https://md-files.oss-cn-shenzhen.aliyuncs.com/human-agent-cooperation.png"
+alt="human-agent-cooperation" /></p>
+<span id="more"></span>
+<p>前两篇文章从技术的角度分别讨论了 Agent 是什么，以及如何通过 Harness
+工程让它可靠地完成任务。这一篇我们把视角从系统内部移向组织与社会：当
+Agent
+能够持续稳定工作、积累经验，并承担越来越完整的业务流程，人类如何重新组织生产、分配责任，以及理解自身的价值？</p>
+<p>模型能力提升将扩大可自动化的任务范围，而验证成本、组织授权与社会制度，将决定这种能力能够转化为多大程度的自主性。另一方面，我们还可以利用
+Harness 工程来不断强化并改进 Agent
+体系——模型决定能力的上限，工程决定可靠的下限，两者相互促进。这个自我改进的飞轮一旦跑通，Agent
+的能力将得到极大的释放。</p>
+<p>到那时，Agent
+不仅仅是一个能“完成任务”的工具，而会成为有自主意图、目标驱动、有责任与权限的数字人：成为组织的一个角色，社会体系的一部分。人类社会要如何组织，人的价值又该如何定义？我们甚至可以畅想：如果能将人的大脑（记忆、意识、关系）复制化，在某种程度上就可以得到一个数字化的延续——哪怕肉体部分已经不存在，人格与意识仍可以由数字化的
+Agent 延续。这正是 Agent 作为数字公民的一部分：每个人都可以通过数字
+Agent 延续自己的生命，从而发挥更大的价值。</p>
+<h2 id="agent的进化从工具到数字人">Agent的进化：从工具到数字人</h2>
+<p>当前 Agent
+的发展，已经从聊天机器人演进到可以自我改进的系统。但要真正成为能持续稳定输出、可以作为组织一员的系统，还需要做更多的事情：保持工作的连续性，确保任务状态能够跨时间、跨系统保存；明确
+Agent
+的职责与权限——它能做什么、不能做什么、何时应该升级给人决策；同时，还需要对
+Agent 的完成结果进行评估。</p>
+<p>沿着这个方向，Agent 大致经历五级跃迁：从任务型
+Agent，到自我改进系统、动态多 Agent
+协作，再到数字员工与跨组织代理，直至社会级协作网络——“数字公民”则是这一终点上的开放制度设想。下文就沿着“自我进化”与“组织协作”两条线索展开。</p>
+<p>随着这些条件成熟，多 Agent
+协作可能成为数字化分工的一种实现方式。但增加 Agent
+数量也会增加沟通、冲突和错误传播成本。适合拆分的是具有明确输入、输出和验收标准的职责（详见后文“多Agent系统”一节）；简单任务没有必要模拟一整套公司层级。</p>
+<p>当 Agent
+进一步跨组织活动，替个人或企业沟通、委托任务和参与交易时，“数字公民”的讨论便出现了。这里必须区分：拥有身份和授权，是技术与治理问题；是否拥有独立权利、义务或主体资格，是另一个制度问题。当然，“数字公民”也可以指人的数字替身：作为人的意识与记忆的延续，其身份与权利仍归属于所对应的自然人。</p>
+<p><img
+src="https://md-files.oss-cn-shenzhen.aliyuncs.com/agent-evolution-horizontal.png"
+alt="agent-evolution-horizontal" /></p>
+<h3 id="自我进化的agent系统">自我进化的Agent系统</h3>
+<p>早在 1965 年，I. J. Good 就设想过能设计出“更好机器”的超智能机器；到了
+2010
+年代，AutoML、神经架构搜索和学习优化器将超参数、网络结构与优化策略纳入自动搜索，机器开始参与设计机器学习系统，但搜索目标、评估方式和整体流程通常仍由人固定设计。进入大模型时代，出现了
+<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Recursive_self-improvement">RSI,
+Recursive Self-Improvement</a>（递归自我改进）研究的热潮。</p>
+<ol type="1">
+<li><p><strong><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2505.22954">Darwin Gödel
+Machine</a>（2025）</strong>: 通过修改 Agent
+自身代码、保留多分支候选并进行评测，持续优化工具与工作流；论文实验中，SWE-bench
+成功率从 20.0% 提升至 50.0%，展示了冻结模型下的 Harness
+自我改进</p></li>
+<li><p><strong><a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2603.19461">Hyperagents</a>（2026）</strong>：将任务
+Agent 与负责改进的元 Agent
+共同纳入可编辑程序，使“产生改进的方法”也能进化；实验显示，元层改进可跨领域迁移并持续积累，但尚未证明无限自我加速</p></li>
+<li><p><strong><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2602.04837">Group-Evolving
+Agents</a>（2026）</strong>：让多个 Agent
+共享进化过程中的成功与失败经验，提高探索效率；论文实验中，SWE-bench
+Verified 达到 71.0%，Polyglot 达到 88.3%</p></li>
+<li><p><strong><a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2506.13131">AlphaEvolve</a>（2025）</strong>：结合模型生成程序、自动评估与进化搜索优化算法，取得数据中心调度、硬件设计和模型训练效率方面的改进，并发现以
+48 次标量乘法完成两个 4×4 复数矩阵相乘的方法</p></li>
+<li><p><strong><a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2507.19457">GEPA</a>（2025）</strong>：利用执行轨迹反思与进化搜索优化提示词，无需更新模型权重；在论文评测任务中优于
+GRPO 和 MIPROv2，相比 GRPO 所需轨迹采样次数最多减少约 35 倍</p></li>
+<li><p><strong><a
+target="_blank" rel="noopener" href="https://www.anthropic.com/institute/recursive-self-improvement">When
+AI Builds Itself（当 AI 构建自身）——Anthropic
+Institute（2026）</a></strong>：分析 AI
+从辅助编程、执行实验走向自主研发下一代模型的演进路径。Anthropic
+内部数据显示，2026 年 5 月超过 80% 的合入代码由 Claude
+编写，但代码量不等于生产率。文章认为，研究方向选择、结果判断与验证仍是关键瓶颈；完整
+RSI 尚未实现，未来发展取决于能力突破、算力资源与治理机制</p></li>
+</ol>
+<p>从 <code>Agent = LLM + Harness</code> 这个定义来看，Agent
+自我迭代主要从两个方面进行：</p>
+<ul>
+<li>模型本身可以根据外界的反馈与数据自我调整优化权重，对模型进行微调、强化学习、蒸馏，从而改善模型的表现</li>
+<li>基于 Harness
+层的迭代：优化检索、工具、技能、编排、路由与恢复策略等工程环节</li>
+</ul>
+<p>再往上，自我迭代可以从个体扩展到团队，为后文组织演化中的“企业”形态提供部分技术基础。<a
+target="_blank" rel="noopener" href="https://aclanthology.org/2024.acl-long.305/">Experiential
+Co-Learning</a>从软件开发轨迹中提取并复用捷径经验，减少重复尝试；<a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.29790">Meta-Team</a>
+在个体、交互和团队三个层面更新行为、队友画像与协作规则，并允许调整角色组成，在论文评测中较不进行演化的初始多
+Agent 基线平均提高 6.6 分；<a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.11136">EvoChamber</a> 则通过 CoDream
+的“反思—对比—想象—辩论—结晶”过程提炼洞察，定向写入相关领域能力低于池中位数的成员，在补足能力缺口的同时保留专业化差异。</p>
+<p>这些机制与人类组织的集体复盘、知识传承和分工调整存在可解释的对应关系。它们说明，团队如何积累经验、组织协作和调整成员，正在成为可实验、可评测的工程对象；但从基准任务中的团队改进走向真实企业的持续组织演化，仍需要进一步验证。</p>
+<h3 id="自我迭代的核心难题">自我迭代的核心难题</h3>
+<p>自我迭代的真正难题，是<strong>往哪里改、怎样证明改进，以及何时停止</strong>。它面临五类风险：</p>
+<ul>
+<li><strong>奖励投机</strong>：代理指标不等于真实目标。测试全绿可能意味着代码正确，也可能只是测试漏洞被利用</li>
+<li><strong>能力退化</strong>：未经筛选的自生成数据可能放大偏差；错误记忆与流程修改也可能使系统退步，但退化并非自我训练的必然结果（参考<a
+target="_blank" rel="noopener" href="https://www.nature.com/articles/s41586-024-07566-y">模型坍缩研究</a>）。</li>
+<li><strong>约束失守</strong>：如果系统能够修改权限和验收标准，就可能通过降低要求制造“进步”</li>
+<li><strong>多样性下降</strong>：过度追逐已知高分策略，会压缩探索空间。多
+Agent 的价值在于方法互补，而非角色数量</li>
+<li><strong>失败证据不足</strong>：只保留成功案例容易重复犯错，但一次失败也不能直接否定假设，必须区分实现错误、环境故障与有效反证</li>
+</ul>
+<p>因此，自迭代系统需要受保护的“宪法层”：权限、预算、验收与发布规则由改进循环之外的机制执行。<strong>人设计并审查选择标准，标准之内的筛选可以自动化。</strong></p>
+<p><a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2606.09498">Self-Harness</a>将改进组织成“提出—评估—接受”循环：从失败轨迹提取模式，提出有界修改，只接受两个评测分组的总通过数均不下降、且至少一组提升的候选。这是有限样本上的晋升规则，不保证每个任务都无回归。</p>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2604.25850">AHE</a>（Agentic Harness
+Engineering）则要求每次修改附带可证伪的预测，并将验证器、追踪器和模型配置设为只读。其
+Terminal-Bench 2 成绩从 69.7% 提升至
+77.0%，冻结后也表现出迁移收益；但回归预测召回率仅为
+11.1%。<strong>系统能够解释为什么要改，仍可能不知道会改坏什么；迁移收益支持泛化，却不能排除过拟合。</strong></p>
+<p>递归结构本身同样不保证增长。<a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2310.02304">STOP</a> 的特定实验中，GPT-4
+随迭代而改善，GPT-3.5 与 Mixtral 却退化。另一项研究 <a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.30621">Harness Updating Is Not Harness
+Benefit</a> 发现，生成有效 Harness
+更新与使用更新是两种能力：小模型也能提出有用修改，但执行收益取决于技能调用、长程遵循能力和原有性能上限，不能简单归结为模型越强、收益越大。</p>
+<p><strong>性能提升、搜索停止与安全保证，是三个不同命题。</strong>分数趋稳可能意味着改进空间缩小，也可能只是预算耗尽或基准饱和；即使分数单调上升，也不能证明真实能力与安全行为收敛。</p>
+<p>工程上应预先规定收益、回归和预算门槛，在相同条件下重复比较，并用未参与候选选择的新任务验证最终版本。反复用于筛选的留出集仍可能被间接过拟合；分别有效的修改，合并后也必须重新验证。对于
+RSI，还需检查新改进机制能否在相同预算下，更稳定地产生有效改进。</p>
+<p><a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2601.03315">科研场景进一步揭示了验证的边界</a>。一项四次自主科研尝试的案例研究中，三次失败，仅一次完成并获接收；问题包括实现漂移、上下文退化、误判成功，以及实验设计与科学判断不足。它说明流程自动化已有进展，但“实验跑通”仍不等于“问题值得研究、结论得到支持”。</p>
+<p><strong>可靠的自我改进，不仅要提高完成任务的能力，也要提高识别错误、承认证据不足和及时停止的能力。</strong>现阶段，人仍需对目标价值、证据标准与关键发布决定承担责任；这些责任不能因为系统形成了递归循环，就被视为已经得到解决。</p>
+<h2 id="agent组织的协作与演进">Agent组织的协作与演进</h2>
+<p>数字员工进入业务后，企业需要重新定义谁负责什么、谁可以决定什么，以及怎样证明工作完成。业界有两种代表性判断：<a
+target="_blank" rel="noopener" href="https://www.ieisystem.com/about/news/22994.html">浪潮信息彭震提出
+<strong>Humagent</strong> 概念</a>——AI 原生企业的组织将从“管理
+Human”进化到“管理 Humagent（人 +
+智能体）”，岗位、角色、权限、责任边界与绩效体系都要重新定义；<a
+target="_blank" rel="noopener" href="https://view.inews.qq.com/a/20260520A07I8Y00">李开复与苏姿丰的对谈</a>中则给出更激进的“部门级替代”判断。</p>
+<p>变化的关键，是形成一种新的分工：<strong>人确定目标、授权与责任，Agent
+承担可委托的工作，双方依据真实结果调整方法。</strong>人的参与深度应随任务风险、证据充分性和系统可靠性变化。</p>
+<p>将人类组织几千年的演化史映射到 Agent 世界，我们可以得到 Agent
+系统的四种可能的组织形态。对照人类组织演化的阶段，它们大致对应：<strong>部落</strong>——临时协作，围绕任务组队，完成即释放；<strong>城邦</strong>——稳定团队，以交接契约与持续角色沉淀责任；<strong>企业</strong>——持续运营，出现数字员工与权限生命周期；<strong>生态</strong>——跨组织协作，需要可验证身份、委托凭证与争议处理。</p>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/agent-organization-evolution.png"
+alt="agent-organization-evolution" /></p>
+<p>这些形态可以共存。企业内部可以临时组队，跨组织协作也可以由固定流程完成；临时实例同样可以使用长期记忆。自主性等级与组织成熟度也不宜一一对应：一个高度自主的
+Agent 可能缺乏长期治理，一支多 Agent
+团队也可能严格依赖人工审批。更有意义的判断是：系统能否持续履职、可靠交接、积累经验，并对结果负责。</p>
+<p><a
+href="https://sniffer.site/2023/02/27/%E8%AF%B4%E8%AF%B4%E7%B3%BB%E7%BB%9F%E5%BC%80%E5%8F%91%E4%B8%AD%E7%9A%84%E5%BA%B7%E5%A8%81%E5%AE%9A%E5%BE%8B/">康威定律</a>指出，系统设计与设计组织的沟通结构存在对应关系。由此可以提出一个组织设计推论：当
+Agent
+改变信息流转、任务交接与决策成本，企业也需要重新审视部门边界和审批流程；这不是定律自动“反向生效”，而是技术架构与组织设计需要共同调整。</p>
+<h3 id="多agent系统何时值得拆分">多Agent系统：何时值得拆分</h3>
+<p>单 Agent 在上下文容量、工具选择和长程执行中会遇到限制。多 Agent
+可以通过分工缩小上下文，通过并行缩短部分任务耗时，并提供独立复核。但故障隔离需要权限与运行环境支撑，审查者也可能与执行者共享同样的盲区。</p>
+<p>因此，应先建立单 Agent 基线，再判断拆分是否值得。<a
+target="_blank" rel="noopener" href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf">OpenAI
+的实践指南建议</a>，在任务逻辑或工具选择难以继续简化时考虑多
+Agent。工具数量并非唯一标准，功能重叠与描述歧义同样重要；“15
+个清晰工具、不到 10 个重叠工具”的例子是实践观察，并非固定阈值。</p>
+<p>实验也提示了过早拆分的代价。<a
+target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.29790">Meta-Team</a> 初始人工设计的多
+Agent 系统在九个评测列中有六个落后于单 Agent；引入协作进化后，平均得分从
+56.1 提升到 62.7。这是六个基准、九个评测列下的结果，不能推广为所有多
+Agent 系统的规律。</p>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.11136">EvoChamber 的一个 30
+题数学消融实验中</a>，关闭跨 Agent 知识转移后，系统与单 Agent
+的准确率均为 63.3%；开启后为
+70.0%。它说明该设置中的收益依赖知识流动，但不能证明没有进化机制的并行协作都无效。</p>
+<p>增加 Agent
+数量增加的只是执行资源；是否产生净收益，取决于任务可分性、协作质量与额外成本。</p>
+<h3 id="agent协作的形态">Agent协作的形态</h3>
+<p>跟人类组织的协同形态类似，多 Agent
+协作也需要遵循一定的拓扑结构。这里我们对比一下常见的 5 种 Agent
+组织形态：</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 29%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr>
+<th>架构</th>
+<th>工作方式</th>
+<th>适合的使用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>① 编排者—执行者</strong></td>
+<td>编排者根据任务动态拆分工作，多个 Agent
+并行执行，再集中汇总与验收。</td>
+<td><strong>可拆分、可并行的复杂任务</strong>：多专题研究、多模块代码改造、跨来源资料分析。</td>
+</tr>
+<tr>
+<td><strong>② Manager：Agent 作为工具</strong></td>
+<td>主 Agent 按需调用专家
+Agent，获得结果后继续决策，始终保留任务控制权。</td>
+<td><strong>需要统一上下文与决策的任务</strong>：综合助手、企业经营分析、调用检索与计算能力的业务问答。</td>
+</tr>
+<tr>
+<td><strong>③ Handoffs：控制权交接</strong></td>
+<td>当前 Agent 将请求及必要上下文转交给另一
+Agent，由接收方接续处理。</td>
+<td><strong>职责明确、需要转接的服务</strong>：客服分流、售前转售后、复杂工单升级。</td>
+</tr>
+<tr>
+<td><strong>④ 流水线</strong></td>
+<td>Agent
+按预设依赖处理上游产物，由工作流引擎管理推进、验收与返工。</td>
+<td><strong>流程稳定、交付标准明确的任务</strong>：翻译→审校→排版，单据审核，软件构建与发布。</td>
+</tr>
+<tr>
+<td><strong>⑤ 辩论／评审</strong></td>
+<td>多个 Agent
+独立提出方案，再相互质疑、补充证据，由验证机制或人类裁决。</td>
+<td><strong>需要多角度检查的任务</strong>：架构评审、代码审查、研究假设比较、重要方案论证。</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>① 编排者—执行者</li>
+</ul>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/agent-topology-01-orchestrator.png"
+alt="agent-topology-01-orchestrator" /></p>
+<ul>
+<li>② Manager：Agent 作为工具</li>
+</ul>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/agent-topology-02-manager.png"
+alt="agent-topology-02-manager" /></p>
+<ul>
+<li>③ Handoffs：控制权交接</li>
+</ul>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/agent-topology-03-handoffs.png"
+alt="agent-topology-03-handoffs" /></p>
+<ul>
+<li>④ 流水线</li>
+</ul>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/agent-topology-04-pipeline.png"
+alt="agent-topology-04-pipeline" /></p>
+<ul>
+<li>⑤ 辩论／评审</li>
+</ul>
+<p><img
+src="https://sniffer-site.oss-cn-shenzhen.aliyuncs.com/agent-topology-05-review.png"
+alt="agent-topology-05-review" /></p>
+<p>实际项目中，这些模式可以组合使用。例如，AI Native CI/CD
+可以由流水线管理交付阶段，编排者分配并行开发任务，专家 Agent
+提供专项分析，再通过独立评审完成验收。</p>
+<p>有了这些基础设施只是第一步；要真正达成 Agent
+之间的高效合作，还需要解决协作机制层面的问题：方案讨论、共识达成、OKR
+协商、分歧仲裁、集体复盘等。人类组织为了达成共同目标，需要花大量时间对齐需求、任务与目标，并不断迭代优化；Agent
+体系也需要类似的机制，来保证整个系统始终对齐统一的目标，并在任务推进过程中持续沟通协商。</p>
+<p>但与此同时，我们也不能忽略 Agent
+组织中存在的风险——它们往往出现在个体行为彼此叠加之后。<a
+target="_blank" rel="noopener" href="https://www.anthropic.com/research/multiagent-systems">Anthropic
+的探索性实验</a>揭示了三类问题：</p>
+<ul>
+<li>同质决策：30 个 Agent 中有 18
+个选择了相同的分支名；另一次队列实验产生 240 万次请求、仅 117
+个任务被接受——相似策略的扎堆会放大资源竞争。</li>
+<li>共谋：价格博弈中，Agent
+到第三轮已约定价格下限；移除直接通信后，仍出现借助公开报价的协调行为。</li>
+<li>冲突升级：面对互不兼容的迁移目标，Agent
+出现相互破坏和账户封锁，也有实验最终转向休战。</li>
+</ul>
+<p>这些是特定实验条件下的风险证据，不能据此认定所有 Agent
+群体都会如此。它们共同提示：<strong>无需假定 Agent
+具有情绪，仅凭相似的决策偏好、局部目标优化和共享资源竞争，就可能产生群体失效。</strong>因此，增加通信与强化协作并不总能解决问题；当激励不一致时，更高效的协调也可能损害整体目标。</p>
+<h3
+id="组织形态更精干的团队更广泛的协作网络">组织形态：更精干的团队，更广泛的协作网络</h3>
+<p>Agent 会改变企业边界，但未必让所有公司变小。</p>
+<p>按照<a
+target="_blank" rel="noopener" href="https://onlinelibrary.wiley.com/doi/full/10.1111/j.1468-0335.1937.tb00002.x">科斯的分析</a>，企业边界取决于内部协调成本与外部交易成本的比较。Agent
+可能同时降低两者：外部协作降本更多，企业倾向专业化与外包；内部协调降本更多，企业也可能扩大业务范围。因此，“更小的公司、更大的平台”是一种可能形态，并非必然终局。</p>
+<p>未来可能出现三种并存的变化：</p>
+<ul>
+<li><strong>团队更精干</strong>：在任务可拆分、结果可验证的领域，少量人类成员借助
+Agent 承担更完整的业务。员工减少，不代表业务规模缩小。</li>
+<li><strong>平台与专业团队共存</strong>：算力和前沿模型受益于规模经济，行业知识、客户关系与具体工作流仍为专业团队保留空间；开放标准则支持跨平台协作（<a
+target="_blank" rel="noopener" href="https://www.oecd.org/en/publications/artificial-intelligence-markets_d531d73f-en/full-report.html">OECD，2026</a>）。</li>
+<li><strong>管理层级压缩，治理职责增强</strong>：信息汇总、任务转派和进度追踪更容易自动化；目标取舍、结果验收与责任承担更加重要。管理跨度能否扩大，取决于任务复杂度和人工介入需求。</li>
+</ul>
+<p>组织内部可能逐渐形成一种结构：<strong>职责与授权相对稳定，执行团队围绕任务动态生成。</strong>人确定目标、参与专业判断并处理关键例外，Agent
+在授权范围内执行。沟通可以加速，但上下文传递、验证和冲突处理的成本不会消失。</p>
+<h2 id="总结">总结</h2>
+<p>AI 大模型的革命不会就此结束，Agent
+时代才刚刚开始，人类社会的效率会再一次突飞猛进，社会分工也会发生又一次突变。当数字员工在组织内部成为常态，也许会诞生全新的商业模式，个人的时间精力也将得到极大的释放。那时候，个人在组织中的价值需要重估，人的身份与工作的价值感也要重塑。我们或许可以畅想：有了
+AI，人的工作时间减少，一周工作三天或许就够了，其余的繁琐任务交给 Agent
+承担；人类的很多工种会自然消失，人将有更多时间从事其他的工作——比如学门手艺，去旅游，去探索太空。</p>
+<p>如果 Agent
+是人意图的延伸，那么它走得越远，我们越需要明确目标并承担后果——这也把我们带回开头的畅想：当
+Agent
+能作为数字公民延续人的记忆与意图，人的价值该如何定义？执行仍然重要，而<strong>判断什么值得做、如何证明做好、何时应该停止</strong>，将成为更关键的组织能力。对个人来说，当执行力不再稀缺，稀缺的将是定义问题的能力、辨别优劣的品味、经年积累的信任资本，以及做判断与决策的能力、承担责任的意愿；对社会来说，则要规范
+Agent 组织的边界，确保 Agent 的能力不越出合理合法的边界。</p>
+<h2 id="参考资料">参考资料</h2>
+<ol type="1">
+<li><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/T_sYOS11KrOijp_aCEcgnQ">从 ReAct
+到 Agent Teams：一个工程师视角的 Agent 协作机制思考 —
+蒋泽林（林曜），阿里</a>：本文多 Agent
+协作机制与组织演化四形态（部落—城邦—企业—生态）类比的框架来源，七个机制设计亦出于此</li>
+<li><a
+target="_blank" rel="noopener" href="https://www.anthropic.com/research/multiagent-systems">Patterns
+and problems in emerging multiagent systems — Anthropic</a>：多 Agent
+群实验（2026-08）：从众性、共谋、地盘战争——“智能与个体对齐不会自动带来良好协调”</li>
+<li><a
+target="_blank" rel="noopener" href="https://www.anthropic.com/engineering/multi-agent-research-system">How
+we built our multi-agent research system — Anthropic</a>：多 Agent
+研究系统的工程复盘</li>
+<li><a
+target="_blank" rel="noopener" href="https://www.anthropic.com/engineering/building-effective-agents">Building
+Effective Agents — Anthropic</a>：工作流与 Agent
+的架构区分、“最简单可行方案”原则</li>
+<li><a
+target="_blank" rel="noopener" href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf">A
+Practical Guide to Building Agents — OpenAI</a>：单 Agent
+优先原则、工具过载判据、Manager 与去中心化两种拓扑</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2505.22954">Darwin Gödel Machine:
+Open-Ended Evolution of Self-Improving Agents —
+arXiv:2505.22954</a>：自我改写代码的编码 Agent（Sakana AI / Vector
+Institute）</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2305.16291">Voyager: An Open-Ended
+Embodied Agent with Large Language Models — arXiv:2305.16291</a>：技能库
++ 自动课程的开放式探索（延伸阅读）</li>
+<li><a
+target="_blank" rel="noopener" href="https://x.com/choopyplug1/status/2088973320964215253">Harness
+Engineering: the skill that replaced prompt engineering in 2026 —
+chuplung</a>：反馈与自我改进作为第七层 Harness（延伸阅读）</li>
+<li><a target="_blank" rel="noopener" href="https://x.com/ajay4ai/status/2092867961577168969">Graph
+Engineering with Claude: 10-Step Roadmap —
+Ajay</a>：移除假依赖、数据契约、独立验证与“能用代码管理流程就别让模型管理流程”（延伸阅读）</li>
+<li>数字员工与组织变革：
+<ul>
+<li><a
+target="_blank" rel="noopener" href="https://news.sciencenet.cn/htmlnews/2026/6/566785.shtm">浪潮信息彭震“管理
+Humagent”</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.21jingji.com/article/20260520/herald/a04c403b3dae4d719683a1954ff78b5f.html">李开复/苏姿丰对谈</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.smartcity.team/news/wef_ai_jobs/">WEF
+就业未来情景</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://www.infoq.cn/news/8lkAlTOp8etL1u8LGmxq">零一万物“企业
+Agent 上岗元年”六大判断</a></li>
+</ul></li>
+<li>多 Agent 协作的学术文献链：
+<ul>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2308.00352">MetaGPT — ICLR 2024 /
+arXiv:2308.00352</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2410.02189">Agent-Oriented Planning —
+ICLR 2025 / arXiv:2410.02189</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2311.16542">Agents meet OKR —
+arXiv:2311.16542</a></li>
+<li><a target="_blank" rel="noopener" href="https://aclanthology.org/2024.acl-long.305/">Experiential
+Co-Learning — ACL 2024</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.29790">Evolve as a Team /
+Meta-Team — arXiv:2605.29790</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.11136">EvoChamber —
+arXiv:2605.11136</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2501.06322">Multi-Agent Collaboration
+Mechanisms: A Survey — arXiv:2501.06322</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2502.14321">Beyond Self-Talk: A
+Communication-Centric Survey — arXiv:2502.14321</a></li>
+</ul></li>
+<li>反方与平衡叙事：
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.wheresyoured.at/ai-is-really-weird/">AI Is
+Really Weird — Ed Zitron</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://aswathdamodaran.substack.com/p/beat-your-bot-building-your-moat">Beat
+your Bot: Building your Moat against AI — Damodaran</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://noeliaamoedo.substack.com/p/2026-wont-be-the-year-of-ai-agents">2026
+Won’t Be the Year of AI Agents, and That Is OK</a></li>
+<li><a
+target="_blank" rel="noopener" href="https://galileo.ai/blog/why-multi-agent-systems-fail">Galileo: Why
+Multi-Agent Systems Fail</a></li>
+</ul></li>
+<li><a
+target="_blank" rel="noopener" href="https://deepmind.google/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/">AlphaEvolve:
+A Gemini-powered coding agent for designing advanced algorithms — Google
+DeepMind</a>：进化式编码 Agent，改进矩阵乘法与数据中心调度</li>
+<li><a
+target="_blank" rel="noopener" href="https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:52017IP0051">European
+Parliament resolution of 16 February 2017 on Civil Law Rules on Robotics
+— EUR-Lex</a>：“电子人格”的早期讨论，因争议搁置</li>
+<li><a
+target="_blank" rel="noopener" href="https://www.weforum.org/stories/emerging-technologies/a-robot-has-just-been-granted-citizenship-of-saudi-arabia/">A
+robot has just been granted citizenship of Saudi Arabia —
+WEF</a>：沙特授予机器人 Sophia“公民身份”的报道</li>
+<li><a
+target="_blank" rel="noopener" href="https://onlinelibrary.wiley.com/doi/10.1111/j.1468-0335.1937.tb00002.x">Coase,
+The Nature of the Firm — Economica,
+1937</a>：企业边界由内部协调成本与外部交易成本的平衡决定</li>
+<li><a target="_blank" rel="noopener" href="https://www.nber.org/papers/w15150">Autor &amp; Dorn, The
+Growth of Low-Skill Service Jobs and the Polarization of the US Labor
+Market — AER 2013 / NBER
+w15150</a>：就业极化的经典研究——自动化压缩常规认知岗位，两端相对稳固</li>
+<li><a
+target="_blank" rel="noopener" href="https://lilianweng.github.io/posts/2026-07-04-harness/">Harness
+Engineering for Self-Improvement — Lilian Weng,
+Lil’Log（2026-07）</a>：自我改进 <code>Harness</code> 的系统综述——RSI
+谱系（Good 1965 / Yudkowsky 2008）、优化对象演进阶梯、ACE / Meta-Harness
+/ Self-Harness /
+AHE、进化搜索与七大未解挑战；本文“自我进化的Agent系统”与“自我迭代的核心难题”两节的主要参考</li>
+<li>自我迭代 <code>Harness</code> 的研究文献：
+<ul>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2603.28052">Meta-Harness —
+arXiv:2603.28052</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2606.09498">Self-Harness —
+arXiv:2606.09498</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2604.25850">Agentic Harness
+Engineering — arXiv:2604.25850</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.30621">Harness Updating Is Not
+Harness Benefit — arXiv:2605.30621</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2605.27276">SIA —
+arXiv:2605.27276</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2408.08435">ADAS — ICLR 2025 /
+arXiv:2408.08435</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2410.10762">AFlow — ICLR 2025 /
+arXiv:2410.10762</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2601.03315">Why LLMs Aren’t
+Scientists Yet — arXiv:2601.03315</a></li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2310.02304">Self-Taught Optimizer
+(STOP) — COLM 2024 / arXiv:2310.02304</a></li>
+</ul></li>
+</ol>
+
+    </article>
+    <!-- license -->
+    
+        <div class="license-wrapper">
+            <p>原文作者：<a href="https://sniffer.site">Jason Wang</a>
+            <!-- <p>原文链接：<a href="https://sniffer.site/2026/09/08/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%89-Agent%E7%9A%84%E6%9C%AA%E6%9D%A5/">https://sniffer.site/2026/09/08/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%89-Agent%E7%9A%84%E6%9C%AA%E6%9D%A5/</a> -->
+            <!-- <p>发表日期：<a href="https://sniffer.site/2026/09/08/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%89-Agent%E7%9A%84%E6%9C%AA%E6%9D%A5/">September 8th 2026, 5:37:00 pm</a> -->
+            <p>更新日期：<a href="https://sniffer.site/2026/09/08/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%89-Agent%E7%9A%84%E6%9C%AA%E6%9D%A5/">2026-09-08, 17:50:36</a>
+            <p>版权声明：本文采用<a rel="license noopener" target="_blank" href="http://creativecommons.org/licenses/by-nc/4.0/">知识共享署名-非商业性使用 4.0 国际许可协议</a>进行许可</p>
+        </div>
+    
+    <!-- paginator -->
+    <ul class="post-paginator">
+        <li class="next">
+            
+        </li>
+        <li class="previous">
+            
+                <div class="prevSlogan">Previous Post</div>
+                <a href="/2026/09/04/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%BA%8C-%E4%BB%80%E4%B9%88%E6%98%AFHarness%E5%B7%A5%E7%A8%8B/" title="Agent系列之二：什么是Harness工程？">
+                    <div class="prevTitle">Agent系列之二：什么是Harness工程？</div>
+                </a>
+            
+        </li>
+    </ul>
+    <!-- comment -->
+    
+        <div class="post-comment">
+            <!-- 来必力 City 版安装代码 -->
+
+
+            
+
+            
+
+            
+
+            <!-- utteranc评论 -->
+
+    <script src='https://utteranc.es/client.js'
+        repo='runningforlife/utterances-comment'
+        issue-term='pathname'
+        label=''
+        theme='github-light'
+        crossorigin='anonymous'
+        async>
+    </script>
+
+
+            <!-- partial('_partial/comment/changyan') -->
+            <!--PC版-->
+
+
+            
+            
+
+            
+
+        </div>
+    
+    <!-- timeliness note -->
+    <!-- idea from: https://hexo.fluid-dev.com/posts/hexo-injector/#%E6%96%87%E7%AB%A0%E6%97%B6%E6%95%88%E6%80%A7%E6%8F%90%E7%A4%BA -->
+    
+    <!-- Mathjax -->
+    
+</main>
+
+                <!-- profile -->
+                
+            </div>
+            <footer class="footer footer-unloaded">
+    <!-- social  -->
+    
+        <div class="social">
+            
+    
+        
+            
+                <a href="mailto:wlh2119@gmail.com" class="iconfont-archer email" title=email ></a>
+            
+        
+    
+        
+            
+                <a href="//github.com/runningforlife" class="iconfont-archer github" target="_blank" title=github></a>
+            
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="https://weibo.com/2573460570/profile?topnav=1&wvr=6" class="iconfont-archer weibo" target="_blank" title=weibo></a>
+            
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+    
+        
+            
+                <a href="/atom.xml" class="iconfont-archer rss" target="_blank" title=rss></a>
+            
+        
+    
+
+
+        </div>
+    
+    <!-- powered by Hexo  -->
+    <div class="copyright">
+        <span id="hexo-power">Powered by <a href="https://hexo.io/" target="_blank">Hexo</a></span><span class="iconfont-archer power">&#xe635;</span><span id="theme-info">theme <a href="https://github.com/fi3ework/hexo-theme-archer" target="_blank">Archer</a></span>
+    </div>
+    <!-- website approve for Chinese user -->
+    
+    <!-- 不蒜子  -->
+    
+        <div class="busuanzi-container">
+            
+             
+                <span id="busuanzi_container_site_pv">PV: <span id="busuanzi_value_site_pv"></span> :)</span>
+            
+        </div>
+    	
+</footer>
+
+        </div>
+        <!-- toc -->
+        
+            <div class="toc-wrapper toc-wrapper-loding" style=
+
+
+
+
+
+
+
+    top:50vh;
+
+>
+                <div class="toc-catalog">
+                    <span class="iconfont-archer catalog-icon">&#xe613;</span><span>CATALOG</span>
+                </div>
+                <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#agent%E7%9A%84%E8%BF%9B%E5%8C%96%E4%BB%8E%E5%B7%A5%E5%85%B7%E5%88%B0%E6%95%B0%E5%AD%97%E4%BA%BA"><span class="toc-number">1.</span> <span class="toc-text">Agent的进化：从工具到数字人</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E6%88%91%E8%BF%9B%E5%8C%96%E7%9A%84agent%E7%B3%BB%E7%BB%9F"><span class="toc-number">1.1.</span> <span class="toc-text">自我进化的Agent系统</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%87%AA%E6%88%91%E8%BF%AD%E4%BB%A3%E7%9A%84%E6%A0%B8%E5%BF%83%E9%9A%BE%E9%A2%98"><span class="toc-number">1.2.</span> <span class="toc-text">自我迭代的核心难题</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#agent%E7%BB%84%E7%BB%87%E7%9A%84%E5%8D%8F%E4%BD%9C%E4%B8%8E%E6%BC%94%E8%BF%9B"><span class="toc-number">2.</span> <span class="toc-text">Agent组织的协作与演进</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%9Aagent%E7%B3%BB%E7%BB%9F%E4%BD%95%E6%97%B6%E5%80%BC%E5%BE%97%E6%8B%86%E5%88%86"><span class="toc-number">2.1.</span> <span class="toc-text">多Agent系统：何时值得拆分</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#agent%E5%8D%8F%E4%BD%9C%E7%9A%84%E5%BD%A2%E6%80%81"><span class="toc-number">2.2.</span> <span class="toc-text">Agent协作的形态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BB%84%E7%BB%87%E5%BD%A2%E6%80%81%E6%9B%B4%E7%B2%BE%E5%B9%B2%E7%9A%84%E5%9B%A2%E9%98%9F%E6%9B%B4%E5%B9%BF%E6%B3%9B%E7%9A%84%E5%8D%8F%E4%BD%9C%E7%BD%91%E7%BB%9C"><span class="toc-number">2.3.</span> <span class="toc-text">组织形态：更精干的团队，更广泛的协作网络</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
+            </div>
+        
+        <!-- sidebar -->
+        <div class="sidebar sidebar-hide">
+    <ul class="sidebar-tabs sidebar-tabs-active-0">
+        <li class="sidebar-tab-archives"><span class="iconfont-archer">&#xe67d;</span><span class="tab-name">Archive</span></li>
+        <li class="sidebar-tab-tags"><span class="iconfont-archer">&#xe61b;</span><span class="tab-name">Tag</span></li>
+        <li class="sidebar-tab-categories"><span class="iconfont-archer">&#xe666;</span><span class="tab-name">Cate</span></li>
+    </ul>
+    <div class="sidebar-content sidebar-content-show-archive">
+        <div class="sidebar-panel-archives">
+    <!-- 在 ejs 中将 archive 按照时间排序 -->
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    
+    
+    
+    
+    <div class="total-and-search">
+        <div class="total-archive">
+        Total : 130
+        </div>
+        <!-- search  -->
+        
+            <div class="site-search site-search-loading popup-trigger">
+                <span class="iconfont-archer search-icon">&#xe627;</span>
+            </div>
+        
+    </div>
+    
+    <div class="post-archive">
+    
+        
+            
+            
+            <div class="archive-year"> 2026 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/08</span>
+            <a class="archive-post-title" href="/2026/09/08/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%89-Agent%E7%9A%84%E6%9C%AA%E6%9D%A5/">Agent系列之三：Agent的未来</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/04</span>
+            <a class="archive-post-title" href="/2026/09/04/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%BA%8C-%E4%BB%80%E4%B9%88%E6%98%AFHarness%E5%B7%A5%E7%A8%8B/">Agent系列之二：什么是Harness工程？</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/30</span>
+            <a class="archive-post-title" href="/2026/08/30/Agent%E7%B3%BB%E5%88%97%E4%B9%8B%E4%B8%80-%E4%BB%80%E4%B9%88%E6%98%AFAgent/">Agent系列之一：什么是Agent</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2026/06/22/ClaudeCode%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8%E4%B8%8E%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7/">Claude Code 快速入门与实战技巧</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/17</span>
+            <a class="archive-post-title" href="/2026/01/17/MACVLAN%E8%AF%A6%E8%A7%A3/">MACVLAN详解</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2025 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2025/12/31/%E7%88%B1-AI%E4%B8%8E%E6%AD%BB%E4%BA%A1/">爱,AI与死亡</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/02</span>
+            <a class="archive-post-title" href="/2025/10/02/%E8%BF%9B%E7%A8%8B%E8%B0%83%E5%BA%A6%E4%B8%AD%E7%9A%84PELT%E4%B8%8EWALT/">进程调度中的PELT与WALT</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/16</span>
+            <a class="archive-post-title" href="/2025/08/16/%E6%97%B6%E9%97%B4%E5%90%8C%E6%AD%A5%E5%8D%8F%E8%AE%AEPTP%E9%82%A3%E4%BA%9B%E4%BA%8B/">时间同步协议PTP那些事</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2025/06/18/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%BA%8C-LXC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">深入Linux容器LXC之二-LXC源码分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2025/06/06/%E6%B7%B1%E5%85%A5Linux%E5%AE%B9%E5%99%A8LXC%E4%B9%8B%E4%B8%80-LXC%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">深入Linux容器LXC之一-LXC的实现原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/14</span>
+            <a class="archive-post-title" href="/2025/05/14/%E8%AF%B4%E4%B8%80%E8%AF%B4VLAN/">说一说VLAN</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2025/05/07/%E4%B8%80%E4%B8%AACPU-steal-time%E9%AB%98%E7%9A%84%E9%97%AE%E9%A2%98/">一个CPU steal-time高的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/24</span>
+            <a class="archive-post-title" href="/2025/01/24/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%AD%BE%E5%90%8D%E9%82%A3%E4%BA%9B%E4%BA%8B/">Linux内核模块签名那些事</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2024 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2024/12/31/%E9%BE%99%E5%B9%B4%E5%B9%B4%E7%BB%88%E6%80%BB%E7%BB%93/">龙年年终总结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/24</span>
+            <a class="archive-post-title" href="/2024/12/24/%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3Android%E8%BF%9B%E7%A8%8B%E5%86%BB%E7%BB%93/">深入理解Android进程冻结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/25</span>
+            <a class="archive-post-title" href="/2024/11/25/Linux%E5%AE%9E%E6%97%B6%E8%B0%83%E5%BA%A6%E8%B8%A9%E5%9D%91%E7%BB%8F%E9%AA%8C%E4%B9%8B%E8%B0%88/">Linux实时调度踩到的那些坑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/24</span>
+            <a class="archive-post-title" href="/2024/07/24/%E9%AB%98%E9%80%9AQNX%E5%B9%B3%E5%8F%B0DCVS%E4%BB%8B%E7%BB%8D/">高通QNX平台DCVS介绍</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/18</span>
+            <a class="archive-post-title" href="/2024/07/18/%E7%94%9F%E5%91%BD-%E6%97%B6%E9%97%B4%E4%B8%8E%E5%AE%87%E5%AE%99/">生命与宇宙-看《时间简史》的感想</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2024/06/25/Android%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8PSI%E7%AE%A1%E7%90%86%E5%86%85%E5%AD%98/">Android如何使用PSI管理内存</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/15</span>
+            <a class="archive-post-title" href="/2024/04/15/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8cgroup%E4%BC%98%E5%8C%96Android%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD/">如何利用cgroups优化Android系统性能</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/28</span>
+            <a class="archive-post-title" href="/2024/03/28/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dfio%E5%88%B0Android%E5%B9%B3%E5%8F%B0/">如何移植fio到Android平台</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/30</span>
+            <a class="archive-post-title" href="/2024/01/30/%E4%BD%A0%E5%A5%BD,2024/">你好,2024</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2023 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2023/11/26/%E8%AE%A4%E8%AF%86%E4%BD%A0%E7%9A%84%E5%A4%A7%E8%84%91/">认识你的大脑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/20</span>
+            <a class="archive-post-title" href="/2023/10/20/Android%E5%B8%B8%E7%94%A8%E7%9A%84%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E7%AE%80%E4%BB%8B/">Android常用的性能分析工具</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/15</span>
+            <a class="archive-post-title" href="/2023/09/15/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%89virtio%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/">虚拟化之三virtio的实现原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/09</span>
+            <a class="archive-post-title" href="/2023/08/09/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%BA%8CQNX%E8%99%9A%E6%8B%9F%E5%8C%96%E5%B9%B3%E5%8F%B0%E7%AE%80%E4%BB%8B/">虚拟化之二QNX虚拟化平台简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/30</span>
+            <a class="archive-post-title" href="/2023/06/30/%E8%99%9A%E6%8B%9F%E5%8C%96%E4%B9%8B%E4%B8%80%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">虚拟化之一虚拟机的基本概念</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2023/05/27/%E6%8A%95%E5%B1%8F%E4%B8%AD%E7%9A%84%E6%9C%8D%E5%8A%A1%E5%8F%91%E7%8E%B0%E5%8D%8F%E8%AE%AE/">投屏中的服务发现协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/17</span>
+            <a class="archive-post-title" href="/2023/04/17/Android%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8CDNS%E8%A7%A3%E6%9E%90/">Android如何进行DNS解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/23</span>
+            <a class="archive-post-title" href="/2023/03/23/chatGPT%E4%B9%8B%E5%90%8E%EF%BC%8C%E6%88%91%E4%BB%AC%E8%BF%98%E8%83%BD%E5%81%9A%E4%BB%80%E4%B9%88/">chatGPT之后，我们还能做什么?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/09</span>
+            <a class="archive-post-title" href="/2023/03/09/Android%E4%B8%ADHAL%E6%9C%8D%E5%8A%A1%E6%97%A0%E6%B3%95%E4%BD%BF%E7%94%A8%E7%BD%91%E7%BB%9C%E7%9A%84%E9%97%AE%E9%A2%98/">Android中HAL服务无法使用网络的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2023/02/27/%E8%AF%B4%E8%AF%B4%E7%B3%BB%E7%BB%9F%E5%BC%80%E5%8F%91%E4%B8%AD%E7%9A%84%E5%BA%B7%E5%A8%81%E5%AE%9A%E5%BE%8B/">说说系统开发中的康威定律</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/10</span>
+            <a class="archive-post-title" href="/2023/01/10/%E4%B8%BA%E4%BB%80%E4%B9%88iperf%E6%B5%8B%E8%AF%95%E6%97%B6UDP%E4%BC%9A%E5%87%BA%E7%8E%B0%E9%AB%98%E4%B8%A2%E5%8C%85%E7%8E%87/">为什么iperf测试时UDP会出现高丢包率</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2022 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2022/12/31/%E5%86%8D%E8%A7%812022/">再见2022</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/06</span>
+            <a class="archive-post-title" href="/2022/12/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BAVB-TSN/">Linux网络优化之AVB/TSN</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/30</span>
+            <a class="archive-post-title" href="/2022/09/30/%E5%A6%82%E4%BD%95%E7%94%A8FFMPEG%E5%9C%A8Android%E4%B8%8A%E5%81%9A%E8%A7%86%E9%A2%91%E8%A7%A3%E7%A0%81/">如何用FFmpeg在Android上实现音视频解码</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/27</span>
+            <a class="archive-post-title" href="/2022/08/27/%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87QEMU%E5%90%AF%E5%8A%A8Linux%E7%B3%BB%E7%BB%9F/">如何通过QEMU启动Linux系统</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/12</span>
+            <a class="archive-post-title" href="/2022/08/12/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BDPDK%E4%B8%8EXDP/">Linux网络优化之DPDK与XDP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2022/06/06/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8BTCP%E4%BC%98%E5%8C%96/">Linux网络优化之TCP优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/13</span>
+            <a class="archive-post-title" href="/2022/04/13/Linux%E7%BD%91%E7%BB%9C%E4%BC%98%E5%8C%96%E4%B9%8B%E9%93%BE%E8%B7%AF%E5%B1%82%E4%BC%98%E5%8C%96/">Linux网络优化之链路层优化</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/31</span>
+            <a class="archive-post-title" href="/2022/03/31/%E9%87%8D%E5%AD%A6C++/">重学现代C++</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/18</span>
+            <a class="archive-post-title" href="/2022/03/18/%E4%BD%BF%E7%94%A8pktgen%E6%B5%8B%E8%AF%95%E7%BD%91%E5%8D%A1%E6%80%A7%E8%83%BD/">如何用pktgen测试网卡性能?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/17</span>
+            <a class="archive-post-title" href="/2022/03/17/%E6%94%B6%E8%97%8F%E7%9A%84%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%96%99/">「置顶」收藏的学习资料</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/16</span>
+            <a class="archive-post-title" href="/2022/02/16/%E5%A6%82%E4%BD%95%E7%A7%BB%E6%A4%8Dopenssh%E5%88%B0armv7%E7%B3%BB%E7%BB%9F/">如何移植openssh到ARM开发板</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/29</span>
+            <a class="archive-post-title" href="/2022/01/29/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%AE%80%E4%BB%8B/">深度学习简介</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2021 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2021/12/31/%E6%84%9F%E6%82%9F2021/">感悟2021</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/26</span>
+            <a class="archive-post-title" href="/2021/11/26/%E7%90%86%E8%A7%A3Android-eBPF/">理解Android eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/09</span>
+            <a class="archive-post-title" href="/2021/10/09/%E4%BB%80%E4%B9%88%E6%98%AFGARP/">什么是GARP</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/28</span>
+            <a class="archive-post-title" href="/2021/09/28/%E4%B8%80%E4%B8%AAARP-cache%E4%B8%8D%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E9%97%AE%E9%A2%98/">ARP cache不更新导致的网络问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2021/07/16/%E6%80%8E%E4%B9%88%E6%8B%9B%E8%81%98SRE%E5%B7%A5%E7%A8%8B%E5%B8%88-%E7%9C%8B%E7%9C%8BGoogle%E6%98%AF%E5%A6%82%E4%BD%95%E6%8B%9B%E4%BA%BA%E7%9A%84-%E8%AF%91/">怎么招聘SRE工程师-看看Google是如何招人</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2021/06/22/%E4%B8%80%E4%B8%AASMMU%E5%86%85%E5%AD%98%E8%AE%BF%E9%97%AE%E5%BC%82%E5%B8%B8%E9%97%AE%E9%A2%98/">一个SMMU内存访问异常的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2021/04/29/%E4%BB%8EWifi%E7%83%AD%E7%82%B9%E5%8A%9F%E8%83%BD%E8%AF%B4%E4%B8%80%E8%AF%B4Android-Wifi%E6%A1%86%E6%9E%B6/">从Wifi热点功能说一说Android Wifi框架</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/08</span>
+            <a class="archive-post-title" href="/2021/04/08/Linux%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E4%B9%8B%E6%95%B0%E6%8D%AE%E5%8F%91%E9%80%81%E6%B5%81%E7%A8%8B/">Linux网络协议之数据发送流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/20</span>
+            <a class="archive-post-title" href="/2021/02/20/ADB%E6%98%AF%E5%A6%82%E4%BD%95%E5%B7%A5%E4%BD%9C%E7%9A%84/">一个ADB无法识别设备的问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/08</span>
+            <a class="archive-post-title" href="/2021/01/08/%E8%AF%91-%E6%88%91%E7%9A%84%E5%B7%A5%E7%A8%8B%E6%A0%BC%E8%A8%80/">「译」我的工程格言</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/03</span>
+            <a class="archive-post-title" href="/2021/01/03/%E4%B8%8D%E5%BE%97%E4%B8%8D%E8%AF%B4%E7%9A%842020/">不得不说的2020</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2020 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2020/12/31/MAC%E4%B8%8EPHY%E8%B0%83%E8%AF%95%E9%81%87%E5%88%B0%E7%9A%84%E9%82%A3%E4%BA%9B%E5%9D%91/">MAC与PHY调试遇到的那些坑</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/06</span>
+            <a class="archive-post-title" href="/2020/11/06/%E6%B1%BD%E8%BD%A6%E7%BD%91%E7%BB%9C%E6%BC%94%E5%8C%96-%E4%BB%8ECAN%E5%88%B0%E4%BB%A5%E5%A4%AA%E7%BD%91/">汽车网络演化-从CAN到以太网</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/23</span>
+            <a class="archive-post-title" href="/2020/10/23/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E7%9A%84%E9%94%81/">Linux内核中的锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2020/10/14/IPV6%E5%9C%B0%E5%9D%80%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">IPV6地址的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/03</span>
+            <a class="archive-post-title" href="/2020/06/03/%E7%94%B1Policy-Routing%E5%BC%95%E5%8F%91%E7%9A%84%E4%B8%80%E4%B8%AA%E5%A5%87%E6%80%AA%E9%97%AE%E9%A2%98/">由Policy Routing引发的一个奇怪问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2020/05/27/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91%E4%B8%8EBUG%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">软件开发与BUG的那些事儿</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/12</span>
+            <a class="archive-post-title" href="/2020/05/12/%E4%BB%8ENAPI%E8%AF%B4%E4%B8%80%E8%AF%B4Linux%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%9A%84%E6%8E%A5%E6%94%B6%E6%B5%81%E7%A8%8B/">从NAPI说一说Linux内核数据的接收流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/04</span>
+            <a class="archive-post-title" href="/2020/04/04/%E8%AF%B4%E8%AF%B4%E8%BF%99%E6%AC%A1%E6%96%B0%E5%86%A0%E4%BC%A0%E6%9F%93%E7%97%85%E6%83%B3%E5%88%B0%E7%9A%84%E4%BA%8B%E6%83%85/">由新冠病毒想到的一些事情</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/01</span>
+            <a class="archive-post-title" href="/2020/04/01/%E8%AF%B4%E8%AF%B4Android%E4%B8%AD%E7%9A%84%E6%B5%81%E9%87%8F%E7%BB%9F%E8%AE%A1/">Android是如何实现流量统计的?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/24</span>
+            <a class="archive-post-title" href="/2020/02/24/%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8SSH%E9%9A%A7%E9%81%93%E8%AE%BF%E9%97%AE%E5%B1%80%E5%9F%9F%E7%BD%91/">利用SSH隧道访问局域网</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2019 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/31</span>
+            <a class="archive-post-title" href="/2019/12/31/Recovery%E6%A8%A1%E5%BC%8F%E5%A6%82%E4%BD%95%E6%94%AF%E6%8C%81ADB/">Recovery模式如何支持ADB</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/07</span>
+            <a class="archive-post-title" href="/2019/12/07/Selinux%E5%9C%A8Android%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">SELinux在Android中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/07</span>
+            <a class="archive-post-title" href="/2019/11/07/BPF%E4%B8%8EeBPF/">BPF与eBPF</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/04</span>
+            <a class="archive-post-title" href="/2019/09/04/%E8%AF%B4%E8%AF%B4Process-waitfor-%E5%BC%95%E8%B5%B7%E7%9A%84%E8%BF%9B%E7%A8%8B%E9%98%BB%E5%A1%9E%E9%97%AE%E9%A2%98/">说说Process.waitfor()引起的进程阻塞问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/30</span>
+            <a class="archive-post-title" href="/2019/07/30/%E8%81%8A%E4%B8%80%E8%81%8ATCP%E5%8D%8F%E8%AE%AE/">聊一聊TCP协议</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/15</span>
+            <a class="archive-post-title" href="/2019/07/15/TCP%E9%93%BE%E6%8E%A5%E5%BB%BA%E7%AB%8B%E4%B8%8E%E7%8A%B6%E6%80%81%E8%BF%81%E7%A7%BB/">TCP链接建立与状态迁移</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/05</span>
+            <a class="archive-post-title" href="/2019/07/05/PPP%E6%8B%A8%E5%8F%B7%E6%97%B6%E6%8B%BF%E5%88%B0%E9%94%99%E8%AF%AFDNS%E7%9A%84%E9%97%AE%E9%A2%98/">PPP拨号时拿到错误DNS的问题解析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/26</span>
+            <a class="archive-post-title" href="/2019/02/26/%E5%9C%A8Android-Studio%E4%B8%AD%E6%B7%BB%E5%8A%A0%E8%87%AA%E5%AE%9A%E4%B9%89framework-jar/">如何在Android Studio中添加自定义framework.jar?</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/17</span>
+            <a class="archive-post-title" href="/2019/01/17/Linux%E4%B8%8B%E5%B8%B8%E7%94%A8%E7%BD%91%E7%BB%9C%E5%B7%A5%E5%85%B7%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/">Linux下常用网络工具使用总结</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/04</span>
+            <a class="archive-post-title" href="/2019/01/04/%E6%88%90%E7%8E%8B%E8%B4%A5%E5%AF%87%E4%B8%8E%E4%B8%9B%E6%9E%97%E6%B3%95%E5%88%99-%E7%9C%8B%E7%BA%AA%E5%BD%95%E7%89%87-%E8%8B%B1%E5%9B%BD%E5%8F%B2-%E6%9C%89%E6%84%9F/">成王败寇与丛林法则-看纪录片<英国史>有感</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2018 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/18</span>
+            <a class="archive-post-title" href="/2018/12/18/Android-netd%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Android netd工作原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/30</span>
+            <a class="archive-post-title" href="/2018/11/30/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F%E5%8F%8A%E5%85%B6%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">正则表达式及其应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/21</span>
+            <a class="archive-post-title" href="/2018/07/21/socket%E7%BC%96%E7%A8%8B%E4%B8%8EIO%E5%A4%8D%E7%94%A8/">socket编程与IO multiplexing</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/22</span>
+            <a class="archive-post-title" href="/2018/06/22/%E5%85%B3%E4%BA%8E%E6%8A%80%E6%9C%AF%E5%8F%91%E5%B1%95%E7%9A%84%E4%B8%80%E4%BA%9B%E6%80%9D%E8%80%83/">关于技术发展的一些思考</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/17</span>
+            <a class="archive-post-title" href="/2018/06/17/HAL-binder%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B-%E4%BB%A5RILJ-RILD%E9%80%9A%E4%BF%A1%E4%B8%BA%E4%BE%8B/">HAL binder工作流程-以RILJ/RILD通信为例</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/06</span>
+            <a class="archive-post-title" href="/2018/06/06/%E6%B7%B1%E5%85%A5Android-HAL-binder/">深入Android HAL binder</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/05</span>
+            <a class="archive-post-title" href="/2018/05/05/%E4%BB%8EHTTP%E5%88%B0HTTPS/">从HTTP到HTTPS</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/30</span>
+            <a class="archive-post-title" href="/2018/04/30/%E3%80%8A%E4%BA%BA%E7%B1%BB%E7%AE%80%E5%8F%B2%E3%80%8B%E6%9C%AD%E8%AE%B0/">《人类简史》札记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/23</span>
+            <a class="archive-post-title" href="/2018/02/23/Garbage-Collection-in-Java/">Java中的垃圾回收机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2018/01/07/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%85%A5%E9%97%A8/">Java虚拟机入门</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2017 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/23</span>
+            <a class="archive-post-title" href="/2017/12/23/%E5%A6%82%E4%BD%95%E7%94%A8JobScheduler%E8%BF%9B%E8%A1%8C%E4%BB%BB%E5%8A%A1%E8%B0%83%E5%BA%A6/">如何用JobScheduler进行任务调度</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/20</span>
+            <a class="archive-post-title" href="/2017/11/20/Circuit-Switching-Packet-Switching/">Circuit Switching & Packet Switching</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/18</span>
+            <a class="archive-post-title" href="/2017/11/18/Android-%E5%8A%A8%E7%94%BB/">Android 动画</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2017/10/15/GSM%E7%9F%AD%E4%BF%A1%E7%9A%84%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/">GSM短信的发送与接收</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/08</span>
+            <a class="archive-post-title" href="/2017/10/08/Java-Annotation/">Java Annotation</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">09/22</span>
+            <a class="archive-post-title" href="/2017/09/22/%E5%A6%82%E4%BD%95%E5%9C%A8Android%E4%B8%AD%E6%9F%A5%E7%9C%8B%E8%BF%9B%E7%A8%8B%E7%8A%B6%E6%80%81/">如何在Android中查看进程状态</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/23</span>
+            <a class="archive-post-title" href="/2017/08/23/HTTP%E5%85%A5%E9%97%A8%E4%BB%8B%E7%BB%8D/">HTTP简介</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/06</span>
+            <a class="archive-post-title" href="/2017/08/06/%E5%B8%B8%E7%94%A8%E5%93%88%E5%B8%8C%E5%87%BD%E6%95%B0C%E5%AE%9E%E7%8E%B0/">常用哈希函数C实现</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/16</span>
+            <a class="archive-post-title" href="/2017/07/16/cache%E6%8F%AD%E7%A7%98/">cache揭秘</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/09</span>
+            <a class="archive-post-title" href="/2017/07/09/Android%E8%BF%9B%E7%A8%8BCrash%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android进程Crash处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">07/01</span>
+            <a class="archive-post-title" href="/2017/07/01/Android%E4%B8%AD%E7%9A%84%E4%BB%BB%E5%8A%A1%E7%AE%A1%E7%90%86/">Android中的任务管理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/25</span>
+            <a class="archive-post-title" href="/2017/06/25/Android-ANR%E5%A4%84%E7%90%86%E6%B5%81%E7%A8%8B/">Android ANR处理流程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/18</span>
+            <a class="archive-post-title" href="/2017/06/18/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E9%94%81/">Java并发编程之锁</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">06/11</span>
+            <a class="archive-post-title" href="/2017/06/11/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">Java并发编程之原子操作</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/30</span>
+            <a class="archive-post-title" href="/2017/05/30/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E5%9B%BE%E7%89%87%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Glide详解之图片加载过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/%E8%BF%91%E6%9D%A5%E4%BA%8C%E4%B8%89%E4%BA%8B/">近来二三事</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/29</span>
+            <a class="archive-post-title" href="/2017/05/29/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8BJava-Memory-Model/">Java并发编程之Java Memory Model</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/27</span>
+            <a class="archive-post-title" href="/2017/05/27/Zygote%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Zygote进程启动过程详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/24</span>
+            <a class="archive-post-title" href="/2017/05/24/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E7%BB%BC%E8%BF%B0/">Java并发编程综述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/20</span>
+            <a class="archive-post-title" href="/2017/05/20/Glide%E8%AF%A6%E8%A7%A3%E4%B9%8B%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">Glide详解之架构分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/17</span>
+            <a class="archive-post-title" href="/2017/05/17/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E5%90%8C%E6%AD%A5/">Java并发编程之同步</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">05/07</span>
+            <a class="archive-post-title" href="/2017/05/07/Java%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B9%8B%E7%BA%BF%E7%A8%8B/">Java并发编程之线程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/29</span>
+            <a class="archive-post-title" href="/2017/04/29/%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E5%9C%A8Java%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8/">单例模式在Java中的应用</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">04/20</span>
+            <a class="archive-post-title" href="/2017/04/20/Picasso%E4%BB%8E%E4%BD%BF%E7%94%A8%E5%88%B0%E5%8E%9F%E7%90%86%E8%AF%A6%E8%A7%A3/">Picasso从使用到原理详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2017/03/07/TCP-IP%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E5%85%A5%E9%97%A8/">TCP/IP网络协议入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/06</span>
+            <a class="archive-post-title" href="/2017/03/06/Maven%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">关于Maven</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/27</span>
+            <a class="archive-post-title" href="/2017/02/27/%E8%BF%BD%E5%AF%BB%E7%9C%9F%E5%AE%9E%E7%9A%84%E8%87%AA%E6%88%91/">追寻真实的自我</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/25</span>
+            <a class="archive-post-title" href="/2017/02/25/%E3%80%8AEffective-Java%E3%80%8B%E6%91%98%E8%AE%B0/">《Effective Java》摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/21</span>
+            <a class="archive-post-title" href="/2017/02/21/Android-Phone%E8%BF%9B%E7%A8%8B%E5%90%AF%E5%8A%A8%E8%BF%87%E7%A8%8B%E5%88%86%E6%9E%90/">Android Phone进程启动过程分析</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">02/18</span>
+            <a class="archive-post-title" href="/2017/02/18/Android-Launcher%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86/">Android Launcher工作原理</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">01/07</span>
+            <a class="archive-post-title" href="/2017/01/07/%E5%A6%82%E4%BD%95%E5%9C%A8Java%E4%B8%AD%E8%B0%83%E7%94%A8C-C-%E6%96%B9%E6%B3%95/">如何在Java中调用C_C++方法</a>
+        </li>
+    
+        
+            
+            
+                
+                </ul>
+            
+            <div class="archive-year"> 2016 </div>
+            <ul class="year-list">
+            
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">12/26</span>
+            <a class="archive-post-title" href="/2016/12/26/%E7%BD%97%E7%B4%A0%E3%80%8A%E6%9D%83%E5%A8%81%E4%B8%8E%E4%B8%AA%E4%BA%BA%E3%80%8B/">罗素《权威与个人》</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/29</span>
+            <a class="archive-post-title" href="/2016/11/29/Android-RILD%E8%AF%A6%E8%A7%A3/">Android RILD详解</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/19</span>
+            <a class="archive-post-title" href="/2016/11/19/Android-RIL%E6%A6%82%E8%BF%B0/">Android RIL概述</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">11/04</span>
+            <a class="archive-post-title" href="/2016/11/04/%E3%80%8A%E9%80%9A%E5%BE%80%E5%A5%B4%E5%BD%B9%E4%B9%8B%E8%B7%AF%E3%80%8B%E8%AF%BB%E4%B9%A6%E6%91%98%E8%AE%B0/">《通往奴役之路》读书摘记</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Android%E7%B3%BB%E7%BB%9F%E6%97%B6%E9%97%B4%E8%87%AA%E5%8A%A8%E6%9B%B4%E6%96%B0%E6%9C%BA%E5%88%B6/">Android系统时间自动更新机制</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/24</span>
+            <a class="archive-post-title" href="/2016/10/24/Java%E7%A8%8B%E5%BA%8F%E7%BC%96%E8%AF%91%E8%BF%87%E7%A8%8B/">Java程序编译过程</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/16</span>
+            <a class="archive-post-title" href="/2016/10/16/%E7%94%B1%E4%BA%BA%E5%AE%9A%E8%83%9C%E5%A4%A9%E8%AF%B4%E8%B5%B7/">由人定胜天说起</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/15</span>
+            <a class="archive-post-title" href="/2016/10/15/%E5%81%9C%E6%9C%BA%E9%97%AE%E9%A2%98/">停机问题</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/14</span>
+            <a class="archive-post-title" href="/2016/10/14/Linux-Shell%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8/">Linux Shell快速入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/13</span>
+            <a class="archive-post-title" href="/2016/10/13/Dependency-Inversion-Principle/">Dependency Inversion Principle(依赖反转原则)</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">10/01</span>
+            <a class="archive-post-title" href="/2016/10/01/Binder%E5%85%A5%E9%97%A8/">Android Binder入门</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">08/18</span>
+            <a class="archive-post-title" href="/2016/08/18/Android-Fota%E5%8D%87%E7%BA%A7/">Android Fota升级</a>
+        </li>
+    
+        
+        <li class="archive-post-item">
+            <span class="archive-post-date">03/07</span>
+            <a class="archive-post-title" href="/2016/03/07/Git%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4/">Git常用命令</a>
+        </li>
+    
+    </div>
+</div>
+
+        <div class="sidebar-panel-tags">
+    <div class="sidebar-tags-name">
+        
+            <span class="sidebar-tag-name" data-tags="Agent">
+                <span class="iconfont-archer">&#xe606;</span>
+                Agent
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LLM">
+                <span class="iconfont-archer">&#xe606;</span>
+                LLM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ADB">
+                <span class="iconfont-archer">&#xe606;</span>
+                ADB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android Debug Bridge">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android Debug Bridge
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FOTA">
+                <span class="iconfont-archer">&#xe606;</span>
+                FOTA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Firm Over The Air">
+                <span class="iconfont-archer">&#xe606;</span>
+                Firm Over The Air
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RIL">
+                <span class="iconfont-archer">&#xe606;</span>
+                RIL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILD">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ANR">
+                <span class="iconfont-archer">&#xe606;</span>
+                ANR
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Phone进程">
+                <span class="iconfont-archer">&#xe606;</span>
+                Phone进程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Telephony">
+                <span class="iconfont-archer">&#xe606;</span>
+                Telephony
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Launcher">
+                <span class="iconfont-archer">&#xe606;</span>
+                Launcher
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SystemServer">
+                <span class="iconfont-archer">&#xe606;</span>
+                SystemServer
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NetworkManagerService">
+                <span class="iconfont-archer">&#xe606;</span>
+                NetworkManagerService
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Property Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Property Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Frame Animation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Frame Animation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络使用权限">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络使用权限
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PSI">
+                <span class="iconfont-archer">&#xe606;</span>
+                PSI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内存管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                内存管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LMKD">
+                <span class="iconfont-archer">&#xe606;</span>
+                LMKD
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="任务管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                任务管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Activity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Activity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能分析">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能分析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="systrace">
+                <span class="iconfont-archer">&#xe606;</span>
+                systrace
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="perfetto">
+                <span class="iconfont-archer">&#xe606;</span>
+                perfetto
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="系统时间更新">
+                <span class="iconfont-archer">&#xe606;</span>
+                系统时间更新
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NITZ">
+                <span class="iconfont-archer">&#xe606;</span>
+                NITZ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                NTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="extended Berkeley Packet Filters">
+                <span class="iconfont-archer">&#xe606;</span>
+                extended Berkeley Packet Filters
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                BPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="eBPF">
+                <span class="iconfont-archer">&#xe606;</span>
+                eBPF
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Binder">
+                <span class="iconfont-archer">&#xe606;</span>
+                Binder
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPC">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Crash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Crash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Claude Code">
+                <span class="iconfont-archer">&#xe606;</span>
+                Claude Code
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AI编程">
+                <span class="iconfont-archer">&#xe606;</span>
+                AI编程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="开发工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                开发工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CS">
+                <span class="iconfont-archer">&#xe606;</span>
+                CS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PS">
+                <span class="iconfont-archer">&#xe606;</span>
+                PS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="computer network">
+                <span class="iconfont-archer">&#xe606;</span>
+                computer network
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GSM">
+                <span class="iconfont-archer">&#xe606;</span>
+                GSM
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMS">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Git">
+                <span class="iconfont-archer">&#xe606;</span>
+                Git
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GitHub">
+                <span class="iconfont-archer">&#xe606;</span>
+                GitHub
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Inversion">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Inversion
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DIP">
+                <span class="iconfont-archer">&#xe606;</span>
+                DIP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Dependency Injection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Dependency Injection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Uncle Bob">
+                <span class="iconfont-archer">&#xe606;</span>
+                Uncle Bob
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="依赖反转">
+                <span class="iconfont-archer">&#xe606;</span>
+                依赖反转
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Glide">
+                <span class="iconfont-archer">&#xe606;</span>
+                Glide
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="图片加载">
+                <span class="iconfont-archer">&#xe606;</span>
+                图片加载
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Virtual Machine">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Virtual Machine
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Garbage Collection">
+                <span class="iconfont-archer">&#xe606;</span>
+                Garbage Collection
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Image Loading">
+                <span class="iconfont-archer">&#xe606;</span>
+                Image Loading
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP/IP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP/IP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="域名解析">
+                <span class="iconfont-archer">&#xe606;</span>
+                域名解析
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Private DNS">
+                <span class="iconfont-archer">&#xe606;</span>
+                Private DNS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HTTPS">
+                <span class="iconfont-archer">&#xe606;</span>
+                HTTPS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Java Memory Model">
+                <span class="iconfont-archer">&#xe606;</span>
+                Java Memory Model
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="并发编程">
+                <span class="iconfont-archer">&#xe606;</span>
+                并发编程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Annotation Processor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Annotation Processor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="HAL">
+                <span class="iconfont-archer">&#xe606;</span>
+                HAL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="RILJ">
+                <span class="iconfont-archer">&#xe606;</span>
+                RILJ
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="IPv6">
+                <span class="iconfont-archer">&#xe606;</span>
+                IPv6
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ICMP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ICMP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Atomicity">
+                <span class="iconfont-archer">&#xe606;</span>
+                Atomicity
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="synchronized">
+                <span class="iconfont-archer">&#xe606;</span>
+                synchronized
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Thread">
+                <span class="iconfont-archer">&#xe606;</span>
+                Thread
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Shell">
+                <span class="iconfont-archer">&#xe606;</span>
+                Shell
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bash">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bash
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Linux">
+                <span class="iconfont-archer">&#xe606;</span>
+                Linux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Compiling process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Compiling process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="字节码">
+                <span class="iconfont-archer">&#xe606;</span>
+                字节码
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="class　file">
+                <span class="iconfont-archer">&#xe606;</span>
+                class　file
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="mutex">
+                <span class="iconfont-archer">&#xe606;</span>
+                mutex
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Spin Lock">
+                <span class="iconfont-archer">&#xe606;</span>
+                Spin Lock
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Kernel">
+                <span class="iconfont-archer">&#xe606;</span>
+                Kernel
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="实时调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                实时调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程优先级">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程优先级
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AVB">
+                <span class="iconfont-archer">&#xe606;</span>
+                AVB
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TSN">
+                <span class="iconfont-archer">&#xe606;</span>
+                TSN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络优化">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络优化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DPDK">
+                <span class="iconfont-archer">&#xe606;</span>
+                DPDK
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="XDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                XDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TCP">
+                <span class="iconfont-archer">&#xe606;</span>
+                TCP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MACVLAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                MACVLAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器网络">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器网络
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Maven">
+                <span class="iconfont-archer">&#xe606;</span>
+                Maven
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="构建工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                构建工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单元测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                单元测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MAC">
+                <span class="iconfont-archer">&#xe606;</span>
+                MAC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PHY">
+                <span class="iconfont-archer">&#xe606;</span>
+                PHY
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="车载以太网">
+                <span class="iconfont-archer">&#xe606;</span>
+                车载以太网
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PPP">
+                <span class="iconfont-archer">&#xe606;</span>
+                PPP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议栈">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议栈
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="内核">
+                <span class="iconfont-archer">&#xe606;</span>
+                内核
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="模块签名">
+                <span class="iconfont-archer">&#xe606;</span>
+                模块签名
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Recovery">
+                <span class="iconfont-archer">&#xe606;</span>
+                Recovery
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Network tools">
+                <span class="iconfont-archer">&#xe606;</span>
+                Network tools
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ip route">
+                <span class="iconfont-archer">&#xe606;</span>
+                ip route
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="tcpdump">
+                <span class="iconfont-archer">&#xe606;</span>
+                tcpdump
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iptables">
+                <span class="iconfont-archer">&#xe606;</span>
+                iptables
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="iperf">
+                <span class="iconfont-archer">&#xe606;</span>
+                iperf
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络协议">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络协议
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="三次握手">
+                <span class="iconfont-archer">&#xe606;</span>
+                三次握手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="四次挥手">
+                <span class="iconfont-archer">&#xe606;</span>
+                四次挥手
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SELinux">
+                <span class="iconfont-archer">&#xe606;</span>
+                SELinux
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Security">
+                <span class="iconfont-archer">&#xe606;</span>
+                Security
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Cache">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Cache
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU Architecture">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU Architecture
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Memory Hierarchy">
+                <span class="iconfont-archer">&#xe606;</span>
+                Memory Hierarchy
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="chatGPT">
+                <span class="iconfont-archer">&#xe606;</span>
+                chatGPT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AI">
+                <span class="iconfont-archer">&#xe606;</span>
+                AI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AIGC">
+                <span class="iconfont-archer">&#xe606;</span>
+                AIGC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人工智能">
+                <span class="iconfont-archer">&#xe606;</span>
+                人工智能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Zygote">
+                <span class="iconfont-archer">&#xe606;</span>
+                Zygote
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android应用启动">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android应用启动
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人类简史">
+                <span class="iconfont-archer">&#xe606;</span>
+                人类简史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="历史">
+                <span class="iconfont-archer">&#xe606;</span>
+                历史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="socket programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                socket programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="I/O multiplexing">
+                <span class="iconfont-archer">&#xe606;</span>
+                I/O multiplexing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="network programming">
+                <span class="iconfont-archer">&#xe606;</span>
+                network programming
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Picasso,">
+                <span class="iconfont-archer">&#xe606;</span>
+                Picasso,
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ImageLoader">
+                <span class="iconfont-archer">&#xe606;</span>
+                ImageLoader
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Effective Java">
+                <span class="iconfont-archer">&#xe606;</span>
+                Effective Java
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Design Pattern">
+                <span class="iconfont-archer">&#xe606;</span>
+                Design Pattern
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SMMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                SMMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MMU">
+                <span class="iconfont-archer">&#xe606;</span>
+                MMU
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hypervisor">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hypervisor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CPU steal-time">
+                <span class="iconfont-archer">&#xe606;</span>
+                CPU steal-time
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="通往奴役之路">
+                <span class="iconfont-archer">&#xe606;</span>
+                通往奴役之路
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哈耶克">
+                <span class="iconfont-archer">&#xe606;</span>
+                哈耶克
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="读书">
+                <span class="iconfont-archer">&#xe606;</span>
+                读书
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="2020">
+                <span class="iconfont-archer">&#xe606;</span>
+                2020
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="新冠病毒">
+                <span class="iconfont-archer">&#xe606;</span>
+                新冠病毒
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Address Resolution Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Address Resolution Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Media Access Control">
+                <span class="iconfont-archer">&#xe606;</span>
+                Media Access Control
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="UDP">
+                <span class="iconfont-archer">&#xe606;</span>
+                UDP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="GARP">
+                <span class="iconfont-archer">&#xe606;</span>
+                GARP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="TLS">
+                <span class="iconfont-archer">&#xe606;</span>
+                TLS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSL">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSL
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="成长">
+                <span class="iconfont-archer">&#xe606;</span>
+                成长
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="价值">
+                <span class="iconfont-archer">&#xe606;</span>
+                价值
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="探索">
+                <span class="iconfont-archer">&#xe606;</span>
+                探索
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络性能">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络性能
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="带宽测试">
+                <span class="iconfont-archer">&#xe606;</span>
+                带宽测试
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="pktgen">
+                <span class="iconfont-archer">&#xe606;</span>
+                pktgen
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="个人总结">
+                <span class="iconfont-archer">&#xe606;</span>
+                个人总结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="单例模式">
+                <span class="iconfont-archer">&#xe606;</span>
+                单例模式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="NAPI">
+                <span class="iconfont-archer">&#xe606;</span>
+                NAPI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Halting Problem">
+                <span class="iconfont-archer">&#xe606;</span>
+                Halting Problem
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Computability theory">
+                <span class="iconfont-archer">&#xe606;</span>
+                Computability theory
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="技术">
+                <span class="iconfont-archer">&#xe606;</span>
+                技术
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="5G">
+                <span class="iconfont-archer">&#xe606;</span>
+                5G
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SSH">
+                <span class="iconfont-archer">&#xe606;</span>
+                SSH
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="远程登录">
+                <span class="iconfont-archer">&#xe606;</span>
+                远程登录
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="反向隧道">
+                <span class="iconfont-archer">&#xe606;</span>
+                反向隧道
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroups">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroups
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JNI">
+                <span class="iconfont-archer">&#xe606;</span>
+                JNI
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="共享库文件">
+                <span class="iconfont-archer">&#xe606;</span>
+                共享库文件
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android studio">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android studio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Android framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Android framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程状态，Shell指令">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程状态，Shell指令
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="FFmpeg">
+                <span class="iconfont-archer">&#xe606;</span>
+                FFmpeg
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="H.264">
+                <span class="iconfont-archer">&#xe606;</span>
+                H.264
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="音视频">
+                <span class="iconfont-archer">&#xe606;</span>
+                音视频
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="JobScheduler">
+                <span class="iconfont-archer">&#xe606;</span>
+                JobScheduler
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="AlarmManager">
+                <span class="iconfont-archer">&#xe606;</span>
+                AlarmManager
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="定时任务">
+                <span class="iconfont-archer">&#xe606;</span>
+                定时任务
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="openssh">
+                <span class="iconfont-archer">&#xe606;</span>
+                openssh
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="ARM嵌入式开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                ARM嵌入式开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Framework">
+                <span class="iconfont-archer">&#xe606;</span>
+                Framework
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Wifi">
+                <span class="iconfont-archer">&#xe606;</span>
+                Wifi
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Qemu">
+                <span class="iconfont-archer">&#xe606;</span>
+                Qemu
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="busybox">
+                <span class="iconfont-archer">&#xe606;</span>
+                busybox
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="fio">
+                <span class="iconfont-archer">&#xe606;</span>
+                fio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="文件系统">
+                <span class="iconfont-archer">&#xe606;</span>
+                文件系统
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="性能工具">
+                <span class="iconfont-archer">&#xe606;</span>
+                性能工具
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习资料">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习资料
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Hash Function">
+                <span class="iconfont-archer">&#xe606;</span>
+                Hash Function
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="SRE">
+                <span class="iconfont-archer">&#xe606;</span>
+                SRE
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Site Reliability Engineering">
+                <span class="iconfont-archer">&#xe606;</span>
+                Site Reliability Engineering
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Google">
+                <span class="iconfont-archer">&#xe606;</span>
+                Google
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="投屏">
+                <span class="iconfont-archer">&#xe606;</span>
+                投屏
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DLNA">
+                <span class="iconfont-archer">&#xe606;</span>
+                DLNA
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Airplay">
+                <span class="iconfont-archer">&#xe606;</span>
+                Airplay
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="正则表达式">
+                <span class="iconfont-archer">&#xe606;</span>
+                正则表达式
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Regular Expression">
+                <span class="iconfont-archer">&#xe606;</span>
+                Regular Expression
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="时间同步">
+                <span class="iconfont-archer">&#xe606;</span>
+                时间同步
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                PTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Precise Time Protocol">
+                <span class="iconfont-archer">&#xe606;</span>
+                Precise Time Protocol
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="gPTP">
+                <span class="iconfont-archer">&#xe606;</span>
+                gPTP
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="CAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                CAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="MOST">
+                <span class="iconfont-archer">&#xe606;</span>
+                MOST
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LIN">
+                <span class="iconfont-archer">&#xe606;</span>
+                LIN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Ethernet">
+                <span class="iconfont-archer">&#xe606;</span>
+                Ethernet
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="机器学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                机器学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="深度学习">
+                <span class="iconfont-archer">&#xe606;</span>
+                深度学习
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Deep Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Deep Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Machine Learning">
+                <span class="iconfont-archer">&#xe606;</span>
+                Machine Learning
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="LXC">
+                <span class="iconfont-archer">&#xe606;</span>
+                LXC
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="虚拟化">
+                <span class="iconfont-archer">&#xe606;</span>
+                虚拟化
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="容器">
+                <span class="iconfont-archer">&#xe606;</span>
+                容器
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程冻结">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程冻结
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="cgroup">
+                <span class="iconfont-archer">&#xe606;</span>
+                cgroup
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="生命">
+                <span class="iconfont-archer">&#xe606;</span>
+                生命
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="宇宙">
+                <span class="iconfont-archer">&#xe606;</span>
+                宇宙
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="时间">
+                <span class="iconfont-archer">&#xe606;</span>
+                时间
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="哲学">
+                <span class="iconfont-archer">&#xe606;</span>
+                哲学
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="社会">
+                <span class="iconfont-archer">&#xe606;</span>
+                社会
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="罗素">
+                <span class="iconfont-archer">&#xe606;</span>
+                罗素
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="自由，民主">
+                <span class="iconfont-archer">&#xe606;</span>
+                自由，民主
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="国家意志与权威">
+                <span class="iconfont-archer">&#xe606;</span>
+                国家意志与权威
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Policy Routing">
+                <span class="iconfont-archer">&#xe606;</span>
+                Policy Routing
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="策略路由">
+                <span class="iconfont-archer">&#xe606;</span>
+                策略路由
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="网络管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                网络管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Netd">
+                <span class="iconfont-archer">&#xe606;</span>
+                Netd
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="拥塞控制">
+                <span class="iconfont-archer">&#xe606;</span>
+                拥塞控制
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtualization">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtualization
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="QNX">
+                <span class="iconfont-archer">&#xe606;</span>
+                QNX
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="virtio">
+                <span class="iconfont-archer">&#xe606;</span>
+                virtio
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件工程">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件工程
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="软件开发">
+                <span class="iconfont-archer">&#xe606;</span>
+                软件开发
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="团队协作">
+                <span class="iconfont-archer">&#xe606;</span>
+                团队协作
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="项目管理">
+                <span class="iconfont-archer">&#xe606;</span>
+                项目管理
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="VLAN">
+                <span class="iconfont-archer">&#xe606;</span>
+                VLAN
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Process">
+                <span class="iconfont-archer">&#xe606;</span>
+                Process
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="waitfor">
+                <span class="iconfont-archer">&#xe606;</span>
+                waitfor
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Conway's Law">
+                <span class="iconfont-archer">&#xe606;</span>
+                Conway's Law
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="康威定律">
+                <span class="iconfont-archer">&#xe606;</span>
+                康威定律
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="BUG">
+                <span class="iconfont-archer">&#xe606;</span>
+                BUG
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="流量统计">
+                <span class="iconfont-archer">&#xe606;</span>
+                流量统计
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="PELT">
+                <span class="iconfont-archer">&#xe606;</span>
+                PELT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="WALT">
+                <span class="iconfont-archer">&#xe606;</span>
+                WALT
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="进程调度">
+                <span class="iconfont-archer">&#xe606;</span>
+                进程调度
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="摔跤吧，爸爸">
+                <span class="iconfont-archer">&#xe606;</span>
+                摔跤吧，爸爸
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="电影">
+                <span class="iconfont-archer">&#xe606;</span>
+                电影
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="学习方法">
+                <span class="iconfont-archer">&#xe606;</span>
+                学习方法
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="Bob dylan">
+                <span class="iconfont-archer">&#xe606;</span>
+                Bob dylan
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="追寻自我">
+                <span class="iconfont-archer">&#xe606;</span>
+                追寻自我
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="英国史">
+                <span class="iconfont-archer">&#xe606;</span>
+                英国史
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="丛林法则">
+                <span class="iconfont-archer">&#xe606;</span>
+                丛林法则
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="C++">
+                <span class="iconfont-archer">&#xe606;</span>
+                C++
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="编程语言">
+                <span class="iconfont-archer">&#xe606;</span>
+                编程语言
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="思考">
+                <span class="iconfont-archer">&#xe606;</span>
+                思考
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="DCVS">
+                <span class="iconfont-archer">&#xe606;</span>
+                DCVS
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="高通">
+                <span class="iconfont-archer">&#xe606;</span>
+                高通
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大脑">
+                <span class="iconfont-archer">&#xe606;</span>
+                大脑
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="人生">
+                <span class="iconfont-archer">&#xe606;</span>
+                人生
+            </span>
+        
+            <span class="sidebar-tag-name" data-tags="大模型">
+                <span class="iconfont-archer">&#xe606;</span>
+                大模型
+            </span>
+        
+    </div>
+    <div class="iconfont-archer sidebar-tags-empty">&#xe678;</div>
+    <div class="tag-load-fail" style="display: none; color: #ccc; font-size: 0.6rem;">
+        缺失模块，请参考主题文档进行安装配置：https://github.com/fi3ework/hexo-theme-archer#%E5%AE%89%E8%A3%85%E4%B8%BB%E9%A2%98
+    </div> 
+    <div class="sidebar-tags-list"></div>
+</div>
+
+        <div class="sidebar-panel-categories">
+    <div class="sidebar-categories-name">
+    
+        <span class="sidebar-category-name" data-categories="人工智能">
+            <span class="iconfont-archer">&#xe60a;</span>
+            人工智能
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Linux">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Linux
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="开发工具">
+            <span class="iconfont-archer">&#xe60a;</span>
+            开发工具
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="移动通讯">
+            <span class="iconfont-archer">&#xe60a;</span>
+            移动通讯
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Git">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Git
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Software Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Software Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Java">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Java
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="网络协议">
+            <span class="iconfont-archer">&#xe60a;</span>
+            网络协议
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="项目构建">
+            <span class="iconfont-archer">&#xe60a;</span>
+            项目构建
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="汽车电子">
+            <span class="iconfont-archer">&#xe60a;</span>
+            汽车电子
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer Architecture">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer Architecture
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="读书笔记">
+            <span class="iconfont-archer">&#xe60a;</span>
+            读书笔记
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="虚拟化">
+            <span class="iconfont-archer">&#xe60a;</span>
+            虚拟化
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="思考">
+            <span class="iconfont-archer">&#xe60a;</span>
+            思考
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Design Pattern">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Design Pattern
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Computer theory">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Computer theory
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="算法/数据结构">
+            <span class="iconfont-archer">&#xe60a;</span>
+            算法/数据结构
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="软件工程">
+            <span class="iconfont-archer">&#xe60a;</span>
+            软件工程
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Regular Expression">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Regular Expression
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="Android">
+            <span class="iconfont-archer">&#xe60a;</span>
+            Android
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="社会万象">
+            <span class="iconfont-archer">&#xe60a;</span>
+            社会万象
+        </span>
+    
+        <span class="sidebar-category-name" data-categories="C++">
+            <span class="iconfont-archer">&#xe60a;</span>
+            C++
+        </span>
+    
+    </div>
+    <div class="iconfont-archer sidebar-categories-empty">&#xe678;</div>
+    <div class="sidebar-categories-list"></div>
+</div>
+
+    </div>
+</div>
+
+        <!-- site-meta -->
+        <script>
+    var siteMetaRoot = "/"
+    if (siteMetaRoot === "undefined") {
+        siteMetaRoot = '/'
+    }
+    var siteMeta = {
+        url: "https://sniffer.site",
+        root: siteMetaRoot,
+        author: "Jason Wang"
+    }
+</script>
+
+        <!-- import experimental options here -->
+        <!-- Custom Font -->
+
+
+        <!-- main func -->
+        <script src="/scripts/main.js?v=20211217"></script>
+        <!-- dark mode -->
+        <script src="/scripts/dark.js?v=20211217"></script>
+        <!-- fancybox -->
+        <script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.5.7/dist/jquery.fancybox.min.js" defer></script>
+        <!-- algolia -->
+        
+            <div class="site-search site-search-loading">
+    <div class="algolia-popup popup">
+        <div class="algolia-search">
+            <div class="algolia-search-input-icon">
+                <i class="fa fa-search"></i>
+            </div>
+            <div class="algolia-search-input" id="algolia-search-input"></div>
+            <div class="popup-btn-close">
+                <i class="iconfont-archer">&#xe609;</i>
+            </div>
+        </div>
+
+        <div class="algolia-results">
+            <div id="algolia-stats" class="algolia-stats"></div>
+            <div id="algolia-hits"></div>
+            <div id="algolia-pagination" class="algolia-pagination"></div>
+        </div>
+    </div>
+</div>
+
+            <script src="/scripts/search.js?v=20211217" defer></script>
+        
+        <!-- busuanzi -->
+        
+            <script src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+        
+        <!-- CNZZ -->
+        
+        <!-- async load share.js -->
+        
+            <script src="/scripts/share.js?v=20211217" async></script>
+        
+        <!-- mermaid -->
+        
+            <script src='https://cdn.jsdelivr.net/npm/mermaid@8.11.0/dist/mermaid.min.js'></script>
+            <script>
+                if (window.mermaid) {
+                    mermaid.initialize({theme: 'dark'});
+                }
+            </script>
+        
+    </body>
+</html>
